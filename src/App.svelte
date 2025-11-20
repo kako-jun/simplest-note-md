@@ -42,7 +42,9 @@
     username: string
     email: string
     repoName: string
-    theme: 'light' | 'dark'
+    theme: 'light' | 'dark' | 'blackboard' | 'kawaii' | 'custom'
+    customBgPrimary: string
+    customAccentColor: string
   }
 
   type Folder = {
@@ -73,6 +75,8 @@
     email: '',
     repoName: '',
     theme: 'light',
+    customBgPrimary: '#ffffff',
+    customAccentColor: '#0f766e',
   }
 
   let currentView: View = 'home'
@@ -184,19 +188,22 @@
     initializeEditor()
   })
 
-  function applyTheme(theme: 'light' | 'dark') {
-    if (theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark')
-    } else {
+  function applyTheme(theme: 'light' | 'dark' | 'blackboard' | 'kawaii' | 'custom') {
+    if (theme === 'light') {
       document.documentElement.removeAttribute('data-theme')
+    } else if (theme === 'custom') {
+      document.documentElement.setAttribute('data-theme', 'custom')
+      // カスタムカラーを適用
+      document.documentElement.style.setProperty('--bg-primary', settings.customBgPrimary)
+      document.documentElement.style.setProperty('--accent-color', settings.customAccentColor)
+    } else {
+      document.documentElement.setAttribute('data-theme', theme)
     }
   }
 
-  // テーマ変更を即座に反映
-  $: applyTheme(settings.theme)
-
-  function toggleTheme(isDark: boolean) {
-    settings.theme = isDark ? 'dark' : 'light'
+  // テーマ変更を即座に反映し、保存
+  $: {
+    applyTheme(settings.theme)
     persistSettings()
   }
 
@@ -574,7 +581,7 @@
           }
         }),
       ]
-      if (settings.theme === 'dark') {
+      if (settings.theme === 'dark' || settings.theme === 'blackboard') {
         extensions.push(editorDarkTheme)
       }
       const newState = EditorState.create({
@@ -599,7 +606,7 @@
         }
       }),
     ]
-    if (settings.theme === 'dark') {
+    if (settings.theme === 'dark' || settings.theme === 'blackboard') {
       extensions.push(editorDarkTheme)
     }
 
@@ -978,19 +985,6 @@
 
   {#if currentView === 'settings'}
     <section>
-      <div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <label style="margin: 0; font-size: 14px;">ダークモード</label>
-          <label class="toggle-switch">
-            <input
-              type="checkbox"
-              checked={settings.theme === 'dark'}
-              on:change={(e) => toggleTheme(e.currentTarget.checked)}
-            />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
       <div class="flex-row" style="margin-bottom: 16px;">
         <div class="flex-1">
           <label>リポジトリ名（owner/repo）</label>
@@ -1011,12 +1005,72 @@
           <input type="email" bind:value={settings.email} placeholder="you@example.com" />
         </div>
       </div>
-      <div class="toolbar" style="margin-top: 12px; justify-content: flex-end;">
+      <div
+        class="toolbar"
+        style="margin-top: 12px; justify-content: flex-end; align-items: center;"
+      >
         {#if statusMessage}<span class="status">{statusMessage}</span>{/if}
         <button type="button" on:click={persistSettings}>設定を保存</button>
       </div>
 
-      <hr style="border: none; border-top: 1px solid var(--border-color); margin: 24px 0;" />
+      <hr style="border: none; border-top: 1px solid var(--border-color); margin: 24px -16px;" />
+
+      <div style="margin-bottom: 24px;">
+        <h3 style="margin-bottom: 12px;">テーマ選択</h3>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+          <button
+            type="button"
+            class={settings.theme === 'light' ? '' : 'secondary'}
+            on:click={() => (settings.theme = 'light')}
+          >
+            ライト
+          </button>
+          <button
+            type="button"
+            class={settings.theme === 'dark' ? '' : 'secondary'}
+            on:click={() => (settings.theme = 'dark')}
+          >
+            ダーク
+          </button>
+          <button
+            type="button"
+            class={settings.theme === 'blackboard' ? '' : 'secondary'}
+            on:click={() => (settings.theme = 'blackboard')}
+          >
+            黒板
+          </button>
+          <button
+            type="button"
+            class={settings.theme === 'kawaii' ? '' : 'secondary'}
+            on:click={() => (settings.theme = 'kawaii')}
+          >
+            Kawaii
+          </button>
+          <button
+            type="button"
+            class={settings.theme === 'custom' ? '' : 'secondary'}
+            on:click={() => (settings.theme = 'custom')}
+          >
+            カスタム
+          </button>
+        </div>
+        {#if settings.theme === 'custom'}
+          <div style="margin-top: 16px; display: flex; gap: 16px; justify-content: center;">
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-size: 14px;">背景色</label>
+              <input type="color" bind:value={settings.customBgPrimary} />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-size: 14px;"
+                >アクセント色</label
+              >
+              <input type="color" bind:value={settings.customAccentColor} />
+            </div>
+          </div>
+        {/if}
+      </div>
+
+      <hr style="border: none; border-top: 1px solid var(--border-color); margin: 24px -16px;" />
 
       <div style="text-align: center; color: var(--text-secondary); font-size: 14px;">
         <h3 style="color: var(--text-primary); margin-bottom: 8px;">SimplestNote.md</h3>
