@@ -6,8 +6,32 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  background: #ffffff;
-  color: #1f2933;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #e2f3f1;
+  --text-primary: #1f2933;
+  --text-secondary: #52616b;
+  --border-color: #e5e7eb;
+  --border-input: #d0d7de;
+  --accent-color: #0f766e;
+  --error-color: #b42318;
+}
+
+:root[data-theme='dark'] {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #1f4d48;
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --border-color: #374151;
+  --border-input: #4b5563;
+  --accent-color: #14b8a6;
+  --error-color: #f87171;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 * {
@@ -19,19 +43,107 @@ body {
 }
 
 button {
-  background: #0f766e;
+  background: var(--accent-color);
   color: #fff;
   border: none;
   border-radius: 6px;
   padding: 8px 12px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 button.secondary {
-  background: #ffffff;
-  color: #0f766e;
-  border: 1px solid #0f766e;
+  background: var(--bg-primary);
+  color: var(--accent-color);
+  border: 1px solid var(--accent-color);
+}
+
+button.icon-button {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+button.icon-button:hover {
+  background: var(--bg-secondary);
+}
+
+button.breadcrumb-link {
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: normal;
+  color: var(--accent-color);
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  min-height: 24px;
+  line-height: 1;
+}
+
+button.breadcrumb-link:hover:not(:disabled) {
+  background: var(--bg-primary);
+}
+
+button.breadcrumb-link:disabled {
+  color: var(--text-primary);
+  cursor: default;
+  font-weight: 600;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+  margin: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border-input);
+  transition: 0.3s;
+  border-radius: 28px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: '';
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--accent-color);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
 }
 
 input,
@@ -40,17 +152,18 @@ select {
   width: 100%;
   padding: 8px;
   border-radius: 6px;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--border-input);
   font-size: 14px;
-  background: #ffffff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 section {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border: none;
+  border-radius: 0;
   padding: 16px;
-  margin-bottom: 16px;
-  background: #ffffff;
+  margin-bottom: 0;
+  background: var(--bg-primary);
 }
 
 .flex-row {
@@ -71,16 +184,16 @@ section {
 }
 
 .note-card {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 12px;
-  background: #f8fafc;
+  background: var(--bg-secondary);
 }
 
 .badge {
   display: inline-block;
-  background: #e2f3f1;
-  color: #0f766e;
+  background: var(--bg-tertiary);
+  color: var(--accent-color);
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
@@ -94,24 +207,54 @@ section {
 
 .status {
   font-size: 13px;
-  color: #0f766e;
+  color: var(--accent-color);
 }
 
 .error {
-  color: #b42318;
+  color: var(--error-color);
 }
 
 .cm-editor {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--border-input);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--bg-primary);
   min-height: 340px;
 }
 
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
 h1 {
-  margin: 16px 0;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin-top: 0;
+}
+
+h3 {
+  font-size: 1rem;
+  margin-top: 16px;
 }
 
 small {
-  color: #52616b;
+  color: var(--text-secondary);
+}
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0;
 }
