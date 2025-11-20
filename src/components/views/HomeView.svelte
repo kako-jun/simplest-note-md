@@ -7,7 +7,7 @@
   export let onDragStart: (folder: Folder) => void
   export let onDragOver: (e: DragEvent) => void
   export let onDrop: (folder: Folder) => void
-  export let getItemCount: (folderId: string) => number
+  export let getFolderItems: (folderId: string) => string[]
 </script>
 
 <section class="view-container">
@@ -23,7 +23,9 @@
       >
         <strong>{folder.name}</strong>
         <div class="card-meta">
-          <small>{getItemCount(folder.id)} 項目</small>
+          {#each getFolderItems(folder.id) as item}
+            <small class="folder-item">{item}</small>
+          {/each}
         </div>
       </div>
     {/each}
@@ -86,6 +88,13 @@
   .card-meta {
     margin-top: 0.5rem;
     color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .folder-item {
+    display: block;
   }
 
   .toolbar-fixed {

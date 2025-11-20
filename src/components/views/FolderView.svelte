@@ -14,7 +14,7 @@
   export let onDragOver: (e: DragEvent) => void
   export let onDropFolder: (folder: Folder) => void
   export let onDropNote: (note: Note) => void
-  export let getNoteCount: (folderId: string) => number
+  export let getFolderItems: (folderId: string) => string[]
 
   const canHaveSubfolder = !currentFolder.parentId
 </script>
@@ -32,7 +32,9 @@
       >
         <strong>{subfolder.name}</strong>
         <div class="card-meta">
-          <small>{getNoteCount(subfolder.id)} ノート</small>
+          {#each getFolderItems(subfolder.id) as item}
+            <small class="folder-item">{item}</small>
+          {/each}
         </div>
       </div>
     {/each}
@@ -47,7 +49,7 @@
       >
         <strong>{note.title}</strong>
         <div class="card-meta">
-          <small>{new Date(note.updatedAt).toLocaleDateString()}</small>
+          <small>更新: {new Date(note.updatedAt).toLocaleDateString()}</small>
         </div>
       </div>
     {/each}
@@ -156,6 +158,13 @@
   .card-meta {
     margin-top: 0.5rem;
     color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .folder-item {
+    display: block;
   }
 
   .toolbar-fixed {

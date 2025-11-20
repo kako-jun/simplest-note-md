@@ -362,6 +362,29 @@
     return $notes.filter((n) => n.folderId === folderId).length
   }
 
+  function getFolderItems(folderId: string): string[] {
+    const allFolders = $folders
+    const allNotes = $notes
+    const subfoldersNames = allFolders
+      .filter((f) => f.parentId === folderId)
+      .sort((a, b) => a.order - b.order)
+      .map((f) => f.name)
+    const notesNames = allNotes
+      .filter((n) => n.folderId === folderId)
+      .sort((a, b) => a.order - b.order)
+      .map((n) => n.title)
+
+    const allItems = [...subfoldersNames, ...notesNames]
+    const hasMore = allItems.length > 3
+    const items = allItems.slice(0, 3)
+
+    if (hasMore) {
+      items.push('...')
+    }
+
+    return items
+  }
+
   // GitHub同期
   async function handleSaveToGitHub() {
     if (!$currentNote) return
@@ -436,7 +459,7 @@
         onDragStart={handleDragStartFolder}
         onDragOver={handleDragOver}
         onDrop={handleDropFolder}
-        {getItemCount}
+        {getFolderItems}
       />
     {:else if $currentView === 'folder' && $currentFolder}
       <FolderView
@@ -453,7 +476,7 @@
         onDragOver={handleDragOver}
         onDropFolder={handleDropFolder}
         onDropNote={handleDropNote}
-        {getNoteCount}
+        {getFolderItems}
       />
     {:else if $currentView === 'edit' && $currentNote}
       <EditorView
