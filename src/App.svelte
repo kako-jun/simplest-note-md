@@ -14,10 +14,10 @@
         color: '#e5e7eb',
       },
       '.cm-content': {
-        caretColor: '#0d9488',
+        caretColor: '#1f4d48',
       },
       '.cm-cursor, .cm-dropCursor': {
-        borderLeftColor: '#0d9488',
+        borderLeftColor: '#1f4d48',
       },
       '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
         backgroundColor: '#1f4d48',
