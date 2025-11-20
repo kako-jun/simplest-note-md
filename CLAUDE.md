@@ -14,14 +14,14 @@
 8. [GitHub API統合](#github-api統合)
 9. [テーマシステム](#テーマシステム)
 10. [LocalStorageスキーマ](#localstorageスキーマ)
-11. [リファクタリングの考察](#リファクタリングの考察)
+11. [実装されたリファクタリング](#実装されたリファクタリング)
 12. [拡張の可能性](#拡張の可能性)
 
 ---
 
 ## アーキテクチャ概要
 
-SimplestNote.mdは、**シングルファイルコンポーネントアーキテクチャ**を採用した軽量Markdownノートアプリケーションです。
+SimplestNote.mdは、**コンポーネントベースアーキテクチャ**を採用した軽量Markdownノートアプリケーションです。
 
 ### 設計哲学
 
@@ -29,36 +29,43 @@ SimplestNote.mdは、**シングルファイルコンポーネントアーキテ
 - **ブラウザファースト**: サーバーレス、完全クライアントサイド
 - **直接統合**: GitHub APIを直接呼び出し、中間サービス不要
 - **即時性**: LocalStorageによる自動保存、設定変更の即座反映
+- **モジュール性**: コンポーネント分割による保守性の向上
 
 ### アーキテクチャパターン
 
 ```
-┌─────────────────────────────────────────┐
-│           App.svelte (1,373 lines)      │
-│  ┌───────────────────────────────────┐  │
-│  │    UI Layer (Template/Markup)    │  │
-│  └───────────────────────────────────┘  │
-│  ┌───────────────────────────────────┐  │
-│  │  Business Logic Layer (Script)   │  │
-│  │  - State Management              │  │
-│  │  - CRUD Operations               │  │
-│  │  - GitHub Integration            │  │
-│  │  - Theme Management              │  │
-│  │  - Editor Management             │  │
-│  └───────────────────────────────────┘  │
-│  ┌───────────────────────────────────┐  │
-│  │   Data Layer (LocalStorage)      │  │
-│  │  - Settings                      │  │
-│  │  - Folders                       │  │
-│  │  - Notes                         │  │
-│  └───────────────────────────────────┘  │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                  App.svelte (533行)                 │
+│              ルーティング & レイアウト                │
+└─────────────────────────────────────────────────────┘
+         │
+         ├─── Header.svelte (75行)
+         ├─── Breadcrumbs.svelte (156行)
+         ├─── Modal.svelte (84行)
+         │
+         ├─── HomeView.svelte (134行)
+         ├─── FolderView.svelte (209行)
+         ├─── EditorView.svelte (154行)
+         │    └─── MarkdownEditor.svelte (137行)
+         └─── SettingsView.svelte (322行)
+
+┌─────────────────────────────────────────────────────┐
+│                  Lib Layer (362行)                  │
+├─────────────────────────────────────────────────────┤
+│  stores.ts (54行)   - Svelte Store状態管理         │
+│  types.ts (52行)    - TypeScript型定義              │
+│  storage.ts (104行) - LocalStorage操作              │
+│  github.ts (132行)  - GitHub API統合                │
+│  theme.ts (22行)    - テーマ管理                    │
+└─────────────────────────────────────────────────────┘
          │                    │
          ▼                    ▼
    ┌──────────┐        ┌──────────┐
    │ GitHub   │        │  Local   │
    │   API    │        │  Device  │
    └──────────┘        └──────────┘
+
+総行数: 約2,178行（コメント・空行含む）
 ```
 
 ---
@@ -105,14 +112,32 @@ import { basicSetup } from 'codemirror'
 simplest-note-md/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                 # CI/CD (Build + Deploy to Pages)
+│       └── ci.yml                 # CI/CD (Build + Deploy via GitHub Actions)
 ├── .husky/
 │   └── pre-commit                 # npm run lintを実行
 ├── src/
+│   ├── components/
+│   │   ├── editor/
+│   │   │   └── MarkdownEditor.svelte  # CodeMirrorエディタコンポーネント (137行)
+│   │   ├── layout/
+│   │   │   ├── Breadcrumbs.svelte     # パンくずリスト (156行)
+│   │   │   ├── Header.svelte          # ヘッダー (75行)
+│   │   │   └── Modal.svelte           # モーダルダイアログ (84行)
+│   │   └── views/
+│   │       ├── EditorView.svelte      # エディタ画面 (154行)
+│   │       ├── FolderView.svelte      # フォルダ画面 (209行)
+│   │       ├── HomeView.svelte        # ホーム画面 (134行)
+│   │       └── SettingsView.svelte    # 設定画面 (322行)
+│   ├── lib/
+│   │   ├── github.ts              # GitHub API統合 (132行)
+│   │   ├── storage.ts             # LocalStorage操作 (104行)
+│   │   ├── stores.ts              # Svelte Store状態管理 (54行)
+│   │   ├── theme.ts               # テーマ管理 (22行)
+│   │   └── types.ts               # TypeScript型定義 (52行)
 │   ├── app.css                    # グローバルスタイル + テーマ定義
 │   ├── app.d.ts                   # TypeScript型宣言
-│   ├── App.svelte                 # メインアプリケーションコンポーネント
-│   └── main.ts                    # エントリーポイント
+│   ├── App.svelte                 # ルートコンポーネント (533行)
+│   └── main.ts                    # エントリーポイント (8行)
 ├── dist/                          # ビルド出力（.gitignore）
 ├── node_modules/
 ├── .gitignore
@@ -130,19 +155,44 @@ simplest-note-md/
 
 ### 重要ファイルの役割
 
-#### `src/App.svelte` (1,373行)
+#### `src/App.svelte` (533行)
 
-アプリケーションの全ロジックを含むメインコンポーネント。
+アプリケーションのルートコンポーネント。ビュー切り替えとイベントハンドリングを担当。
 
-**構成:**
+**主な責務:**
 
-- **Lines 1-38**: インポートとCodeMirrorテーマ定義
-- **Lines 40-70**: 型定義 (Settings, Folder, Note, View)
-- **Lines 72-109**: 状態変数とLocalStorageキー
-- **Lines 111-136**: モーダル関数
-- **Lines 138-189**: onMountライフサイクル（初期化処理）
-- **Lines 191-837**: ビジネスロジック関数群
-- **Lines 840-1372**: UIテンプレート（条件付きレンダリング）
+- ビューのルーティング（home/folder/edit/settings）
+- CRUD操作（フォルダ・ノート作成/削除/更新）
+- ドラッグ&ドロップ処理
+- GitHub同期の呼び出し
+- モーダル管理
+
+#### コンポーネント層
+
+**レイアウトコンポーネント:**
+
+- `Header.svelte`: アプリタイトルと設定アイコン
+- `Breadcrumbs.svelte`: パンくずナビゲーション（インライン編集機能付き）
+- `Modal.svelte`: 確認ダイアログとアラート
+
+**ビューコンポーネント:**
+
+- `HomeView.svelte`: ルートフォルダ一覧表示
+- `FolderView.svelte`: フォルダ内のサブフォルダとノート一覧
+- `EditorView.svelte`: ノート編集画面（ツールバー含む）
+- `SettingsView.svelte`: GitHub設定とテーマ設定
+
+**エディタコンポーネント:**
+
+- `MarkdownEditor.svelte`: CodeMirrorラッパー
+
+#### ビジネスロジック層（lib/）
+
+- `stores.ts`: Svelteストアによる状態管理
+- `types.ts`: TypeScript型定義
+- `storage.ts`: LocalStorageへの読み書き
+- `github.ts`: GitHub API統合（ファイル保存、SHA取得）
+- `theme.ts`: テーマ適用ロジック
 
 #### `src/main.ts`
 
@@ -198,96 +248,157 @@ export default defineConfig({
 
 ### レイヤー構造
 
-App.svelteは論理的に以下のレイヤーに分離されています：
+アプリケーションは以下の3層構造に分離されています：
 
-#### 1. UIレイヤー（Template Layer）
+#### 1. プレゼンテーション層（Components）
 
-**責務**: ビューの条件付きレンダリング
+**責務**: UIの表示とユーザーインタラクション
+
+**レイアウトコンポーネント:**
+
+- `Header.svelte`: アプリケーションヘッダー
+- `Breadcrumbs.svelte`: ナビゲーション用パンくずリスト
+- `Modal.svelte`: 確認ダイアログとアラート
+
+**ビューコンポーネント:**
 
 ```svelte
-{#if currentView === 'home'}
-  <!-- ホーム画面: ルートフォルダ一覧 -->
-{:else if currentView === 'folder'}
-  <!-- フォルダ画面: サブフォルダとノート一覧 -->
-{:else if currentView === 'edit'}
-  <!-- エディタ画面: CodeMirror + ツールバー -->
-{:else if currentView === 'settings'}
-  <!-- 設定画面: GitHub連携とテーマ設定 -->
+<!-- App.svelte -->
+{#if $currentView === 'home'}
+  <HomeView ... />
+{:else if $currentView === 'folder'}
+  <FolderView ... />
+{:else if $currentView === 'edit'}
+  <EditorView ... />
+{:else if $currentView === 'settings'}
+  <SettingsView ... />
 {/if}
 ```
 
-**コンポーネント:**
+各ビューは独立したコンポーネントとして実装され、propsを通じてデータとイベントハンドラを受け取ります。
 
-- Header（タイトル + 設定アイコン）
-- Breadcrumbs（パンくずリスト）
-- Modal（確認ダイアログ）
-- View-specific UI（各ビュー専用UI）
+#### 2. ビジネスロジック層（App.svelte + lib/）
 
-#### 2. ビジネスロジックレイヤー
-
-**責務**: データの操作、API呼び出し、状態更新
+**App.svelteの主要関数:**
 
 | カテゴリ           | 主要関数                                                                                     |
 | ------------------ | -------------------------------------------------------------------------------------------- |
 | **フォルダ管理**   | `createFolder()`, `deleteFolder()`, `updateFolderName()`, `selectFolder()`                   |
-| **ノート管理**     | `createNewNote()`, `selectNote()`, `deleteNote()`, `updateNoteContent()`, `updateNoteMeta()` |
-| **並び替え**       | `handleDragStart()`, `handleDrop()`, `handleNoteDragStart()`, `handleNoteDrop()`             |
-| **GitHub統合**     | `saveToGitHub()`, `fetchCurrentSha()`, `encodeContent()`, `buildPath()`                      |
-| **エディタ管理**   | `initializeEditor()`, `resetEditorContent()`                                                 |
-| **テーマ管理**     | `applyTheme()`                                                                               |
+| **ノート管理**     | `createNewNote()`, `selectNote()`, `deleteNote()`, `updateNoteTitle()`                       |
+| **並び替え**       | `handleDragStartFolder()`, `handleDropFolder()`, `handleDragStartNote()`, `handleDropNote()` |
 | **ナビゲーション** | `getBreadcrumbs()`, `goHome()`, `goSettings()`                                               |
-| **モーダル**       | `showConfirm()`, `showAlert()`, `closeModal()`, `confirmModal()`                             |
+| **モーダル**       | `showConfirm()`, `showAlert()`, `closeModal()`                                               |
+| **ヘルパー**       | `getItemCount()`, `getFolderItems()`                                                         |
 
-#### 3. データ永続化レイヤー
+**lib/モジュール:**
+
+- `github.ts`: GitHub API統合（`saveToGitHub()`, `fetchCurrentSha()`等）
+- `theme.ts`: テーマ適用ロジック（`applyTheme()`）
+
+#### 3. 状態管理層（lib/stores.ts）
+
+**責務**: アプリケーション全体の状態管理
+
+```typescript
+// Writable stores
+export const settings = writable<Settings>(defaultSettings)
+export const folders = writable<Folder[]>([])
+export const notes = writable<Note[]>([])
+export const currentView = writable<View>('home')
+export const currentFolder = writable<Folder | null>(null)
+export const currentNote = writable<Note | null>(null)
+
+// Derived stores
+export const rootFolders = derived(folders, ($folders) =>
+  $folders.filter((f) => !f.parentId).sort((a, b) => a.order - b.order)
+)
+```
+
+#### 4. データ永続化層（lib/storage.ts）
 
 **責務**: LocalStorageへの読み書き
 
 ```typescript
-function persistSettings() {
+export function saveSettings(settings: Settings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
 }
 
-function persistFolders() {
-  localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders))
-}
-
-function persistNotes() {
-  localStorage.setItem(NOTES_KEY, JSON.stringify(notes))
+export function loadSettings(): Settings {
+  const stored = localStorage.getItem(SETTINGS_KEY)
+  return stored ? { ...defaultSettings, ...JSON.parse(stored) } : defaultSettings
 }
 ```
 
 ### Svelteリアクティブシステム
 
-#### リアクティブ宣言 (`$:`)
+#### Svelteストア
 
-計算プロパティとして機能し、依存する変数が変更されると自動で再計算されます。
+アプリケーション全体で共有される状態は、Svelteストアで管理されています。
+
+**Writable Stores（書き込み可能）:**
+
+```typescript
+// lib/stores.ts
+export const settings = writable<Settings>(defaultSettings)
+export const folders = writable<Folder[]>([])
+export const notes = writable<Note[]>([])
+export const currentView = writable<View>('home')
+export const currentFolder = writable<Folder | null>(null)
+export const currentNote = writable<Note | null>(null)
+```
+
+**Derived Stores（派生ストア）:**
+
+計算プロパティとして機能し、依存するストアが変更されると自動で再計算されます。
 
 ```typescript
 // ルートフォルダ（parentIdがnullのもの）
-$: rootFolders = folders.filter((f) => !f.parentId).sort((a, b) => a.order - b.order)
+export const rootFolders = derived(folders, ($folders) =>
+  $folders.filter((f) => !f.parentId).sort((a, b) => a.order - b.order)
+)
 
 // 現在のフォルダのサブフォルダ
-$: subfolders = currentFolder
-  ? folders.filter((f) => f.parentId === currentFolder.id).sort((a, b) => a.order - b.order)
-  : []
+export const subfolders = derived([folders, currentFolder], ([$folders, $currentFolder]) =>
+  $currentFolder
+    ? $folders.filter((f) => f.parentId === $currentFolder.id).sort((a, b) => a.order - b.order)
+    : []
+)
 
 // 現在のフォルダ内のノート
-$: currentFolderNotes = currentFolder
-  ? notes.filter((n) => n.folderId === currentFolder.id).sort((a, b) => a.order - b.order)
-  : []
-
-// パンくずリスト
-$: breadcrumbs = getBreadcrumbs()
+export const currentFolderNotes = derived([notes, currentFolder], ([$notes, $currentFolder]) =>
+  $currentFolder
+    ? $notes.filter((n) => n.folderId === $currentFolder.id).sort((a, b) => a.order - b.order)
+    : []
+)
 
 // GitHub設定の完了状態
-$: githubConfigured = !!(settings.token && settings.repoName)
+export const githubConfigured = derived(
+  settings,
+  ($settings) => !!($settings.token && $settings.repoName)
+)
+```
+
+**ストアの使用:**
+
+```svelte
+<script>
+  import { settings, folders } from './lib/stores'
+
+  // ストアの値を読み取る（自動購読）
+  console.log($settings.theme)
+
+  // ストアの値を更新
+  settings.update((s) => ({ ...s, theme: 'dark' }))
+  folders.set([...newFolders])
+</script>
 ```
 
 **メリット:**
 
-- 宣言的でわかりやすい
-- 自動的な依存関係追跡
-- 無駄な再計算を防ぐ最適化
+- グローバル状態の一元管理
+- コンポーネント間でのデータ共有が容易
+- 自動的な依存関係追跡と最適化
+- テスタビリティの向上
 
 ---
 
@@ -1066,50 +1177,49 @@ onMount(() => {
 
 ---
 
-## リファクタリングの考察
+## 実装されたリファクタリング
 
-現在、App.svelteは1,373行の単一ファイルです。保守性と拡張性を向上させるため、以下のリファクタリングを検討します。
+元々App.svelteは1,373行の単一ファイルでしたが、保守性と拡張性を向上させるため、以下のリファクタリングを実施しました。
 
-### 1. コンポーネント分割
+### 1. コンポーネント分割（実装済み）
 
-#### 提案される構造
+#### 現在の構造
 
 ```
 src/
 ├── components/
 │   ├── layout/
-│   │   ├── Header.svelte              # ヘッダー（タイトル + 設定アイコン）
-│   │   ├── Breadcrumbs.svelte         # パンくずリスト
-│   │   └── Modal.svelte               # 確認ダイアログ
+│   │   ├── Header.svelte              # ヘッダー（75行）
+│   │   ├── Breadcrumbs.svelte         # パンくずリスト（156行）
+│   │   └── Modal.svelte               # 確認ダイアログ（84行）
 │   ├── views/
-│   │   ├── HomeView.svelte            # ホーム画面
-│   │   ├── FolderView.svelte          # フォルダ画面
-│   │   ├── EditorView.svelte          # エディタ画面
-│   │   └── SettingsView.svelte        # 設定画面
-│   ├── folder/
-│   │   ├── FolderCard.svelte          # フォルダカード（ドラッグ対応）
-│   │   └── FolderList.svelte          # フォルダ一覧
-│   ├── note/
-│   │   ├── NoteCard.svelte            # ノートカード（ドラッグ対応）
-│   │   └── NoteList.svelte            # ノート一覧
+│   │   ├── HomeView.svelte            # ホーム画面（134行）
+│   │   ├── FolderView.svelte          # フォルダ画面（209行）
+│   │   ├── EditorView.svelte          # エディタ画面（154行）
+│   │   └── SettingsView.svelte        # 設定画面（322行）
 │   └── editor/
-│       ├── MarkdownEditor.svelte      # CodeMirrorラッパー
-│       └── EditorToolbar.svelte       # Save/Downloadボタン
+│       └── MarkdownEditor.svelte      # CodeMirrorラッパー（137行）
 ├── lib/
-│   ├── stores.ts                      # Svelteストア（状態管理）
-│   ├── github.ts                      # GitHub API関連
-│   ├── storage.ts                     # LocalStorage操作
-│   ├── theme.ts                       # テーマ管理
-│   └── types.ts                       # 型定義
+│   ├── stores.ts                      # Svelteストア（54行）
+│   ├── github.ts                      # GitHub API（132行）
+│   ├── storage.ts                     # LocalStorage（104行）
+│   ├── theme.ts                       # テーマ管理（22行）
+│   └── types.ts                       # 型定義（52行）
 ├── app.css
 ├── app.d.ts
-├── App.svelte                         # ルーター & レイアウト
+├── App.svelte                         # ルーター & レイアウト（533行）
 └── main.ts
 ```
 
-### 2. 状態管理の改善
+**成果:**
 
-#### Svelteストアの活用
+- 1,373行の単一ファイルから約2,178行の15ファイルに分割
+- 各コンポーネントは単一責任の原則に従い、保守性が向上
+- ビューコンポーネントは100-300行程度で適切な粒度
+
+### 2. 状態管理の改善（実装済み）
+
+#### Svelteストアの導入
 
 ```typescript
 // src/lib/stores.ts
@@ -1142,13 +1252,14 @@ export const currentFolderNotes = derived([notes, currentFolder], ([$notes, $cur
 )
 ```
 
-**メリット:**
+**成果:**
 
-- グローバル状態の一元管理
-- コンポーネント間でのデータ共有が容易
-- テスタビリティの向上
+- グローバル状態の一元管理を実現
+- コンポーネント間でのデータ共有が容易に
+- 派生ストアにより計算ロジックを集約
+- テスタビリティが向上
 
-### 3. ビジネスロジックの分離
+### 3. ビジネスロジックの分離（実装済み）
 
 ```typescript
 // src/lib/github.ts
@@ -1560,17 +1671,18 @@ SimplestNote.mdは、シンプルさを追求した軽量Markdownノートアプ
 
 ### 今後の方向性
 
-リファクタリングにより、以下が実現可能です：
+実装されたリファクタリングにより、以下が実現可能になりました：
 
-1. **保守性の向上**: コンポーネント分割、ストア導入
-2. **テスタビリティ**: ユニットテスト、E2Eテストの追加
-3. **拡張性**: プラグインシステム、ルーティング
-4. **機能追加**: 検索、双方向同期、履歴管理
+1. **保守性の向上**: ✅ コンポーネント分割、ストア導入（実装済み）
+2. **テスタビリティ**: ユニットテスト、E2Eテストの追加（今後の課題）
+3. **拡張性**: プラグインシステム、ルーティング（検討中）
+4. **機能追加**: 検索、双方向同期、履歴管理（今後の機能）
 
 このドキュメントが、SimplestNote.mdの理解と今後の開発に役立つことを願っています。
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: 2025-11-20
+**Document Version**: 2.0
+**Last Updated**: 2025-01-20
 **Author**: Claude (Anthropic)
+**Major Changes**: リファクタリング実装を反映（コンポーネント分割、Svelteストア導入）
