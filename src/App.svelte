@@ -66,6 +66,37 @@
   let originalFolderName = ''
   let editingBreadcrumb: string | null = null
   let draggedFolder: Folder | null = null
+  let showModal = false
+  let modalMessage = ''
+  let modalType: 'confirm' | 'alert' = 'confirm'
+  let modalCallback: (() => void) | null = null
+
+  function showConfirm(message: string, onConfirm: () => void) {
+    modalMessage = message
+    modalType = 'confirm'
+    modalCallback = onConfirm
+    showModal = true
+  }
+
+  function showAlert(message: string) {
+    modalMessage = message
+    modalType = 'alert'
+    modalCallback = null
+    showModal = true
+  }
+
+  function closeModal() {
+    showModal = false
+    modalMessage = ''
+    modalCallback = null
+  }
+
+  function confirmModal() {
+    if (modalCallback) {
+      modalCallback()
+    }
+    closeModal()
+  }
 
   onMount(() => {
     const storedSettings = localStorage.getItem(SETTINGS_KEY)
@@ -299,6 +330,76 @@
     resetEditorContent(note.content)
   }
 
+  function deleteNote() {
+    if (!currentNote) return
+    const noteToDelete = currentNote
+    showConfirm(`ノート「${noteToDelete.title}」を削除しますか？`, () => {
+      const folderId = noteToDelete.folderId
+      notes = notes.filter((n) => n.id !== noteToDelete.id)
+      persistNotes()
+
+      // フォルダビューに戻る
+      const folder = folders.find((f) => f.id === folderId)
+      if (folder) {
+        currentFolder = folder
+        currentView = 'folder'
+      } else {
+        currentView = 'home'
+      }
+      currentNote = null
+    })
+  }
+
+  function deleteFolder() {
+    if (!currentFolder) return
+
+    // サブフォルダがある場合は削除できない
+    const hasSubfolders = folders.some((f) => f.parentId === currentFolder.id)
+    if (hasSubfolders) {
+      showAlert('サブフォルダがあるため削除できません。先にサブフォルダを削除してください。')
+      return
+    }
+
+    // フォルダ内のノートを確認
+    const folderToDelete = { ...currentFolder }
+    console.log('Deleting folder:', folderToDelete)
+    const folderNotes = notes.filter((n) => n.folderId === folderToDelete.id)
+    const notesCount = folderNotes.length
+    const folderName = folderToDelete.name || '名前なし'
+    const message =
+      notesCount > 0
+        ? `フォルダ「${folderName}」とその中のノート${notesCount}件を削除しますか？`
+        : `フォルダ「${folderName}」を削除しますか？`
+
+    console.log('Delete message:', message)
+    showConfirm(message, () => {
+      const parentId = folderToDelete.parentId
+
+      // フォルダ内のノートを削除
+      notes = notes.filter((n) => n.folderId !== folderToDelete.id)
+      persistNotes()
+
+      // フォルダを削除
+      folders = folders.filter((f) => f.id !== folderToDelete.id)
+      persistFolders()
+
+      // 親フォルダまたはホームに戻る
+      if (parentId) {
+        const parent = folders.find((f) => f.id === parentId)
+        if (parent) {
+          currentFolder = parent
+          currentView = 'folder'
+        } else {
+          currentView = 'home'
+          currentFolder = null
+        }
+      } else {
+        currentView = 'home'
+        currentFolder = null
+      }
+    })
+  }
+
   function updateNoteContent(value: string) {
     if (!currentNote) return
     currentNote = { ...currentNote, content: value, updatedAt: Date.now() }
@@ -308,6 +409,10 @@
 
   function updateNoteMeta(key: keyof Note, value: string) {
     if (!currentNote) return
+    // 空文字チェック: タイトルの場合は空文字を許可しない
+    if (key === 'title' && value.trim() === '') {
+      return
+    }
     currentNote = { ...currentNote, [key]: value, updatedAt: Date.now() }
     notes = notes.map((n) => (n.id === currentNote?.id ? currentNote : n))
     persistNotes()
@@ -338,6 +443,20 @@
   }
 
   function finishEditingBreadcrumb() {
+    // 編集終了時に空文字チェック: 空の場合は元の値に戻す
+    if (currentNote && currentNote.title.trim() === '') {
+      currentNote.title = originalTitle
+      updateNoteMeta('title', originalTitle)
+    }
+    // フォルダ名が編集されている場合のチェック
+    if (editingBreadcrumb) {
+      const folder = folders.find((f) => f.id === editingBreadcrumb)
+      if (folder && folder.name.trim() === '') {
+        folder.name = originalFolderName
+        folders = folders.map((f) => (f.id === editingBreadcrumb ? folder : f))
+        persistFolders()
+      }
+    }
     editingBreadcrumb = null
   }
 
@@ -367,6 +486,10 @@
   function updateFolderName(id: string, name: string) {
     const folder = folders.find((f) => f.id === id)
     if (!folder) return
+    // 空文字チェック: 空文字を許可しない
+    if (name.trim() === '') {
+      return
+    }
     folder.name = name
     folders = folders.map((f) => (f.id === id ? folder : f))
     persistFolders()
@@ -414,7 +537,11 @@
     })
   }
 
-  $: if (editorContainer && !editorView) {
+  $: if (editorContainer) {
+    if (editorView) {
+      editorView.destroy()
+      editorView = null
+    }
     initializeEditor()
   }
 
@@ -637,6 +764,7 @@
               bind:value={currentNote.title}
               on:keydown={(e) => handleBreadcrumbKeydown(e, 'note', crumb.id)}
               on:input={(e) => updateNoteMeta('title', e.currentTarget.value)}
+              on:blur={finishEditingBreadcrumb}
               style="font-size: 14px; font-weight: 600; border: 1px solid var(--accent-color); border-radius: 4px; padding: 2px 8px; background: var(--bg-primary); color: var(--text-primary); height: 28px; line-height: 1;"
             />
           {:else if crumb.type === 'folder'}
@@ -646,6 +774,7 @@
               value={crumb.label}
               on:keydown={(e) => handleBreadcrumbKeydown(e, 'folder', crumb.id)}
               on:input={(e) => updateFolderName(crumb.id, e.currentTarget.value)}
+              on:blur={finishEditingBreadcrumb}
               style="font-size: 14px; font-weight: 600; border: 1px solid var(--accent-color); border-radius: 4px; padding: 2px 8px; background: var(--bg-primary); color: var(--text-primary); height: 28px; line-height: 1;"
             />
           {/if}
@@ -771,10 +900,7 @@
       </div>
     </section>
   {:else if currentView === 'home'}
-    <section>
-      <div class="toolbar" style="justify-content: flex-end; margin-bottom: 16px;">
-        <button type="button" on:click={() => createFolder()}>新規フォルダ</button>
-      </div>
+    <section style="padding: 16px; height: calc(100vh - 80px - 60px); overflow-y: auto;">
       <div class="card-grid">
         {#each rootFolders as folder}
           <div
@@ -799,16 +925,32 @@
         {/if}
       </div>
     </section>
+    <div
+      class="toolbar"
+      style="position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-primary); border-top: 1px solid var(--border-color); padding: 12px 16px; box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1); z-index: 10; justify-content: flex-end;"
+    >
+      <button type="button" on:click={() => createFolder()}>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          style="margin-right: 4px;"
+        >
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          <line x1="12" y1="11" x2="12" y2="17" />
+          <line x1="9" y1="14" x2="15" y2="14" />
+        </svg>
+        新規フォルダ
+      </button>
+    </div>
   {:else if currentView === 'folder' && currentFolder}
-    <section>
-      <div class="toolbar" style="justify-content: flex-end; margin-bottom: 16px; gap: 8px;">
-        {#if !currentFolder.parentId}
-          <button type="button" class="secondary" on:click={() => createFolder(currentFolder.id)}
-            >新規サブフォルダ</button
-          >
-        {/if}
-        <button type="button" on:click={createNewNote}>新規ノート</button>
-      </div>
+    <section style="padding: 16px; height: calc(100vh - 80px - 60px); overflow-y: auto;">
       <div class="card-grid">
         {#each subfolders as subfolder}
           <div
@@ -839,13 +981,116 @@
         {/if}
       </div>
     </section>
+    <div
+      class="toolbar"
+      style="position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-primary); border-top: 1px solid var(--border-color); padding: 12px 16px; box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1); z-index: 10;"
+    >
+      <button type="button" class="secondary" on:click={deleteFolder}>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          style="margin-right: 4px;"
+        >
+          <polyline points="3 6 5 6 21 6" />
+          <path
+            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+          />
+          <line x1="10" y1="11" x2="10" y2="17" />
+          <line x1="14" y1="11" x2="14" y2="17" />
+        </svg>
+        削除
+      </button>
+      {#if !currentFolder.parentId}
+        <button
+          type="button"
+          class="secondary"
+          on:click={() => createFolder(currentFolder.id)}
+          style="margin-left: auto;"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="margin-right: 4px;"
+          >
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            <line x1="12" y1="11" x2="12" y2="17" />
+            <line x1="9" y1="14" x2="15" y2="14" />
+          </svg>
+          新規サブフォルダ
+        </button>
+      {:else}
+        <span style="margin-left: auto;"></span>
+      {/if}
+      <button type="button" on:click={createNewNote}>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          style="margin-right: 4px;"
+        >
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="12" y1="18" x2="12" y2="12" />
+          <line x1="9" y1="15" x2="15" y2="15" />
+        </svg>
+        新規ノート
+      </button>
+    </div>
   {:else if currentView === 'edit' && currentNote}
-    <section>
-      <div style="margin: 12px 0;" bind:this={editorContainer}></div>
-      <div class="toolbar" style="margin-top: 12px; justify-content: flex-end;">
+    <section style="padding: 0;">
+      <div
+        style="height: calc(100vh - 80px - 60px); margin: 0; overflow: hidden;"
+        bind:this={editorContainer}
+      ></div>
+      <div
+        class="toolbar"
+        style="position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-primary); border-top: 1px solid var(--border-color); padding: 12px 16px; box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1); z-index: 10;"
+      >
+        <button type="button" class="secondary" on:click={deleteNote}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="margin-right: 4px;"
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            />
+            <line x1="10" y1="11" x2="10" y2="17" />
+            <line x1="14" y1="11" x2="14" y2="17" />
+          </svg>
+          削除
+        </button>
         {#if syncMessage}<span class="status">{syncMessage}</span>{/if}
         {#if syncError}<span class="status error">{syncError}</span>{/if}
-        <button type="button" class="secondary" on:click={downloadMd}>
+        <button type="button" class="secondary" on:click={downloadMd} style="margin-left: auto;">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -887,3 +1132,27 @@
     </section>
   {/if}
 </main>
+
+{#if showModal}
+  <div
+    style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;"
+    on:click={closeModal}
+  >
+    <div
+      style="background: var(--bg-primary); border-radius: 12px; padding: 24px; max-width: 400px; width: 90%; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);"
+      on:click|stopPropagation
+    >
+      <p style="margin: 0 0 24px 0; color: var(--text-primary); font-size: 16px; line-height: 1.5;">
+        {modalMessage}
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        {#if modalType === 'confirm'}
+          <button type="button" class="secondary" on:click={closeModal}>キャンセル</button>
+          <button type="button" on:click={confirmModal}>OK</button>
+        {:else}
+          <button type="button" on:click={closeModal}>OK</button>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}

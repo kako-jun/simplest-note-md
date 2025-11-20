@@ -216,9 +216,10 @@ section {
 
 .cm-editor {
   border: 1px solid var(--border-input);
-  border-radius: 12px;
+  border-radius: 0;
   background: var(--bg-primary);
-  min-height: 340px;
+  height: 100%;
+  padding-bottom: 15px;
 }
 
 header {
@@ -231,6 +232,8 @@ header {
   position: sticky;
   top: 0;
   z-index: 10;
+  height: 40px;
+  box-sizing: border-box;
 }
 
 h1 {
