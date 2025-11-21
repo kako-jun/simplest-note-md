@@ -353,6 +353,7 @@
   .test-actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 1rem;
     margin-top: 0.5rem;
   }
