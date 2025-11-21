@@ -15,7 +15,7 @@
   let editorView: EditorView | null = null
   let currentExtensions: any[] = []
 
-  const darkThemes: ThemeType[] = ['greenboard', 'dots']
+  const darkThemes: ThemeType[] = ['greenboard', 'dots1', 'dots2']
 
   // CodeMirrorダークテーマ（テーマのCSS変数に追従）
   const editorDarkTheme = EditorView.theme(

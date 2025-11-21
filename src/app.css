@@ -53,7 +53,7 @@
   --error-color: #b42318;
 }
 
-:root[data-theme='dots'] {
+:root[data-theme='dots1'] {
   --bg-primary: #05080f;
   --bg-secondary: #0b1220;
   --bg-tertiary: #111a2c;
@@ -62,6 +62,18 @@
   --border-color: #1f2b3d;
   --border-input: #273649;
   --accent-color: #49c7ff;
+  --error-color: #f472b6;
+}
+
+:root[data-theme='dots2'] {
+  --bg-primary: #0b1324;
+  --bg-secondary: #111b30;
+  --bg-tertiary: #1a2740;
+  --text-primary: #e3edff;
+  --text-secondary: #a7bce5;
+  --border-color: #1e2b44;
+  --border-input: #233354;
+  --accent-color: #5ca8ff;
   --error-color: #f472b6;
 }
 

@@ -5,7 +5,7 @@
 
 export type UUID = string
 
-export type ThemeType = 'yomi' | 'campus' | 'greenboard' | 'whiteboard' | 'dots'
+export type ThemeType = 'yomi' | 'campus' | 'greenboard' | 'whiteboard' | 'dots1' | 'dots2'
 
 export type View = 'home' | 'settings' | 'edit' | 'folder'
 
