@@ -10,6 +10,7 @@
   export let onSave: () => void
   export let onDownload: () => void
   export let onDelete: () => void
+  export let disabled: boolean = false
 </script>
 
 <section class="editor-section">
@@ -23,6 +24,7 @@
     on:click={onDelete}
     title="ノートを削除"
     aria-label="ノートを削除"
+    {disabled}
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -58,6 +60,7 @@
     on:click={onDownload}
     title="Download"
     aria-label="Download"
+    {disabled}
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -77,7 +80,14 @@
     </svg>
   </button>
 
-  <button type="button" class="icon-only" on:click={onSave} title="Save" aria-label="Save">
+  <button
+    type="button"
+    class="icon-only"
+    on:click={onSave}
+    title="Save"
+    aria-label="Save"
+    {disabled}
+  >
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="16"
@@ -150,6 +160,11 @@
     width: 40px;
     height: 40px;
     justify-content: center;
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .message {

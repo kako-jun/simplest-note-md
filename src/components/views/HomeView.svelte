@@ -8,6 +8,7 @@
   export let onDragOver: (e: DragEvent) => void
   export let onDrop: (folder: Folder) => void
   export let getFolderItems: (folderId: string) => string[]
+  export let disabled: boolean = false
 </script>
 
 <section class="view-container">
@@ -42,6 +43,7 @@
     class="icon-only"
     on:click={onCreateFolder}
     title="新規フォルダ"
+    {disabled}
     aria-label="新規フォルダ"
   >
     <svg
@@ -146,5 +148,10 @@
     width: 40px;
     height: 40px;
     justify-content: center;
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 </style>

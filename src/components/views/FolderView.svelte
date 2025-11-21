@@ -15,6 +15,7 @@
   export let onDropFolder: (folder: Folder) => void
   export let onDropNote: (note: Note) => void
   export let getFolderItems: (folderId: string) => string[]
+  export let disabled: boolean = false
 
   const canHaveSubfolder = !currentFolder.parentId
 </script>
@@ -71,6 +72,7 @@
     on:click={onDeleteFolder}
     title="フォルダを削除"
     aria-label="フォルダを削除"
+    {disabled}
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -100,6 +102,7 @@
       on:click={onCreateFolder}
       title="新規サブフォルダ"
       aria-label="新規サブフォルダ"
+      {disabled}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -126,6 +129,7 @@
     on:click={onCreateNote}
     title="新規ノート"
     aria-label="新規ノート"
+    {disabled}
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -235,5 +239,10 @@
     width: 40px;
     height: 40px;
     justify-content: center;
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 </style>

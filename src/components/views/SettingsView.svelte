@@ -4,9 +4,9 @@
   export let settings: Settings
   export let onSettingsChange: (payload: Partial<Settings>) => void
   export let onThemeChange: (theme: ThemeType) => void
-  export let githubTestMessage: string = ''
-  export let githubTestRunning: boolean = false
-  export let onTestConnection: () => void
+  export let pullMessage: string = ''
+  export let pullRunning: boolean = false
+  export let onPull: () => void
 
   function handleThemeSelect(theme: ThemeType) {
     settings.theme = theme
@@ -31,7 +31,7 @@
     handleInputChange('toolName', value)
   }
 
-  $: testSuccess = githubTestMessage.startsWith('✅')
+  $: testSuccess = pullMessage.startsWith('✅')
 </script>
 
 <section class="settings-container">
@@ -85,28 +85,27 @@
         </div>
       </div>
       <div class="test-actions">
-        {#if githubTestMessage}
+        {#if pullMessage}
           <span
             class:test-success={testSuccess}
             class:test-error={!testSuccess}
             class="test-message"
           >
-            {githubTestMessage}
+            {pullMessage}
           </span>
         {/if}
-        <button
-          type="button"
-          class="test-button"
-          on:click={onTestConnection}
-          disabled={githubTestRunning}
-        >
+        <button type="button" class="test-button" on:click={onPull} disabled={pullRunning}>
           <svg class="test-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path
-              d="M8 3v6h2V3h4v3h2V3a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v3h2zm8 6h-8a2 2 0 0 0-2 2v2a5 5 0 0 0 4 4.9V22a1 1 0 1 0 2 0v-4.1A5 5 0 0 0 18 13v-2a2 2 0 0 0-2-2zm0 4a3 3 0 0 1-6 0v-2h6z"
-              fill="currentColor"
+              d="M12 3v12m0 0-4-4m4 4 4-4M5 17h14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
             />
           </svg>
-          {githubTestRunning ? '通信テスト中…' : '通信テスト'}
+          {pullRunning ? 'Pull中…' : 'Pullテスト'}
         </button>
       </div>
       <div class="form-row">

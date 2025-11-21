@@ -35,9 +35,10 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 2rem;
+    padding: 0.75rem 1rem;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
+    gap: 0.5rem;
   }
 
   .title-button {
@@ -60,7 +61,7 @@
     border: none;
     cursor: pointer;
     position: relative;
-    padding: 0.5rem;
+    padding: 0.25rem;
     color: var(--text-primary);
   }
 

@@ -14,6 +14,13 @@ export interface TestResult {
   success: boolean
   message: string
 }
+
+export interface PullResult {
+  success: boolean
+  message: string
+  folders: Folder[]
+  notes: Note[]
+}
 /**
  * UTF-8テキストをBase64エンコード
  */
@@ -132,6 +139,143 @@ export async function saveToGitHub(
       success: false,
       message: '❌ ネットワークエラー',
     }
+  }
+}
+
+/**
+ * GitHubからの簡易Pull（接続確認＋notesディレクトリ参照）
+ * データのマージはせず、アクセス可否だけを確認する
+ */
+export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
+  if (!settings.token) {
+    return { success: false, message: '❌ トークンが未設定です', folders: [], notes: [] }
+  }
+  if (!settings.repoName || !settings.repoName.includes('/')) {
+    return {
+      success: false,
+      message: '❌ リポジトリ名が不正です（owner/repo）',
+      folders: [],
+      notes: [],
+    }
+  }
+
+  const headers = {
+    Authorization: `Bearer ${settings.token}`,
+  }
+
+  try {
+    const repoRes = await fetch(`https://api.github.com/repos/${settings.repoName}`, { headers })
+    if (repoRes.status === 404) {
+      return { success: false, message: '❌ リポジトリが見つかりません', folders: [], notes: [] }
+    }
+    if (repoRes.status === 401 || repoRes.status === 403) {
+      return {
+        success: false,
+        message: '❌ リポジトリへの権限がありません',
+        folders: [],
+        notes: [],
+      }
+    }
+    if (!repoRes.ok) {
+      return {
+        success: false,
+        message: `❌ リポジトリ確認に失敗 (${repoRes.status})`,
+        folders: [],
+        notes: [],
+      }
+    }
+
+    const repoData = await repoRes.json()
+    const defaultBranch = repoData.default_branch || 'main'
+
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${settings.repoName}/git/trees/${defaultBranch}?recursive=1`,
+      { headers }
+    )
+    if (!treeRes.ok) {
+      return {
+        success: false,
+        message: `❌ ツリー取得に失敗 (${treeRes.status})`,
+        folders: [],
+        notes: [],
+      }
+    }
+
+    const treeData = await treeRes.json()
+    const entries: { path: string; type: string }[] = treeData.tree || []
+
+    const folderMap = new Map<string, Folder>()
+    const notes: Note[] = []
+
+    const ensureFolder = (pathParts: string[]): string => {
+      let parentId: string | undefined
+      for (let i = 0; i < pathParts.length; i++) {
+        const partial = pathParts.slice(0, i + 1).join('/')
+        if (folderMap.has(partial)) {
+          parentId = folderMap.get(partial)!.id
+          continue
+        }
+        const folder: Folder = {
+          id: crypto.randomUUID(),
+          name: pathParts[i],
+          parentId,
+          order: folderMap.size,
+        }
+        folderMap.set(partial, folder)
+        parentId = folder.id
+      }
+      return parentId || ''
+    }
+
+    const notePaths = entries.filter(
+      (e) =>
+        e.type === 'blob' && e.path.startsWith('notes/') && e.path.toLowerCase().endsWith('.md')
+    )
+
+    for (const entry of notePaths) {
+      const relativePath = entry.path.replace(/^notes\//, '')
+      const parts = relativePath.split('/').filter(Boolean)
+      if (parts.length === 0) continue
+
+      const fileName = parts.pop()!
+      const title = fileName.replace(/\.md$/i, '') || 'Untitled'
+      const folderId = ensureFolder(parts)
+
+      // fetch content
+      const contentRes = await fetch(
+        `https://api.github.com/repos/${settings.repoName}/contents/${entry.path}`,
+        { headers }
+      )
+      if (!contentRes.ok) continue
+      const contentData = await contentRes.json()
+      let content = ''
+      if (contentData.content) {
+        try {
+          content = decodeURIComponent(escape(atob(contentData.content)))
+        } catch (e) {
+          content = ''
+        }
+      }
+
+      notes.push({
+        id: crypto.randomUUID(),
+        title,
+        folderId,
+        content,
+        updatedAt: Date.now(),
+        order: notes.length,
+      })
+    }
+
+    return {
+      success: true,
+      message: '✅ Pull OK',
+      folders: Array.from(folderMap.values()),
+      notes,
+    }
+  } catch (error) {
+    console.error('GitHub pull error:', error)
+    return { success: false, message: '❌ ネットワークエラー', folders: [], notes: [] }
   }
 }
 

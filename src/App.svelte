@@ -18,7 +18,7 @@
     updateNotes,
   } from './lib/stores'
   import { loadSettings, loadFolders, loadNotes } from './lib/storage'
-  import { saveToGitHub, testGitHubConnection } from './lib/github'
+  import { pullFromGitHub, saveToGitHub } from './lib/github'
   import { applyTheme } from './lib/theme'
   import Header from './components/layout/Header.svelte'
   import Breadcrumbs from './components/layout/Breadcrumbs.svelte'
@@ -35,8 +35,9 @@
   let draggedNote: Note | null = null
   let syncMessage = ''
   let syncError = ''
-  let githubTestMessage = ''
-  let githubTestRunning = false
+  let pullMessage = ''
+  let pullRunning = false
+  let isOperationsLocked = true
 
   // モーダル状態
   let showModal = false
@@ -59,6 +60,7 @@
       const [loadedFolders, loadedNotes] = await Promise.all([loadFolders(), loadNotes()])
       folders.set(loadedFolders)
       notes.set(loadedNotes)
+      await handlePull(true)
     })()
   })
 
@@ -188,6 +190,7 @@
 
   // フォルダ管理
   function createFolder(parentId?: string) {
+    if (isOperationsLocked) return
     const allFolders = $folders
     const targetFolders = parentId
       ? allFolders.filter((f) => f.parentId === parentId)
@@ -210,6 +213,10 @@
   }
 
   function deleteFolder() {
+    if (isOperationsLocked) {
+      showAlert('初回Pullが完了するまで操作できません。設定からPullしてください。')
+      return
+    }
     if (!$currentFolder) return
 
     const allFolders = $folders
@@ -281,6 +288,7 @@
 
   // ノート管理
   function createNewNote() {
+    if (isOperationsLocked) return
     if (!$currentFolder) return
 
     const allNotes = $notes
@@ -305,6 +313,10 @@
   }
 
   function deleteNote() {
+    if (isOperationsLocked) {
+      showAlert('初回Pullが完了するまで操作できません。設定からPullしてください。')
+      return
+    }
     if (!$currentNote) return
 
     showConfirm('このノートを削除しますか？', () => {
@@ -321,6 +333,7 @@
   }
 
   function updateNoteContent(content: string) {
+    if (isOperationsLocked) return
     if (!$currentNote) return
 
     const allNotes = $notes
@@ -402,6 +415,10 @@
 
   // GitHub同期
   async function handleSaveToGitHub() {
+    if (isOperationsLocked) {
+      syncError = '初回Pullが完了するまで保存できません'
+      return
+    }
     if (!$currentNote) return
 
     syncMessage = ''
@@ -421,6 +438,10 @@
 
   // ダウンロード
   function downloadNote() {
+    if (isOperationsLocked) {
+      syncError = '初回Pullが完了するまでダウンロードできません'
+      return
+    }
     if (!$currentNote) return
 
     const blob = new Blob([$currentNote.content], { type: 'text/markdown' })
@@ -452,12 +473,22 @@
     }
   }
 
-  async function handleGithubTest() {
-    githubTestMessage = ''
-    githubTestRunning = true
-    const result = await testGitHubConnection($settings)
-    githubTestMessage = result.message
-    githubTestRunning = false
+  async function handlePull(isInitial = false) {
+    pullMessage = ''
+    pullRunning = true
+    const result = await pullFromGitHub($settings)
+    pullMessage = result.message
+    if (result.success) {
+      isOperationsLocked = false
+      updateFolders(result.folders)
+      updateNotes(result.notes)
+      currentFolder.set(null)
+      currentNote.set(null)
+      currentView.set('home')
+    } else if (isInitial) {
+      showAlert('初回Pullに失敗しました。設定を確認して再度Pullしてください。')
+    }
+    pullRunning = false
   }
 </script>
 
@@ -481,6 +512,7 @@
     {#if $currentView === 'home'}
       <HomeView
         folders={$rootFolders}
+        disabled={isOperationsLocked}
         onSelectFolder={selectFolder}
         onCreateFolder={() => createFolder()}
         onDragStart={handleDragStartFolder}
@@ -493,6 +525,7 @@
         currentFolder={$currentFolder}
         subfolders={$subfolders}
         notes={$currentFolderNotes}
+        disabled={isOperationsLocked}
         onSelectFolder={selectFolder}
         onSelectNote={selectNote}
         onCreateFolder={() => createFolder($currentFolder.id)}
@@ -511,6 +544,7 @@
         theme={$settings.theme}
         {syncMessage}
         {syncError}
+        disabled={isOperationsLocked}
         onContentChange={updateNoteContent}
         onSave={handleSaveToGitHub}
         onDownload={downloadNote}
@@ -521,9 +555,9 @@
         settings={$settings}
         onThemeChange={handleThemeChange}
         onSettingsChange={handleSettingsChange}
-        {githubTestMessage}
-        {githubTestRunning}
-        onTestConnection={handleGithubTest}
+        {pullMessage}
+        {pullRunning}
+        onPull={handlePull}
       />
     {/if}
   </main>
