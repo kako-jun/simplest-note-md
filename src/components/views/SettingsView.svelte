@@ -155,14 +155,16 @@
               ドッツ
             </button>
           </div>
-          <label for="tool-name">ツール名</label>
-          <input
-            id="tool-name"
-            type="text"
-            bind:value={settings.toolName}
-            placeholder="SimplestNote.md"
-            on:input={handleToolNameInput}
-          />
+          <div class="tool-name-field">
+            <label for="tool-name">ツール名</label>
+            <input
+              id="tool-name"
+              type="text"
+              bind:value={settings.toolName}
+              placeholder="SimplestNote.md"
+              on:input={handleToolNameInput}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -272,6 +274,8 @@
     border: 1px solid var(--border-color);
     border-radius: 6px;
     overflow: hidden;
+    margin: 0 auto;
+    justify-content: center;
   }
 
   .theme-buttons button {
@@ -284,6 +288,22 @@
       background 0.2s,
       color 0.2s;
     min-width: 70px;
+    border-radius: 0;
+  }
+
+  .theme-buttons button:first-child {
+    border-radius: 6px 0 0 6px;
+  }
+
+  .theme-buttons button:last-child {
+    border-radius: 0 6px 6px 0;
+  }
+
+  .tool-name-field {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
   .theme-buttons button.active {

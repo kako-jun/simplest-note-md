@@ -17,7 +17,7 @@
     updateFolders,
     updateNotes,
   } from './lib/stores'
-  import { loadSettings, loadFolders, loadNotes } from './lib/storage'
+  import { clearAllData, loadSettings, loadFolders, loadNotes } from './lib/storage'
   import { pullFromGitHub, saveToGitHub } from './lib/github'
   import { applyTheme } from './lib/theme'
   import Header from './components/layout/Header.svelte'
@@ -38,6 +38,8 @@
   let pullMessage = ''
   let pullRunning = false
   let isOperationsLocked = true
+  let pullToast = ''
+  let pushToast = ''
 
   // モーダル状態
   let showModal = false
@@ -85,14 +87,32 @@
     modalCallback = null
   }
 
+  function showPushToast(message: string) {
+    pushToast = message
+    setTimeout(() => {
+      pushToast = ''
+    }, 2000)
+  }
+
   // ナビゲーション
-  function goHome() {
+  async function goHome() {
+    if ($currentView === 'settings') {
+      await handleCloseSettings()
+    }
     currentView.set('home')
     currentFolder.set(null)
     currentNote.set(null)
   }
 
-  function goSettings() {
+  async function goSettings() {
+    if ($currentView !== 'settings') {
+      try {
+        updateSettings({ ...$settings })
+        showPushToast('プッシュしました')
+      } catch (e) {
+        showPushToast('プッシュに失敗しました')
+      }
+    }
     currentView.set('settings')
   }
 
@@ -478,20 +498,45 @@
       document.title = payload.toolName
     }
   }
+  async function handleCloseSettings() {
+    // 設定画面から別画面へ移動したときにPullを1回実行
+    if ($currentView === 'settings') {
+      await handlePull(false)
+    }
+  }
 
   async function handlePull(isInitial = false) {
     pullMessage = ''
     pullRunning = true
+    isOperationsLocked = true
+
+    // Pullを試行する前に全消し
+    await clearAllData()
+    folders.set([])
+    notes.set([])
+    currentFolder.set(null)
+    currentNote.set(null)
+
     const result = await pullFromGitHub($settings)
     pullMessage = result.message
     if (result.success) {
-      isOperationsLocked = false
       updateFolders(result.folders)
       updateNotes(result.notes)
-    } else if (isInitial) {
-      showAlert('初回Pullに失敗しました。設定を確認して再度Pullしてください。')
+      isOperationsLocked = false
+      pullToast = 'Pullしました'
+    } else {
+      if (isInitial) {
+        showAlert('初回Pullに失敗しました。設定を確認して再度Pullしてください。')
+      }
+      pullToast = 'Pullに失敗しました'
     }
+
     pullRunning = false
+    if (pullToast) {
+      setTimeout(() => {
+        pullToast = ''
+      }, 2000)
+    }
   }
 </script>
 
@@ -499,8 +544,15 @@
   <Header
     githubConfigured={isGitHubConfigured}
     title={$settings.toolName}
-    onTitleClick={goHome}
-    onSettingsClick={goSettings}
+    onTitleClick={() => {
+      goHome()
+    }}
+    onSettingsClick={() => {
+      if ($currentView === 'settings') {
+        handleCloseSettings()
+      }
+      goSettings()
+    }}
   />
 
   <Breadcrumbs
@@ -572,6 +624,16 @@
     onConfirm={modalCallback}
     onClose={closeModal}
   />
+  {#if pullToast || pushToast}
+    <div class="toast-stack">
+      {#if pullToast}
+        <div class="toast">{pullToast}</div>
+      {/if}
+      {#if pushToast}
+        <div class="toast">{pushToast}</div>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -595,5 +657,29 @@
 
   main {
     position: relative;
+  }
+
+  .toast-stack {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+    align-items: center;
+  }
+
+  .toast {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 0.9rem;
+    min-width: 140px;
+    text-align: center;
   }
 </style>

@@ -162,3 +162,16 @@ export async function saveFolders(folders: Folder[]): Promise<void> {
     console.error('Failed to save folders to IndexedDB:', error)
   }
 }
+
+/**
+ * 全データを削除（notes/foldersストアをクリア）
+ */
+export async function clearAllData(): Promise<void> {
+  try {
+    const db = await openAppDB()
+    await replaceAllInStore<Note>(db, NOTES_STORE, [])
+    await replaceAllInStore<Folder>(db, FOLDERS_STORE, [])
+  } catch (error) {
+    console.error('Failed to clear data in IndexedDB:', error)
+  }
+}
