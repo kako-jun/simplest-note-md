@@ -24,7 +24,7 @@
   import Breadcrumbs from './components/layout/Breadcrumbs.svelte'
   import Modal from './components/layout/Modal.svelte'
   import HomeView from './components/views/HomeView.svelte'
-  import FolderView from './components/views/FolderView.svelte'
+  import NoteView from './components/views/NoteView.svelte'
   import EditorView from './components/views/EditorView.svelte'
   import SettingsView from './components/views/SettingsView.svelte'
 
@@ -577,7 +577,7 @@
         {getNoteItems}
       />
     {:else if $currentView === 'note' && $currentNote}
-      <FolderView
+      <NoteView
         currentNote={$currentNote}
         subNotes={$subNotes}
         leaves={$currentNoteLeaves}
@@ -596,7 +596,7 @@
       />
     {:else if $currentView === 'edit' && $currentLeaf}
       <EditorView
-        note={$currentLeaf}
+        leaf={$currentLeaf}
         theme={$settings.theme}
         disabled={isOperationsLocked}
         onContentChange={updateLeafContent}

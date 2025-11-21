@@ -172,7 +172,7 @@ export async function saveNotes(notes: Note[]): Promise<void> {
 }
 
 /**
- * 全データを削除（notes/foldersストアをクリア）
+ * 全データを削除（notes/leavesストアをクリア）
  */
 export async function clearAllData(): Promise<void> {
   try {

@@ -29,7 +29,7 @@ function encodeContent(content: string): string {
 }
 
 /**
- * フォルダパスを構築
+ * ノートパスを構築
  */
 function getFolderPath(note: Note, allNotes: Note[]): string {
   const parentNote = note.parentId ? allNotes.find((f) => f.id === note.parentId) : null

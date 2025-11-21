@@ -2,7 +2,7 @@
   import MarkdownEditor from '../editor/MarkdownEditor.svelte'
   import type { Leaf, ThemeType } from '../../lib/types'
 
-  export let note: Leaf
+  export let leaf: Leaf
   export let theme: ThemeType
   export let onContentChange: (content: string) => void
   export let onSave: () => void
@@ -12,7 +12,7 @@
 </script>
 
 <section class="editor-section">
-  <MarkdownEditor content={note.content} {theme} onChange={onContentChange} />
+  <MarkdownEditor content={leaf.content} {theme} onChange={onContentChange} />
 </section>
 
 <div class="toolbar-fixed">

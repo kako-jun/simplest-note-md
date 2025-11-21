@@ -26,7 +26,7 @@
       <!-- svelte-ignore a11y-click-events-have-key-events -->
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <div
-        class="note-card folder-card"
+        class="note-card note-group-card"
         draggable="true"
         role="button"
         tabindex="0"
@@ -38,7 +38,7 @@
         <strong>{subNote.name}</strong>
         <div class="card-meta">
           {#each getNoteItems(subNote.id) as item}
-            <small class="folder-item">{item}</small>
+            <small class="note-item">{item}</small>
           {/each}
         </div>
       </div>
@@ -173,7 +173,7 @@
     transition: all 0.2s;
   }
 
-  .folder-card {
+  .note-group-card {
     background: var(--bg-tertiary);
   }
 
@@ -190,7 +190,7 @@
     gap: 0.25rem;
   }
 
-  .folder-item {
+  .note-item {
     display: block;
   }
 
