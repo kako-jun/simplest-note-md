@@ -37,7 +37,13 @@
 </section>
 
 <div class="toolbar-fixed">
-  <button type="button" on:click={onCreateFolder}>
+  <button
+    type="button"
+    class="icon-only"
+    on:click={onCreateFolder}
+    title="新規フォルダ"
+    aria-label="新規フォルダ"
+  >
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="16"
@@ -54,7 +60,6 @@
       <line x1="12" y1="11" x2="12" y2="17" />
       <line x1="9" y1="14" x2="15" y2="14" />
     </svg>
-    新規フォルダ
   </button>
 </div>
 
@@ -133,6 +138,13 @@
   }
 
   :global(.button-icon) {
-    margin-right: 0.25rem;
+    margin: 0;
+  }
+
+  .icon-only {
+    padding: 0.5rem;
+    width: 40px;
+    height: 40px;
+    justify-content: center;
   }
 </style>

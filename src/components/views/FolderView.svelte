@@ -65,7 +65,13 @@
 </section>
 
 <div class="toolbar-fixed">
-  <button type="button" class="secondary" on:click={onDeleteFolder}>
+  <button
+    type="button"
+    class="secondary icon-only"
+    on:click={onDeleteFolder}
+    title="フォルダを削除"
+    aria-label="フォルダを削除"
+  >
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="16"
@@ -83,13 +89,18 @@
       <line x1="10" y1="11" x2="10" y2="17" />
       <line x1="14" y1="11" x2="14" y2="17" />
     </svg>
-    フォルダを削除
   </button>
 
   <div style="flex: 1;"></div>
 
   {#if canHaveSubfolder}
-    <button type="button" class="secondary" on:click={onCreateFolder}>
+    <button
+      type="button"
+      class="secondary icon-only"
+      on:click={onCreateFolder}
+      title="新規サブフォルダ"
+      aria-label="新規サブフォルダ"
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="16"
@@ -106,11 +117,16 @@
         <line x1="12" y1="11" x2="12" y2="17" />
         <line x1="9" y1="14" x2="15" y2="14" />
       </svg>
-      新規サブフォルダ
     </button>
   {/if}
 
-  <button type="button" on:click={onCreateNote}>
+  <button
+    type="button"
+    class="icon-only"
+    on:click={onCreateNote}
+    title="新規ノート"
+    aria-label="新規ノート"
+  >
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="16"
@@ -128,7 +144,6 @@
       <line x1="12" y1="18" x2="12" y2="12" />
       <line x1="9" y1="15" x2="15" y2="15" />
     </svg>
-    新規ノート
   </button>
 </div>
 
@@ -212,6 +227,13 @@
   }
 
   :global(.button-icon) {
-    margin-right: 0.25rem;
+    margin: 0;
+  }
+
+  .icon-only {
+    padding: 0.5rem;
+    width: 40px;
+    height: 40px;
+    justify-content: center;
   }
 </style>
