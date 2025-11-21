@@ -116,6 +116,44 @@
       <div class="form-row">
         <div class="form-field">
           <h3>おまけ</h3>
+          <label>テーマ選択</label>
+          <div class="theme-buttons">
+            <button
+              type="button"
+              class:active={settings.theme === 'yomi'}
+              on:click={() => handleThemeSelect('yomi')}
+            >
+              黄泉
+            </button>
+            <button
+              type="button"
+              class:active={settings.theme === 'campus'}
+              on:click={() => handleThemeSelect('campus')}
+            >
+              キャンパス
+            </button>
+            <button
+              type="button"
+              class:active={settings.theme === 'greenboard'}
+              on:click={() => handleThemeSelect('greenboard')}
+            >
+              緑板
+            </button>
+            <button
+              type="button"
+              class:active={settings.theme === 'whiteboard'}
+              on:click={() => handleThemeSelect('whiteboard')}
+            >
+              ホワイボー
+            </button>
+            <button
+              type="button"
+              class:active={settings.theme === 'dots'}
+              on:click={() => handleThemeSelect('dots')}
+            >
+              ドッツ
+            </button>
+          </div>
           <label for="tool-name">ツール名</label>
           <input
             id="tool-name"
@@ -125,49 +163,6 @@
             on:input={handleToolNameInput}
           />
         </div>
-      </div>
-    </div>
-
-    <hr />
-
-    <div class="form-section">
-      <h3>テーマ選択</h3>
-      <div class="theme-buttons">
-        <button
-          type="button"
-          class:active={settings.theme === 'yomi'}
-          on:click={() => handleThemeSelect('yomi')}
-        >
-          黄泉
-        </button>
-        <button
-          type="button"
-          class:active={settings.theme === 'campus'}
-          on:click={() => handleThemeSelect('campus')}
-        >
-          キャンパス
-        </button>
-        <button
-          type="button"
-          class:active={settings.theme === 'greenboard'}
-          on:click={() => handleThemeSelect('greenboard')}
-        >
-          緑板
-        </button>
-        <button
-          type="button"
-          class:active={settings.theme === 'whiteboard'}
-          on:click={() => handleThemeSelect('whiteboard')}
-        >
-          ホワイボー
-        </button>
-        <button
-          type="button"
-          class:active={settings.theme === 'dots'}
-          on:click={() => handleThemeSelect('dots')}
-        >
-          ドッツ
-        </button>
       </div>
     </div>
 
