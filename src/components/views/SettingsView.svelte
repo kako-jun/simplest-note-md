@@ -85,15 +85,6 @@
         </div>
       </div>
       <div class="test-actions">
-        {#if pullMessage}
-          <span
-            class:test-success={testSuccess}
-            class:test-error={!testSuccess}
-            class="test-message"
-          >
-            {pullMessage}
-          </span>
-        {/if}
         <button
           type="button"
           class="test-button"
@@ -112,6 +103,15 @@
           </svg>
           {pullRunning ? 'Pull中…' : 'Pullテスト'}
         </button>
+        {#if pullMessage}
+          <span
+            class:test-success={testSuccess}
+            class:test-error={!testSuccess}
+            class="test-message"
+          >
+            {pullMessage}
+          </span>
+        {/if}
       </div>
       <div class="form-row">
         <div class="form-field">
@@ -353,7 +353,6 @@
   .test-actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 1rem;
     margin-top: 0.5rem;
   }
