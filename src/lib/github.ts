@@ -3,7 +3,7 @@
  * GitHubへのファイル保存とSHA取得を担当
  */
 
-import type { Note, Folder, Settings } from './types'
+import type { Leaf, Note, Settings } from './types'
 
 export interface SaveResult {
   success: boolean
@@ -18,8 +18,8 @@ export interface TestResult {
 export interface PullResult {
   success: boolean
   message: string
-  folders: Folder[]
   notes: Note[]
+  leaves: Leaf[]
 }
 /**
  * UTF-8テキストをBase64エンコード
@@ -31,24 +31,21 @@ function encodeContent(content: string): string {
 /**
  * フォルダパスを構築
  */
-function getFolderPath(folder: Folder, allFolders: Folder[]): string {
-  const parentFolder = folder.parentId ? allFolders.find((f) => f.id === folder.parentId) : null
+function getFolderPath(note: Note, allNotes: Note[]): string {
+  const parentNote = note.parentId ? allNotes.find((f) => f.id === note.parentId) : null
 
-  if (parentFolder) {
-    return `${parentFolder.name}/${folder.name}`
+  if (parentNote) {
+    return `${parentNote.name}/${note.name}`
   }
-  return folder.name
+  return note.name
 }
 
-/**
- * ノートのGitHubパスを構築
- */
-function buildPath(note: Note, folders: Folder[]): string {
-  const folder = folders.find((f) => f.id === note.folderId)
-  if (!folder) return `notes/${note.title}.md`
+function buildPath(leaf: Leaf, notes: Note[]): string {
+  const note = notes.find((f) => f.id === leaf.noteId)
+  if (!note) return `notes/${leaf.title}.md`
 
-  const folderPath = getFolderPath(folder, folders)
-  return `notes/${folderPath}/${note.title}.md`
+  const folderPath = getFolderPath(note, notes)
+  return `notes/${folderPath}/${leaf.title}.md`
 }
 
 /**
@@ -80,8 +77,8 @@ export async function fetchCurrentSha(path: string, settings: Settings): Promise
  * GitHubにノートを保存
  */
 export async function saveToGitHub(
-  note: Note,
-  folders: Folder[],
+  leaf: Leaf,
+  notes: Note[],
   settings: Settings
 ): Promise<SaveResult> {
   // 設定の検証
@@ -92,8 +89,8 @@ export async function saveToGitHub(
     }
   }
 
-  const path = buildPath(note, folders)
-  const encodedContent = encodeContent(note.content)
+  const path = buildPath(leaf, notes)
+  const encodedContent = encodeContent(leaf.content)
   const sha = await fetchCurrentSha(path, settings)
 
   const body: any = {
@@ -148,14 +145,14 @@ export async function saveToGitHub(
  */
 export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
   if (!settings.token) {
-    return { success: false, message: '❌ トークンが未設定です', folders: [], notes: [] }
+    return { success: false, message: '❌ トークンが未設定です', notes: [], leaves: [] }
   }
   if (!settings.repoName || !settings.repoName.includes('/')) {
     return {
       success: false,
       message: '❌ リポジトリ名が不正です（owner/repo）',
-      folders: [],
       notes: [],
+      leaves: [],
     }
   }
 
@@ -166,22 +163,22 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
   try {
     const repoRes = await fetch(`https://api.github.com/repos/${settings.repoName}`, { headers })
     if (repoRes.status === 404) {
-      return { success: false, message: '❌ リポジトリが見つかりません', folders: [], notes: [] }
+      return { success: false, message: '❌ リポジトリが見つかりません', notes: [], leaves: [] }
     }
     if (repoRes.status === 401 || repoRes.status === 403) {
       return {
         success: false,
         message: '❌ リポジトリへの権限がありません',
-        folders: [],
         notes: [],
+        leaves: [],
       }
     }
     if (!repoRes.ok) {
       return {
         success: false,
         message: `❌ リポジトリ確認に失敗 (${repoRes.status})`,
-        folders: [],
         notes: [],
+        leaves: [],
       }
     }
 
@@ -196,33 +193,33 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
       return {
         success: false,
         message: `❌ ツリー取得に失敗 (${treeRes.status})`,
-        folders: [],
         notes: [],
+        leaves: [],
       }
     }
 
     const treeData = await treeRes.json()
     const entries: { path: string; type: string }[] = treeData.tree || []
 
-    const folderMap = new Map<string, Folder>()
-    const notes: Note[] = []
+    const noteMap = new Map<string, Note>()
+    const leaves: Leaf[] = []
 
-    const ensureFolder = (pathParts: string[]): string => {
+    const ensureNotePath = (pathParts: string[]): string => {
       let parentId: string | undefined
       for (let i = 0; i < pathParts.length; i++) {
         const partial = pathParts.slice(0, i + 1).join('/')
-        if (folderMap.has(partial)) {
-          parentId = folderMap.get(partial)!.id
+        if (noteMap.has(partial)) {
+          parentId = noteMap.get(partial)!.id
           continue
         }
-        const folder: Folder = {
+        const note: Note = {
           id: crypto.randomUUID(),
           name: pathParts[i],
           parentId,
-          order: folderMap.size,
+          order: noteMap.size,
         }
-        folderMap.set(partial, folder)
-        parentId = folder.id
+        noteMap.set(partial, note)
+        parentId = note.id
       }
       return parentId || ''
     }
@@ -239,7 +236,7 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
 
       const fileName = parts.pop()!
       const title = fileName.replace(/\.md$/i, '') || 'Untitled'
-      const folderId = ensureFolder(parts)
+      const noteId = ensureNotePath(parts)
 
       // fetch content
       const contentRes = await fetch(
@@ -257,25 +254,25 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
         }
       }
 
-      notes.push({
+      leaves.push({
         id: crypto.randomUUID(),
         title,
-        folderId,
+        noteId,
         content,
         updatedAt: Date.now(),
-        order: notes.length,
+        order: leaves.length,
       })
     }
 
     return {
       success: true,
       message: '✅ Pull OK',
-      folders: Array.from(folderMap.values()),
-      notes,
+      notes: Array.from(noteMap.values()),
+      leaves,
     }
   } catch (error) {
     console.error('GitHub pull error:', error)
-    return { success: false, message: '❌ ネットワークエラー', folders: [], notes: [] }
+    return { success: false, message: '❌ ネットワークエラー', notes: [], leaves: [] }
   }
 }
 

@@ -1,28 +1,28 @@
 <script lang="ts">
-  import type { Folder, Note } from '../../lib/types'
+  import type { Note, Leaf } from '../../lib/types'
 
-  export let currentFolder: Folder
-  export let subfolders: Folder[]
-  export let notes: Note[]
-  export let onSelectFolder: (folder: Folder) => void
+  export let currentNote: Note
+  export let subNotes: Note[]
+  export let leaves: Leaf[]
   export let onSelectNote: (note: Note) => void
-  export let onCreateFolder: () => void
+  export let onSelectLeaf: (leaf: Leaf) => void
   export let onCreateNote: () => void
-  export let onDeleteFolder: () => void
-  export let onDragStartFolder: (folder: Folder) => void
+  export let onCreateLeaf: () => void
+  export let onDeleteNote: () => void
   export let onDragStartNote: (note: Note) => void
+  export let onDragStartLeaf: (leaf: Leaf) => void
   export let onDragOver: (e: DragEvent) => void
-  export let onDropFolder: (folder: Folder) => void
   export let onDropNote: (note: Note) => void
-  export let getFolderItems: (folderId: string) => string[]
+  export let onDropLeaf: (leaf: Leaf) => void
+  export let getNoteItems: (noteId: string) => string[]
   export let disabled: boolean = false
 
-  const canHaveSubfolder = !currentFolder.parentId
+  const canHaveSubNote = !currentNote.parentId
 </script>
 
 <section class="view-container">
   <div class="card-grid">
-    {#each subfolders as subfolder (subfolder.id)}
+    {#each subNotes as subNote (subNote.id)}
       <!-- svelte-ignore a11y-click-events-have-key-events -->
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <div
@@ -30,20 +30,20 @@
         draggable="true"
         role="button"
         tabindex="0"
-        on:dragstart={() => onDragStartFolder(subfolder)}
+        on:dragstart={() => onDragStartNote(subNote)}
         on:dragover={onDragOver}
-        on:drop|preventDefault={() => onDropFolder(subfolder)}
-        on:click={() => onSelectFolder(subfolder)}
+        on:drop|preventDefault={() => onDropNote(subNote)}
+        on:click={() => onSelectNote(subNote)}
       >
-        <strong>{subfolder.name}</strong>
+        <strong>{subNote.name}</strong>
         <div class="card-meta">
-          {#each getFolderItems(subfolder.id) as item}
+          {#each getNoteItems(subNote.id) as item}
             <small class="folder-item">{item}</small>
           {/each}
         </div>
       </div>
     {/each}
-    {#each notes as note (note.id)}
+    {#each leaves as leaf (leaf.id)}
       <!-- svelte-ignore a11y-click-events-have-key-events -->
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <div
@@ -51,14 +51,14 @@
         draggable="true"
         role="button"
         tabindex="0"
-        on:dragstart={() => onDragStartNote(note)}
+        on:dragstart={() => onDragStartLeaf(leaf)}
         on:dragover={onDragOver}
-        on:drop|preventDefault={() => onDropNote(note)}
-        on:click={() => onSelectNote(note)}
+        on:drop|preventDefault={() => onDropLeaf(leaf)}
+        on:click={() => onSelectLeaf(leaf)}
       >
-        <strong>{note.title}</strong>
+        <strong>{leaf.title}</strong>
         <div class="card-meta">
-          <small>更新: {new Date(note.updatedAt).toLocaleDateString()}</small>
+          <small>更新: {new Date(leaf.updatedAt).toLocaleDateString()}</small>
         </div>
       </div>
     {/each}
@@ -69,9 +69,9 @@
   <button
     type="button"
     class="secondary icon-only"
-    on:click={onDeleteFolder}
-    title="フォルダを削除"
-    aria-label="フォルダを削除"
+    on:click={onDeleteNote}
+    title="ノートを削除"
+    aria-label="ノートを削除"
     {disabled}
   >
     <svg
@@ -95,13 +95,13 @@
 
   <div style="flex: 1;"></div>
 
-  {#if canHaveSubfolder}
+  {#if canHaveSubNote}
     <button
       type="button"
       class="secondary icon-only"
-      on:click={onCreateFolder}
-      title="新規サブフォルダ"
-      aria-label="新規サブフォルダ"
+      on:click={onCreateNote}
+      title="新規サブノート"
+      aria-label="新規サブノート"
       {disabled}
     >
       <svg
@@ -126,9 +126,9 @@
   <button
     type="button"
     class="icon-only"
-    on:click={onCreateNote}
-    title="新規ノート"
-    aria-label="新規ノート"
+    on:click={onCreateLeaf}
+    title="新規リーフ"
+    aria-label="新規リーフ"
     {disabled}
   >
     <svg

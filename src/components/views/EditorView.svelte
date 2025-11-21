@@ -1,8 +1,8 @@
 <script lang="ts">
   import MarkdownEditor from '../editor/MarkdownEditor.svelte'
-  import type { Note, ThemeType } from '../../lib/types'
+  import type { Leaf, ThemeType } from '../../lib/types'
 
-  export let note: Note
+  export let note: Leaf
   export let theme: ThemeType
   export let onContentChange: (content: string) => void
   export let onSave: () => void
@@ -20,8 +20,8 @@
     type="button"
     class="secondary icon-only"
     on:click={onDelete}
-    title="ノートを削除"
-    aria-label="ノートを削除"
+    title="リーフを削除"
+    aria-label="リーフを削除"
     {disabled}
   >
     <svg

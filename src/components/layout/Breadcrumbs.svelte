@@ -79,11 +79,11 @@
             {crumb.label}
           {/if}
         </button>
-        {#if index === breadcrumbs.length - 1 && (crumb.type === 'folder' || crumb.type === 'note')}
+        {#if index === breadcrumbs.length - 1 && (crumb.type === 'note' || crumb.type === 'leaf')}
           <button
             class="edit-button"
             on:click={() => handleStartEdit(crumb)}
-            title={crumb.type === 'note' ? 'ノート名を編集' : 'フォルダ名を編集'}
+            title={crumb.type === 'leaf' ? 'リーフ名を編集' : 'ノート名を編集'}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

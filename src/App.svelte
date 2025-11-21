@@ -1,23 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { get } from 'svelte/store'
-  import type { Folder, Note, Breadcrumb, View } from './lib/types'
+  import type { Note, Leaf, Breadcrumb, View } from './lib/types'
   import {
     settings,
-    folders,
     notes,
+    leaves,
     currentView,
-    currentFolder,
     currentNote,
-    rootFolders,
-    subfolders,
-    currentFolderNotes,
+    currentLeaf,
+    rootNotes,
+    subNotes,
+    currentNoteLeaves,
     githubConfigured,
     updateSettings,
-    updateFolders,
     updateNotes,
+    updateLeaves,
   } from './lib/stores'
-  import { clearAllData, loadSettings, loadFolders, loadNotes } from './lib/storage'
+  import { clearAllData, loadSettings, loadNotes, loadLeaves } from './lib/storage'
   import { pullFromGitHub, saveToGitHub } from './lib/github'
   import { applyTheme } from './lib/theme'
   import Header from './components/layout/Header.svelte'
@@ -31,8 +31,8 @@
   // ローカル状態
   let breadcrumbs: Breadcrumb[] = []
   let editingBreadcrumb: string | null = null
-  let draggedFolder: Folder | null = null
   let draggedNote: Note | null = null
+  let draggedLeaf: Leaf | null = null
   let pullRunning = false
   let isOperationsLocked = true
   let pullToast = ''
@@ -47,7 +47,7 @@
   let modalCallback: (() => void) | null = null
 
   // リアクティブ宣言
-  $: breadcrumbs = getBreadcrumbs($currentView, $currentFolder, $currentNote, $folders)
+  $: breadcrumbs = getBreadcrumbs($currentView, $currentNote, $currentLeaf, $notes)
   $: isGitHubConfigured = $githubConfigured
   $: document.title = $settings.toolName
 
@@ -58,9 +58,9 @@
     applyTheme(loadedSettings.theme, loadedSettings)
     document.title = loadedSettings.toolName
     ;(async () => {
-      const [loadedFolders, loadedNotes] = await Promise.all([loadFolders(), loadNotes()])
-      folders.set(loadedFolders)
+      const [loadedNotes, loadedLeaves] = await Promise.all([loadNotes(), loadLeaves()])
       notes.set(loadedNotes)
+      leaves.set(loadedLeaves)
       await handlePull(true)
     })()
   })
@@ -104,8 +104,8 @@
       await handleCloseSettings()
     }
     currentView.set('home')
-    currentFolder.set(null)
     currentNote.set(null)
+    currentLeaf.set(null)
   }
 
   async function goSettings() {
@@ -123,9 +123,9 @@
   // パンくずリスト
   function getBreadcrumbs(
     view: View,
-    folder: Folder | null,
     note: Note | null,
-    allFolders: Folder[]
+    leaf: Leaf | null,
+    allNotes: Note[]
   ): Breadcrumb[] {
     const crumbs: Breadcrumb[] = []
 
@@ -146,30 +146,30 @@
       return crumbs
     }
 
-    if (folder) {
-      const parentFolder = allFolders.find((f) => f.id === folder.parentId)
-      if (parentFolder) {
+    if (note) {
+      const parentNote = allNotes.find((f) => f.id === note.parentId)
+      if (parentNote) {
         crumbs.push({
-          label: parentFolder.name,
-          action: () => selectFolder(parentFolder),
-          id: parentFolder.id,
-          type: 'folder',
+          label: parentNote.name,
+          action: () => selectNote(parentNote),
+          id: parentNote.id,
+          type: 'note',
         })
       }
       crumbs.push({
-        label: folder.name,
-        action: () => selectFolder(folder),
-        id: folder.id,
-        type: 'folder',
+        label: note.name,
+        action: () => selectNote(note),
+        id: note.id,
+        type: 'note',
       })
     }
 
-    if (note) {
+    if (leaf) {
       crumbs.push({
-        label: note.title,
+        label: leaf.title,
         action: () => {},
-        id: note.id,
-        type: 'note',
+        id: leaf.id,
+        type: 'leaf',
       })
     }
 
@@ -182,31 +182,33 @@
   }
 
   function refreshBreadcrumbs() {
-    breadcrumbs = getBreadcrumbs($currentView, $currentFolder, $currentNote, $folders)
+    breadcrumbs = getBreadcrumbs($currentView, $currentNote, $currentLeaf, $notes)
   }
 
   function saveEditBreadcrumb(id: string, newName: string, type: Breadcrumb['type']) {
     if (!newName.trim()) return
 
-    if (type === 'folder') {
-      updateFolderName(id, newName.trim())
-      const updatedFolder = $folders.find((f) => f.id === id)
-      if (updatedFolder && $currentFolder?.id === id) {
-        currentFolder.set(updatedFolder)
-      }
-      if (!$folders.some((f) => f.id === $currentFolder?.id)) {
-        currentFolder.set(null)
-      }
-    } else if (type === 'note') {
-      const allNotes = $notes
-      const updatedNotes = allNotes.map((n) => (n.id === id ? { ...n, title: newName.trim() } : n))
-      updateNotes(updatedNotes)
-      const updatedNote = updatedNotes.find((n) => n.id === id)
+    if (type === 'note') {
+      updateNoteName(id, newName.trim())
+      const updatedNote = $notes.find((f) => f.id === id)
       if (updatedNote && $currentNote?.id === id) {
         currentNote.set(updatedNote)
       }
-      if (!$notes.some((n) => n.id === $currentNote?.id)) {
+      if (!$notes.some((f) => f.id === $currentNote?.id)) {
         currentNote.set(null)
+      }
+    } else if (type === 'leaf') {
+      const allLeaves = $leaves
+      const updatedLeaves = allLeaves.map((n) =>
+        n.id === id ? { ...n, title: newName.trim() } : n
+      )
+      updateLeaves(updatedLeaves)
+      const updatedLeaf = updatedLeaves.find((n) => n.id === id)
+      if (updatedLeaf && $currentLeaf?.id === id) {
+        currentLeaf.set(updatedLeaf)
+      }
+      if (!$leaves.some((n) => n.id === $currentLeaf?.id)) {
+        currentLeaf.set(null)
       }
     }
 
@@ -218,128 +220,28 @@
     editingBreadcrumb = null
   }
 
-  // フォルダ管理
-  function createFolder(parentId?: string) {
+  // ノート管理（束）
+  function createNote(parentId?: string) {
     if (isOperationsLocked) return
-    const allFolders = $folders
-    const targetFolders = parentId
-      ? allFolders.filter((f) => f.parentId === parentId)
-      : allFolders.filter((f) => !f.parentId)
-
-    const newFolder: Folder = {
-      id: crypto.randomUUID(),
-      name: `フォルダ${targetFolders.length + 1}`,
-      parentId: parentId || undefined,
-      order: targetFolders.length,
-    }
-
-    updateFolders([...allFolders, newFolder])
-  }
-
-  function selectFolder(folder: Folder) {
-    currentFolder.set(folder)
-    currentNote.set(null)
-    currentView.set('folder')
-  }
-
-  function deleteFolder() {
-    if (isOperationsLocked) {
-      showAlert('初回Pullが完了するまで操作できません。設定からPullしてください。')
-      return
-    }
-    if (!$currentFolder) return
-
-    const allFolders = $folders
     const allNotes = $notes
-    const hasSubfolders = allFolders.some((f) => f.parentId === $currentFolder!.id)
-    const hasNotes = allNotes.some((n) => n.folderId === $currentFolder!.id)
-
-    if (hasSubfolders || hasNotes) {
-      showAlert('サブフォルダやノートが含まれているため削除できません。')
-      return
-    }
-
-    showConfirm('このフォルダを削除しますか？', () => {
-      const folderId = $currentFolder!.id
-      const parentId = $currentFolder!.parentId
-      updateFolders(allFolders.filter((f) => f.id !== folderId))
-
-      const parentFolder = allFolders.find((f) => f.id === parentId)
-      if (parentFolder) {
-        selectFolder(parentFolder)
-      } else {
-        goHome()
-      }
-    })
-  }
-
-  function updateFolderName(folderId: string, newName: string) {
-    const allFolders = $folders
-    const updatedFolders = allFolders.map((f) => (f.id === folderId ? { ...f, name: newName } : f))
-    updateFolders(updatedFolders)
-  }
-
-  // ドラッグ&ドロップ（フォルダ）
-  function handleDragStartFolder(folder: Folder) {
-    draggedFolder = folder
-  }
-
-  function handleDragOver(e: DragEvent) {
-    e.preventDefault()
-  }
-
-  function handleDropFolder(targetFolder: Folder) {
-    if (!draggedFolder || draggedFolder.id === targetFolder.id) return
-    if (draggedFolder.parentId !== targetFolder.parentId) return
-
-    const allFolders = $folders
-    const targetList = draggedFolder.parentId
-      ? allFolders.filter((f) => f.parentId === draggedFolder!.parentId)
-      : allFolders.filter((f) => !f.parentId)
-
-    const fromIndex = targetList.findIndex((f) => f.id === draggedFolder!.id)
-    const toIndex = targetList.findIndex((f) => f.id === targetFolder.id)
-
-    const reordered = [...targetList]
-    const [movedItem] = reordered.splice(fromIndex, 1)
-    reordered.splice(toIndex, 0, movedItem)
-
-    const updatedFolders = allFolders.map((f) => {
-      const newOrderIndex = reordered.findIndex((r) => r.id === f.id)
-      if (newOrderIndex !== -1) {
-        return { ...f, order: newOrderIndex }
-      }
-      return f
-    })
-
-    updateFolders(updatedFolders)
-    draggedFolder = null
-  }
-
-  // ノート管理
-  function createNewNote() {
-    if (isOperationsLocked) return
-    if (!$currentFolder) return
-
-    const allNotes = $notes
-    const folderNotes = allNotes.filter((n) => n.folderId === $currentFolder!.id)
+    const targetNotes = parentId
+      ? allNotes.filter((f) => f.parentId === parentId)
+      : allNotes.filter((f) => !f.parentId)
 
     const newNote: Note = {
       id: crypto.randomUUID(),
-      title: `ノート${folderNotes.length + 1}`,
-      folderId: $currentFolder.id,
-      content: '',
-      updatedAt: Date.now(),
-      order: folderNotes.length,
+      name: `ノート${targetNotes.length + 1}`,
+      parentId: parentId || undefined,
+      order: targetNotes.length,
     }
 
     updateNotes([...allNotes, newNote])
-    selectNote(newNote)
   }
 
   function selectNote(note: Note) {
     currentNote.set(note)
-    currentView.set('edit')
+    currentLeaf.set(null)
+    currentView.set('note')
   }
 
   function deleteNote() {
@@ -349,29 +251,34 @@
     }
     if (!$currentNote) return
 
-    showConfirm('このノートを削除しますか？', () => {
-      const allNotes = $notes
-      updateNotes(allNotes.filter((n) => n.id !== $currentNote!.id))
+    const allNotes = $notes
+    const allLeaves = $leaves
+    const hasSubNotes = allNotes.some((f) => f.parentId === $currentNote!.id)
+    const hasLeaves = allLeaves.some((n) => n.noteId === $currentNote!.id)
 
-      const folder = $folders.find((f) => f.id === $currentNote!.folderId)
-      if (folder) {
-        selectFolder(folder)
+    if (hasSubNotes || hasLeaves) {
+      showAlert('サブノートやリーフが含まれているため削除できません。')
+      return
+    }
+
+    showConfirm('このノートを削除しますか？', () => {
+      const noteId = $currentNote!.id
+      const parentId = $currentNote!.parentId
+      updateNotes(allNotes.filter((f) => f.id !== noteId))
+
+      const parentNote = allNotes.find((f) => f.id === parentId)
+      if (parentNote) {
+        selectNote(parentNote)
       } else {
         goHome()
       }
     })
   }
 
-  function updateNoteContent(content: string) {
-    if (isOperationsLocked) return
-    if (!$currentNote) return
-
+  function updateNoteName(noteId: string, newName: string) {
     const allNotes = $notes
-    const updatedNotes = allNotes.map((n) =>
-      n.id === $currentNote!.id ? { ...n, content, updatedAt: Date.now() } : n
-    )
+    const updatedNotes = allNotes.map((f) => (f.id === noteId ? { ...f, name: newName } : f))
     updateNotes(updatedNotes)
-    currentNote.update((n) => (n ? { ...n, content, updatedAt: Date.now() } : n))
   }
 
   // ドラッグ&ドロップ（ノート）
@@ -379,23 +286,118 @@
     draggedNote = note
   }
 
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault()
+  }
+
   function handleDropNote(targetNote: Note) {
     if (!draggedNote || draggedNote.id === targetNote.id) return
-    if (draggedNote.folderId !== targetNote.folderId) return
+    if (draggedNote.parentId !== targetNote.parentId) return
 
     const allNotes = $notes
-    const folderNotes = allNotes
-      .filter((n) => n.folderId === draggedNote!.folderId)
-      .sort((a, b) => a.order - b.order)
+    const targetList = draggedNote.parentId
+      ? allNotes.filter((f) => f.parentId === draggedNote!.parentId)
+      : allNotes.filter((f) => !f.parentId)
 
-    const fromIndex = folderNotes.findIndex((n) => n.id === draggedNote!.id)
-    const toIndex = folderNotes.findIndex((n) => n.id === targetNote.id)
+    const fromIndex = targetList.findIndex((f) => f.id === draggedNote!.id)
+    const toIndex = targetList.findIndex((f) => f.id === targetNote.id)
 
-    const reordered = [...folderNotes]
+    const reordered = [...targetList]
     const [movedItem] = reordered.splice(fromIndex, 1)
     reordered.splice(toIndex, 0, movedItem)
 
-    const updatedNotes = allNotes.map((n) => {
+    const updatedNotes = allNotes.map((f) => {
+      const newOrderIndex = reordered.findIndex((r) => r.id === f.id)
+      if (newOrderIndex !== -1) {
+        return { ...f, order: newOrderIndex }
+      }
+      return f
+    })
+
+    updateNotes(updatedNotes)
+    draggedNote = null
+  }
+
+  // リーフ管理
+  function createLeaf() {
+    if (isOperationsLocked) return
+    if (!$currentNote) return
+
+    const allLeaves = $leaves
+    const noteLeaves = allLeaves.filter((n) => n.noteId === $currentNote!.id)
+
+    const newLeaf: Leaf = {
+      id: crypto.randomUUID(),
+      title: `リーフ${noteLeaves.length + 1}`,
+      noteId: $currentNote.id,
+      content: '',
+      updatedAt: Date.now(),
+      order: noteLeaves.length,
+    }
+
+    updateLeaves([...allLeaves, newLeaf])
+    selectLeaf(newLeaf)
+  }
+
+  function selectLeaf(leaf: Leaf) {
+    currentLeaf.set(leaf)
+    currentView.set('edit')
+  }
+
+  function deleteLeaf() {
+    if (isOperationsLocked) {
+      showAlert('初回Pullが完了するまで操作できません。設定からPullしてください。')
+      return
+    }
+    if (!$currentLeaf) return
+
+    showConfirm('このリーフを削除しますか？', () => {
+      const allLeaves = $leaves
+      updateLeaves(allLeaves.filter((n) => n.id !== $currentLeaf!.id))
+
+      const note = $notes.find((f) => f.id === $currentLeaf!.noteId)
+      if (note) {
+        selectNote(note)
+      } else {
+        goHome()
+      }
+    })
+  }
+
+  function updateLeafContent(content: string) {
+    if (isOperationsLocked) return
+    if (!$currentLeaf) return
+
+    const allLeaves = $leaves
+    const updatedLeaves = allLeaves.map((n) =>
+      n.id === $currentLeaf!.id ? { ...n, content, updatedAt: Date.now() } : n
+    )
+    updateLeaves(updatedLeaves)
+    currentLeaf.update((n) => (n ? { ...n, content, updatedAt: Date.now() } : n))
+  }
+
+  // ドラッグ&ドロップ（リーフ）
+  function handleDragStartLeaf(leaf: Leaf) {
+    draggedLeaf = leaf
+  }
+
+  function handleDropLeaf(targetLeaf: Leaf) {
+    if (!draggedLeaf || draggedLeaf.id === targetLeaf.id) return
+    if (draggedLeaf.noteId !== targetLeaf.noteId) return
+
+    const allLeaves = $leaves
+    const noteLeaves = allLeaves
+      .filter((n) => n.noteId === draggedLeaf!.noteId)
+      .sort((a, b) => a.order - b.order)
+
+    const fromIndex = noteLeaves.findIndex((n) => n.id === draggedLeaf!.id)
+    const toIndex = noteLeaves.findIndex((n) => n.id === targetLeaf.id)
+
+    const reordered = [...noteLeaves]
+    const [movedItem] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, movedItem)
+
+    const updatedLeaves = allLeaves.map((n) => {
       const newOrderIndex = reordered.findIndex((r) => r.id === n.id)
       if (newOrderIndex !== -1) {
         return { ...n, order: newOrderIndex }
@@ -403,36 +405,36 @@
       return n
     })
 
-    updateNotes(updatedNotes)
-    draggedNote = null
+    updateLeaves(updatedLeaves)
+    draggedLeaf = null
   }
 
   // ヘルパー関数
-  function getItemCount(folderId: string): number {
-    const allFolders = $folders
+  function getItemCount(noteId: string): number {
     const allNotes = $notes
-    const subfoldersCount = allFolders.filter((f) => f.parentId === folderId).length
-    const notesCount = allNotes.filter((n) => n.folderId === folderId).length
-    return subfoldersCount + notesCount
+    const allLeaves = $leaves
+    const subNotesCount = allNotes.filter((f) => f.parentId === noteId).length
+    const leavesCount = allLeaves.filter((n) => n.noteId === noteId).length
+    return subNotesCount + leavesCount
   }
 
-  function getNoteCount(folderId: string): number {
-    return $notes.filter((n) => n.folderId === folderId).length
+  function getLeafCount(noteId: string): number {
+    return $leaves.filter((n) => n.noteId === noteId).length
   }
 
-  function getFolderItems(folderId: string): string[] {
-    const allFolders = $folders
+  function getNoteItems(noteId: string): string[] {
     const allNotes = $notes
-    const subfoldersNames = allFolders
-      .filter((f) => f.parentId === folderId)
+    const allLeaves = $leaves
+    const subNotesNames = allNotes
+      .filter((f) => f.parentId === noteId)
       .sort((a, b) => a.order - b.order)
       .map((f) => f.name)
-    const notesNames = allNotes
-      .filter((n) => n.folderId === folderId)
+    const leafNames = allLeaves
+      .filter((n) => n.noteId === noteId)
       .sort((a, b) => a.order - b.order)
       .map((n) => n.title)
 
-    const allItems = [...subfoldersNames, ...notesNames]
+    const allItems = [...subNotesNames, ...leafNames]
     const hasMore = allItems.length > 3
     const items = allItems.slice(0, 3)
 
@@ -449,9 +451,9 @@
       notifyPush(false, '初回Pullが完了するまで保存できません')
       return
     }
-    if (!$currentNote) return
+    if (!$currentLeaf) return
 
-    const result = await saveToGitHub($currentNote, $folders, $settings)
+    const result = await saveToGitHub($currentLeaf, $notes, $settings)
 
     if (result.success) {
       notifyPush(true)
@@ -461,18 +463,18 @@
   }
 
   // ダウンロード
-  function downloadNote() {
+  function downloadLeaf() {
     if (isOperationsLocked) {
       notifyPush(false, '初回Pullが完了するまでダウンロードできません')
       return
     }
-    if (!$currentNote) return
+    if (!$currentLeaf) return
 
-    const blob = new Blob([$currentNote.content], { type: 'text/markdown' })
+    const blob = new Blob([$currentLeaf.content], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${$currentNote.title}.md`
+    a.download = `${$currentLeaf.title}.md`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -509,15 +511,15 @@
 
     // Pullを試行する前に全消し
     await clearAllData()
-    folders.set([])
     notes.set([])
-    currentFolder.set(null)
+    leaves.set([])
     currentNote.set(null)
+    currentLeaf.set(null)
 
     const result = await pullFromGitHub($settings)
     if (result.success) {
-      updateFolders(result.folders)
       updateNotes(result.notes)
+      updateLeaves(result.leaves)
       isOperationsLocked = false
       pullToast = 'Pullしました'
       pullToastVariant = 'success'
@@ -565,42 +567,42 @@
   <main>
     {#if $currentView === 'home'}
       <HomeView
-        folders={$rootFolders}
+        notes={$rootNotes}
         disabled={isOperationsLocked}
-        onSelectFolder={selectFolder}
-        onCreateFolder={() => createFolder()}
-        onDragStart={handleDragStartFolder}
-        onDragOver={handleDragOver}
-        onDrop={handleDropFolder}
-        {getFolderItems}
-      />
-    {:else if $currentView === 'folder' && $currentFolder}
-      <FolderView
-        currentFolder={$currentFolder}
-        subfolders={$subfolders}
-        notes={$currentFolderNotes}
-        disabled={isOperationsLocked}
-        onSelectFolder={selectFolder}
         onSelectNote={selectNote}
-        onCreateFolder={() => createFolder($currentFolder.id)}
-        onCreateNote={createNewNote}
-        onDeleteFolder={deleteFolder}
-        onDragStartFolder={handleDragStartFolder}
-        onDragStartNote={handleDragStartNote}
+        onCreateNote={() => createNote()}
+        onDragStart={handleDragStartNote}
         onDragOver={handleDragOver}
-        onDropFolder={handleDropFolder}
-        onDropNote={handleDropNote}
-        {getFolderItems}
+        onDrop={handleDropNote}
+        {getNoteItems}
       />
-    {:else if $currentView === 'edit' && $currentNote}
+    {:else if $currentView === 'note' && $currentNote}
+      <FolderView
+        currentNote={$currentNote}
+        subNotes={$subNotes}
+        leaves={$currentNoteLeaves}
+        disabled={isOperationsLocked}
+        onSelectNote={selectNote}
+        onSelectLeaf={selectLeaf}
+        onCreateNote={() => createNote($currentNote.id)}
+        onCreateLeaf={createLeaf}
+        onDeleteNote={deleteNote}
+        onDragStartNote={handleDragStartNote}
+        onDragStartLeaf={handleDragStartLeaf}
+        onDragOver={handleDragOver}
+        onDropNote={handleDropNote}
+        onDropLeaf={handleDropLeaf}
+        {getNoteItems}
+      />
+    {:else if $currentView === 'edit' && $currentLeaf}
       <EditorView
-        note={$currentNote}
+        note={$currentLeaf}
         theme={$settings.theme}
         disabled={isOperationsLocked}
-        onContentChange={updateNoteContent}
+        onContentChange={updateLeafContent}
         onSave={handleSaveToGitHub}
-        onDownload={downloadNote}
-        onDelete={deleteNote}
+        onDownload={downloadLeaf}
+        onDelete={deleteLeaf}
       />
     {:else if $currentView === 'settings'}
       <SettingsView

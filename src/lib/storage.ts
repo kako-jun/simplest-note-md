@@ -3,14 +3,14 @@
  * アプリケーションデータの永続化を担当
  */
 
-import type { Settings, Folder, Note, ThemeType } from './types'
+import type { Settings, Note, Leaf, ThemeType } from './types'
 
 // 設定のみLocalStorage利用（キー簡素化）
 const SETTINGS_KEY = 'simplest-md-note'
 const THEME_OPTIONS: ThemeType[] = ['yomi', 'campus', 'greenboard', 'whiteboard', 'dotsD', 'dotsF']
 const DB_NAME = 'simplest-md-note/db'
+const LEAVES_STORE = 'leaves'
 const NOTES_STORE = 'notes'
-const FOLDERS_STORE = 'folders'
 
 export const defaultSettings: Settings = {
   token: '',
@@ -55,7 +55,7 @@ export function saveSettings(settings: Settings): void {
 }
 
 /**
- * IndexedDBを開く（notes/folders用）
+ * IndexedDBを開く（note/leaves用）
  */
 async function openAppDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -63,11 +63,11 @@ async function openAppDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = () => {
       const db = request.result
+      if (!db.objectStoreNames.contains(LEAVES_STORE)) {
+        db.createObjectStore(LEAVES_STORE, { keyPath: 'id' })
+      }
       if (!db.objectStoreNames.contains(NOTES_STORE)) {
         db.createObjectStore(NOTES_STORE, { keyPath: 'id' })
-      }
-      if (!db.objectStoreNames.contains(FOLDERS_STORE)) {
-        db.createObjectStore(FOLDERS_STORE, { keyPath: 'id' })
       }
     }
 
@@ -122,10 +122,37 @@ function replaceAllInStore<T extends { id: string }>(
 /**
  * ノートを読み込む（IndexedDB）
  */
+export async function loadLeaves(): Promise<Leaf[]> {
+  try {
+    const db = await openAppDB()
+    return await getAllFromStore<Leaf>(db, LEAVES_STORE)
+  } catch (error) {
+    console.error('Failed to load leaves from IndexedDB:', error)
+    return []
+  }
+}
+
+/**
+ * リーフを保存
+ */
+export async function saveLeaves(notes: Leaf[]): Promise<void> {
+  try {
+    const db = await openAppDB()
+    await replaceAllInStore<Leaf>(db, LEAVES_STORE, notes)
+  } catch (error) {
+    console.error('Failed to save leaves to IndexedDB:', error)
+  }
+}
+
+/**
+ * ノートを読み込む
+ */
 export async function loadNotes(): Promise<Note[]> {
   try {
     const db = await openAppDB()
-    return await getAllFromStore<Note>(db, NOTES_STORE)
+    const notes = await getAllFromStore<Note>(db, NOTES_STORE)
+    // orderが欠けていたら付与
+    return notes.map((note, index) => (note.order === undefined ? { ...note, order: index } : note))
   } catch (error) {
     console.error('Failed to load notes from IndexedDB:', error)
     return []
@@ -145,42 +172,13 @@ export async function saveNotes(notes: Note[]): Promise<void> {
 }
 
 /**
- * フォルダを読み込む
- */
-export async function loadFolders(): Promise<Folder[]> {
-  try {
-    const db = await openAppDB()
-    const folders = await getAllFromStore<Folder>(db, FOLDERS_STORE)
-    // orderが欠けていたら付与
-    return folders.map((folder, index) =>
-      folder.order === undefined ? { ...folder, order: index } : folder
-    )
-  } catch (error) {
-    console.error('Failed to load folders from IndexedDB:', error)
-    return []
-  }
-}
-
-/**
- * フォルダを保存
- */
-export async function saveFolders(folders: Folder[]): Promise<void> {
-  try {
-    const db = await openAppDB()
-    await replaceAllInStore<Folder>(db, FOLDERS_STORE, folders)
-  } catch (error) {
-    console.error('Failed to save folders to IndexedDB:', error)
-  }
-}
-
-/**
  * 全データを削除（notes/foldersストアをクリア）
  */
 export async function clearAllData(): Promise<void> {
   try {
     const db = await openAppDB()
+    await replaceAllInStore<Leaf>(db, LEAVES_STORE, [])
     await replaceAllInStore<Note>(db, NOTES_STORE, [])
-    await replaceAllInStore<Folder>(db, FOLDERS_STORE, [])
   } catch (error) {
     console.error('Failed to clear data in IndexedDB:', error)
   }

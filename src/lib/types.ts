@@ -7,7 +7,7 @@ export type UUID = string
 
 export type ThemeType = 'yomi' | 'campus' | 'greenboard' | 'whiteboard' | 'dotsD' | 'dotsF'
 
-export type View = 'home' | 'settings' | 'edit' | 'folder'
+export type View = 'home' | 'settings' | 'edit' | 'note'
 
 export interface Settings {
   token: string
@@ -18,17 +18,17 @@ export interface Settings {
   toolName: string
 }
 
-export interface Folder {
+export interface Note {
   id: UUID
   name: string
   parentId?: UUID
   order: number
 }
 
-export interface Note {
+export interface Leaf {
   id: UUID
   title: string
-  folderId: UUID
+  noteId: UUID
   content: string
   updatedAt: number
   order: number
@@ -38,7 +38,7 @@ export interface Breadcrumb {
   label: string
   action: () => void
   id: UUID
-  type: 'home' | 'folder' | 'note' | 'settings'
+  type: 'home' | 'note' | 'leaf' | 'settings'
 }
 
 export type ModalType = 'confirm' | 'alert'

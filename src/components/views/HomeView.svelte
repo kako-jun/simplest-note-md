@@ -1,19 +1,19 @@
 <script lang="ts">
-  import type { Folder } from '../../lib/types'
+  import type { Note } from '../../lib/types'
 
-  export let folders: Folder[]
-  export let onSelectFolder: (folder: Folder) => void
-  export let onCreateFolder: () => void
-  export let onDragStart: (folder: Folder) => void
+  export let notes: Note[]
+  export let onSelectNote: (note: Note) => void
+  export let onCreateNote: () => void
+  export let onDragStart: (note: Note) => void
   export let onDragOver: (e: DragEvent) => void
-  export let onDrop: (folder: Folder) => void
-  export let getFolderItems: (folderId: string) => string[]
+  export let onDrop: (note: Note) => void
+  export let getNoteItems: (noteId: string) => string[]
   export let disabled: boolean = false
 </script>
 
 <section class="view-container">
   <div class="card-grid">
-    {#each folders as folder (folder.id)}
+    {#each notes as note (note.id)}
       <!-- svelte-ignore a11y-click-events-have-key-events -->
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <div
@@ -21,14 +21,14 @@
         draggable="true"
         role="button"
         tabindex="0"
-        on:dragstart={() => onDragStart(folder)}
+        on:dragstart={() => onDragStart(note)}
         on:dragover={onDragOver}
-        on:drop|preventDefault={() => onDrop(folder)}
-        on:click={() => onSelectFolder(folder)}
+        on:drop|preventDefault={() => onDrop(note)}
+        on:click={() => onSelectNote(note)}
       >
-        <strong>{folder.name}</strong>
+        <strong>{note.name}</strong>
         <div class="card-meta">
-          {#each getFolderItems(folder.id) as item}
+          {#each getNoteItems(note.id) as item}
             <small class="folder-item">{item}</small>
           {/each}
         </div>
@@ -41,10 +41,10 @@
   <button
     type="button"
     class="icon-only"
-    on:click={onCreateFolder}
-    title="新規フォルダ"
+    on:click={onCreateNote}
+    title="新規ノート"
     {disabled}
-    aria-label="新規フォルダ"
+    aria-label="新規ノート"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
