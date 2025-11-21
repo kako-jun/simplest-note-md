@@ -155,6 +155,10 @@
     editingBreadcrumb = crumb.id
   }
 
+  function refreshBreadcrumbs() {
+    breadcrumbs = getBreadcrumbs($currentView, $currentFolder, $currentNote, $folders)
+  }
+
   function saveEditBreadcrumb(id: string, newName: string, type: Breadcrumb['type']) {
     if (!newName.trim()) return
 
@@ -174,6 +178,7 @@
       }
     }
 
+    refreshBreadcrumbs()
     editingBreadcrumb = null
   }
 
