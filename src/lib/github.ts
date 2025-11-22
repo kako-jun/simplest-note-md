@@ -192,7 +192,33 @@ export async function pushAllWithTreeAPI(
     const commitData = await commitRes.json()
     const baseTreeSha = commitData.tree.sha
 
-    // 4. 新しいTreeを構築（notes/配下を全て定義）
+    // 4. GitHub上の既存notes/配下のファイルリストを取得（削除検出用）
+    const existingTreeRes = await fetch(
+      `https://api.github.com/repos/${settings.repoName}/git/trees/${branch}?recursive=1`,
+      { headers }
+    )
+    const existingGitHubFiles = new Set<string>()
+    if (existingTreeRes.ok) {
+      const existingTreeData = await existingTreeRes.json()
+      const entries: { path: string; type: string }[] = existingTreeData.tree || []
+      // notes/配下のファイルのみを記録
+      for (const entry of entries) {
+        if (entry.type === 'blob' && entry.path.startsWith('notes/')) {
+          existingGitHubFiles.add(entry.path)
+        }
+      }
+    }
+
+    // 5. ローカルのファイルパスリストを構築
+    const localFilePaths = new Set<string>()
+    localFilePaths.add('notes/.gitkeep') // 必ず含める
+
+    for (const leaf of leaves) {
+      const path = buildPath(leaf, notes)
+      localFilePaths.add(path)
+    }
+
+    // 6. 新しいTreeを構築
     const treeItems: Array<{
       path: string
       mode: string
@@ -220,8 +246,20 @@ export async function pushAllWithTreeAPI(
       })
     }
 
-    // 5. 新しいTreeを作成
-    const treeRes = await fetch(`https://api.github.com/repos/${settings.repoName}/git/trees`, {
+    // GitHub上にあるがローカルにないファイルを削除指定
+    for (const githubPath of existingGitHubFiles) {
+      if (!localFilePaths.has(githubPath)) {
+        treeItems.push({
+          path: githubPath,
+          mode: '100644',
+          type: 'blob',
+          sha: null, // 削除を指定
+        })
+      }
+    }
+
+    // 7. 新しいTreeを作成
+    const newTreeRes = await fetch(`https://api.github.com/repos/${settings.repoName}/git/trees`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -229,14 +267,14 @@ export async function pushAllWithTreeAPI(
         tree: treeItems,
       }),
     })
-    if (!treeRes.ok) {
-      const error = await treeRes.json()
+    if (!newTreeRes.ok) {
+      const error = await newTreeRes.json()
       return { success: false, message: `❌ Tree作成失敗: ${error.message}` }
     }
-    const treeData = await treeRes.json()
-    const newTreeSha = treeData.sha
+    const newTreeData = await newTreeRes.json()
+    const newTreeSha = newTreeData.sha
 
-    // 6. 新しいコミットを作成
+    // 8. 新しいコミットを作成
     const newCommitRes = await fetch(
       `https://api.github.com/repos/${settings.repoName}/git/commits`,
       {
@@ -264,7 +302,7 @@ export async function pushAllWithTreeAPI(
     const newCommitData = await newCommitRes.json()
     const newCommitSha = newCommitData.sha
 
-    // 7. ブランチのリファレンスを更新
+    // 9. ブランチのリファレンスを更新
     const updateRefRes = await fetch(
       `https://api.github.com/repos/${settings.repoName}/git/refs/heads/${branch}`,
       {
