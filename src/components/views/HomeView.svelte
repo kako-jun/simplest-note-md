@@ -41,7 +41,13 @@
 
 <Footer>
   <svelte:fragment slot="left">
-    <button type="button" on:click={onCreateNote} title="新規ノート" aria-label="新規ノート">
+    <button
+      type="button"
+      on:click={onCreateNote}
+      title="新規ノート"
+      aria-label="新規ノート"
+      {disabled}
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="16"
