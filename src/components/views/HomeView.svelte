@@ -38,18 +38,19 @@
 </section>
 
 <div class="toolbar-fixed">
+  <div style="flex: 1;"></div>
+
   <button
     type="button"
     class="icon-only"
     on:click={onCreateNote}
     title="新規ノート"
-    {disabled}
     aria-label="新規ノート"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="20"
+      height="20"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -113,30 +114,44 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--bg-primary);
-    border-top: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(0, 0, 0, 0.15);
     padding: 0.75rem 1rem;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
     z-index: 10;
     display: flex;
-    justify-content: flex-end;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  :global([data-theme='campus']) .toolbar-fixed,
+  :global([data-theme='whiteboard']) .toolbar-fixed {
+    background: rgba(255, 255, 255, 0.7);
+    border-top: 1px solid rgba(0, 0, 0, 0.15);
+  }
+
+  :global([data-theme='greenboard']) .toolbar-fixed,
+  :global([data-theme='dotsD']) .toolbar-fixed,
+  :global([data-theme='dotsF']) .toolbar-fixed {
+    background: rgba(0, 0, 0, 0.4);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
   }
 
   button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: var(--text-primary);
     display: flex;
     align-items: center;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 4px;
-    background: var(--accent-color);
-    color: white;
-    cursor: pointer;
-    font-size: 0.9rem;
+    justify-content: center;
     transition: opacity 0.2s;
   }
 
   button:hover {
-    opacity: 0.9;
+    opacity: 0.7;
   }
 
   :global(.button-icon) {
@@ -144,10 +159,12 @@
   }
 
   .icon-only {
-    padding: 0.5rem;
-    width: 40px;
-    height: 40px;
-    justify-content: center;
+    padding: 0.25rem;
+    color: var(--accent-color);
+  }
+
+  .icon-only:hover {
+    opacity: 0.7;
   }
 
   button:disabled {
