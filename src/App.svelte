@@ -164,7 +164,7 @@
   }
 
   function notifyPush(success: boolean, message?: string) {
-    showPushToast(message ?? (success ? 'プッシュしました' : 'プッシュに失敗しました'))
+    showPushToast(message ?? (success ? 'Pushしました' : 'Pushに失敗しました'))
     pushToastVariant = success ? 'success' : 'error'
   }
 

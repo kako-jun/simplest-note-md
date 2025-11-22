@@ -487,16 +487,95 @@ Folder (id: uuid-1, parentId: null)         // ルートフォルダ
 
 ## 状態管理とデータフロー
 
+### データ永続化の仕様
+
+SimplestNote.mdは、データを2つの異なるストレージに保存します。
+
+#### LocalStorage
+
+**保存対象:**
+
+- 設定情報（Settings）のみ
+  - GitHubトークン
+  - リポジトリ名
+  - コミット用ユーザー名・メールアドレス
+  - テーマ設定
+  - カスタムテーマ設定
+  - ツール名
+
+**保存タイミング:**
+
+- 設定画面内での操作時に即座に反映
+
+**重要:** 設定情報はGitHubには同期されません。デバイスローカルのみです。
+
+#### IndexedDB
+
+**保存対象:**
+
+- ノート（Note）データ
+- リーフ（Leaf）データ
+
+**保存タイミング:**
+
+- ノート/リーフの作成・削除・編集時に即座に反映
+- ノート名の変更時
+- リーフタイトル・コンテンツの変更時
+- ドラッグ&ドロップによる並び替え時
+
+#### GitHub（リモートリポジトリ）
+
+**Push対象:**
+
+- 全ノート
+- 全リーフ
+
+**Pushタイミング:**
+
+1. 保存ボタンを押したとき
+   - 全リーフをGitHubにPush
+   - 処理フロー: 「Pushします」→ Push実行 → 結果表示
+2. 設定ボタンを押したとき（設定画面を開くとき）
+   - 全リーフをGitHubにPush
+   - 処理フロー: 「Pushします」→ Push実行 → 結果表示
+
+**Pullタイミング:**
+
+1. 初回Pull（アプリ起動時）
+   - 処理フロー: 「Pullします」→ Pull実行 → 結果表示
+2. Pullテストボタンを押したとき
+   - 処理フロー: 「Pullします」→ Pull実行 → 結果表示
+3. 設定画面を閉じたとき
+   - 処理フロー: 「Pullします」→ Pull実行 → 結果表示
+
+**重要:** 設定情報はGitHubには含まれません。ノートとリーフのMarkdownファイルのみが同期されます。
+
 ### データフローパターン
 
 ```
 User Action
     ↓
-Event Handler (e.g., createNewNote)
+Event Handler (e.g., createNote, updateLeafContent)
     ↓
 State Update (notes = [...notes, newNote])
     ↓
-Persist to LocalStorage (persistNotes)
+Persist to IndexedDB (updateNotes, updateLeaves)
+    ↓
+Svelte Reactive System ($:)
+    ↓
+UI Re-render
+```
+
+**設定変更の場合:**
+
+```
+User Action (設定画面での操作)
+    ↓
+Event Handler (handleSettingsChange)
+    ↓
+State Update (settings = { ...settings, ...payload })
+    ↓
+Persist to LocalStorage (updateSettings)
     ↓
 Svelte Reactive System ($:)
     ↓
@@ -509,34 +588,33 @@ UI Re-render
 
 ```typescript
 onMount(() => {
-  // 1. 設定の読み込み
-  const storedSettings = localStorage.getItem(SETTINGS_KEY)
-  if (storedSettings) {
-    settings = { ...settings, ...JSON.parse(storedSettings) }
+  // 1. LocalStorageから設定の読み込み
+  const loadedSettings = loadSettings()
+  settings.set(loadedSettings)
+  applyTheme(loadedSettings.theme, loadedSettings)
+  document.title = loadedSettings.toolName
+  ;(async () => {
+    // 2. IndexedDBからノートとリーフの読み込み
+    const [loadedNotes, loadedLeaves] = await Promise.all([loadNotes(), loadLeaves()])
+    notes.set(loadedNotes)
+    leaves.set(loadedLeaves)
+
+    // 3. 初回Pull（GitHubからデータを取得してIndexedDBに保存）
+    await handlePull(true)
+
+    // 4. URLから状態を復元（ディープリンク対応）
+    restoreStateFromUrl()
+  })()
+
+  // 5. ブラウザの戻る/進むボタンに対応
+  const handlePopState = () => {
+    restoreStateFromUrl()
   }
-  applyTheme(settings.theme)
+  window.addEventListener('popstate', handlePopState)
 
-  // 2. フォルダの読み込み + 後方互換性処理
-  const storedFolders = localStorage.getItem(FOLDERS_KEY)
-  if (storedFolders) {
-    const parsedFolders = JSON.parse(storedFolders)
-    // orderフィールドがない場合は追加
-    const updatedFolders = parsedFolders.map((folder, index) => {
-      if (folder.order === undefined) {
-        return { ...folder, order: index }
-      }
-      return folder
-    })
-    folders = updatedFolders
-    persistFolders() // 更新があれば保存
+  return () => {
+    window.removeEventListener('popstate', handlePopState)
   }
-
-  // 3. ノートの読み込み（同様に後方互換性処理）
-  const storedNotes = localStorage.getItem(NOTES_KEY)
-  // ... 同様の処理
-
-  // 4. エディタの初期化
-  initializeEditor()
 })
 ```
 
@@ -544,62 +622,146 @@ onMount(() => {
 
 #### Create（作成）
 
+**ノートの作成:**
+
 ```typescript
-function createFolder() {
-  const newFolder: Folder = {
+function createNote(parentId?: string) {
+  if (isOperationsLocked) return
+  const allNotes = $notes
+  const targetNotes = parentId
+    ? allNotes.filter((f) => f.parentId === parentId)
+    : allNotes.filter((f) => !f.parentId)
+
+  const newNote: Note = {
     id: crypto.randomUUID(),
-    name: `フォルダ${rootFolders.length + 1}`,
-    parentId: currentFolder?.id,
-    order: (currentFolder ? subfolders : rootFolders).length,
+    name: `ノート${targetNotes.length + 1}`,
+    parentId: parentId || undefined,
+    order: targetNotes.length,
   }
-  folders = [...folders, newFolder] // イミュータブル更新
-  persistFolders()
+
+  updateNotes([...allNotes, newNote]) // IndexedDBに保存
+}
+```
+
+**リーフの作成:**
+
+```typescript
+function createLeaf() {
+  if (isOperationsLocked) return
+  if (!$currentNote) return
+
+  const allLeaves = $leaves
+  const noteLeaves = allLeaves.filter((n) => n.noteId === $currentNote!.id)
+
+  const newLeaf: Leaf = {
+    id: crypto.randomUUID(),
+    title: `リーフ${noteLeaves.length + 1}`,
+    noteId: $currentNote.id,
+    content: '',
+    updatedAt: Date.now(),
+    order: noteLeaves.length,
+  }
+
+  updateLeaves([...allLeaves, newLeaf]) // IndexedDBに保存
+  selectLeaf(newLeaf)
 }
 ```
 
 #### Read（読み取り）
 
-リアクティブ宣言によって自動的に計算。
+リアクティブ宣言（Derived Stores）によって自動的に計算。
 
 ```typescript
-$: currentFolderNotes = currentFolder
-  ? notes.filter((n) => n.folderId === currentFolder.id).sort((a, b) => a.order - b.order)
-  : []
+// ルートノート（parentIdがないもの）
+export const rootNotes = derived(notes, ($notes) =>
+  $notes.filter((f) => !f.parentId).sort((a, b) => a.order - b.order)
+)
+
+// 現在のノート内のリーフ
+export const currentNoteLeaves = derived([leaves, currentNote], ([$leaves, $currentNote]) =>
+  $currentNote
+    ? $leaves.filter((n) => n.noteId === $currentNote.id).sort((a, b) => a.order - b.order)
+    : []
+)
 ```
 
 #### Update（更新）
 
+**ノート名の更新:**
+
 ```typescript
-function updateFolderName(folderId: string, newName: string) {
-  folders = folders.map((f) => (f.id === folderId ? { ...f, name: newName } : f))
-  persistFolders()
-  breadcrumbs = getBreadcrumbs() // パンくず更新
+function updateNoteName(noteId: string, newName: string) {
+  const allNotes = $notes
+  const updatedNotes = allNotes.map((f) => (f.id === noteId ? { ...f, name: newName } : f))
+  updateNotes(updatedNotes) // IndexedDBに保存
+}
+```
+
+**リーフコンテンツの更新:**
+
+```typescript
+function updateLeafContent(content: string) {
+  if (isOperationsLocked) return
+  if (!$currentLeaf) return
+
+  const allLeaves = $leaves
+  const updatedLeaves = allLeaves.map((n) =>
+    n.id === $currentLeaf!.id ? { ...n, content, updatedAt: Date.now() } : n
+  )
+  updateLeaves(updatedLeaves) // IndexedDBに保存
+  currentLeaf.update((n) => (n ? { ...n, content, updatedAt: Date.now() } : n))
 }
 ```
 
 #### Delete（削除）
 
+**ノートの削除:**
+
 ```typescript
-function deleteFolder() {
-  if (!currentFolder) return
+function deleteNote() {
+  if (isOperationsLocked) return
+  if (!$currentNote) return
 
-  // 削除防止チェック
-  const hasSubfolders = folders.some((f) => f.parentId === currentFolder.id)
-  const hasNotes = notes.some((n) => n.folderId === currentFolder.id)
+  const allNotes = $notes
+  const allLeaves = $leaves
+  const hasSubNotes = allNotes.some((f) => f.parentId === $currentNote!.id)
+  const hasLeaves = allLeaves.some((n) => n.noteId === $currentNote!.id)
 
-  if (hasSubfolders || hasNotes) {
-    showAlert('サブフォルダやノートが含まれているため削除できません。')
+  if (hasSubNotes || hasLeaves) {
+    showAlert('サブノートやリーフが含まれているため削除できません。')
     return
   }
 
-  showConfirm('このフォルダを削除しますか？', () => {
-    folders = folders.filter((f) => f.id !== currentFolder!.id)
-    persistFolders()
+  showConfirm('このノートを削除しますか？', () => {
+    const noteId = $currentNote!.id
+    const parentId = $currentNote!.parentId
+    updateNotes(allNotes.filter((f) => f.id !== noteId)) // IndexedDBに保存
 
-    // 親フォルダまたはホームに戻る
-    const parentFolder = folders.find((f) => f.id === currentFolder!.parentId)
-    if (parentFolder) {
-      selectFolder(parentFolder)
+    // 親ノートまたはホームに戻る
+    const parentNote = allNotes.find((f) => f.id === parentId)
+    if (parentNote) {
+      selectNote(parentNote)
+    } else {
+      goHome()
+    }
+  })
+}
+```
+
+**リーフの削除:**
+
+```typescript
+function deleteLeaf() {
+  if (isOperationsLocked) return
+  if (!$currentLeaf) return
+
+  showConfirm('このリーフを削除しますか？', () => {
+    const allLeaves = $leaves
+    updateLeaves(allLeaves.filter((n) => n.id !== $currentLeaf!.id)) // IndexedDBに保存
+
+    const note = $notes.find((f) => f.id === $currentLeaf!.noteId)
+    if (note) {
+      selectNote(note)
     } else {
       goHome()
     }
@@ -1091,17 +1253,19 @@ const editorDarkTheme = EditorView.theme(
 
 ---
 
-## LocalStorageスキーマ
+## データ永続化スキーマ
 
-### キー定義
+### LocalStorage
+
+**用途:** 設定情報の保存のみ
+
+**キー定義:**
 
 ```typescript
 const SETTINGS_KEY = 'simplest-md-note/settings'
-const NOTES_KEY = 'simplest-md-note/notes'
-const FOLDERS_KEY = 'simplest-md-note/folders'
 ```
 
-### データ構造
+**データ構造:**
 
 #### `simplest-md-note/settings`
 
@@ -1111,13 +1275,42 @@ const FOLDERS_KEY = 'simplest-md-note/folders'
   "username": "yamada",
   "email": "yamada@example.com",
   "repoName": "yamada/my-notes",
-  "theme": "dark",
+  "theme": "yomi",
+  "toolName": "SimplestNote.md",
   "customBgPrimary": "#ffffff",
   "customAccentColor": "#0f766e"
 }
 ```
 
-#### `simplest-md-note/folders`
+**保存タイミング:**
+
+- 設定画面での入力時に即座に反映
+
+### IndexedDB
+
+**用途:** ノートとリーフのデータ保存
+
+**データベース名:** `simplest-note-md`
+
+**オブジェクトストア:**
+
+- `notes`: ノートデータ
+- `leaves`: リーフデータ
+
+**データ構造:**
+
+#### `notes` オブジェクトストア
+
+```typescript
+interface Note {
+  id: string // UUID (主キー)
+  name: string // ノート名
+  parentId?: string // 親ノートのID（ルートノートの場合はundefined）
+  order: number // 並び順
+}
+```
+
+**例:**
 
 ```json
 [
@@ -1128,21 +1321,34 @@ const FOLDERS_KEY = 'simplest-md-note/folders'
   },
   {
     "id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-    "name": "会議",
+    "name": "プロジェクトA",
     "parentId": "550e8400-e29b-41d4-a716-446655440000",
     "order": 0
   }
 ]
 ```
 
-#### `simplest-md-note/notes`
+#### `leaves` オブジェクトストア
+
+```typescript
+interface Leaf {
+  id: string // UUID (主キー)
+  title: string // リーフタイトル
+  noteId: string // 所属ノートのID
+  content: string // Markdownコンテンツ
+  updatedAt: number // 最終更新タイムスタンプ（Unix time）
+  order: number // 並び順
+}
+```
+
+**例:**
 
 ```json
 [
   {
     "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-    "title": "議事録",
-    "folderId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+    "title": "会議メモ",
+    "noteId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
     "content": "# 会議メモ\n\n## 議題\n- ...",
     "updatedAt": 1703000000000,
     "order": 0
@@ -1150,30 +1356,48 @@ const FOLDERS_KEY = 'simplest-md-note/folders'
 ]
 ```
 
-### マイグレーション
+**保存タイミング:**
 
-`order`フィールドの追加など、後方互換性を保つ処理。
+- ノート/リーフの作成・削除・編集時に即座に反映
+- ドラッグ&ドロップによる並び替え時
 
-```typescript
-onMount(() => {
-  const storedFolders = localStorage.getItem(FOLDERS_KEY)
-  if (storedFolders) {
-    const parsedFolders = JSON.parse(storedFolders)
-    let needsUpdate = false
-    const updatedFolders = parsedFolders.map((folder, index) => {
-      if (folder.order === undefined) {
-        needsUpdate = true
-        return { ...folder, order: index }
-      }
-      return folder
-    })
-    folders = updatedFolders
-    if (needsUpdate) {
-      persistFolders()
-    }
-  }
-})
+### GitHub（リモートリポジトリ）
+
+**保存対象:**
+
+- 全ノート
+- 全リーフのMarkdownファイル
+
+**ファイルパス構造:**
+
 ```
+notes/
+  ├── ノート名1/
+  │   ├── サブノート名/
+  │   │   └── リーフタイトル.md
+  │   └── リーフタイトル.md
+  └── ノート名2/
+      └── リーフタイトル.md
+```
+
+**例:**
+
+```
+notes/
+  ├── 仕事/
+  │   ├── プロジェクトA/
+  │   │   └── 会議メモ.md
+  │   └── TODO.md
+  └── プライベート/
+      └── 買い物リスト.md
+```
+
+**同期タイミング:**
+
+- **Push:** 保存ボタン、設定ボタン押下時
+- **Pull:** 初回起動時、Pullテストボタン、設定画面を閉じたとき
+
+**重要:** 設定情報（LocalStorage）はGitHubには同期されません。
 
 ---
 
