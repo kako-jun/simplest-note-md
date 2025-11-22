@@ -511,6 +511,15 @@ SimplestNote.mdは、データを2つの異なるストレージに保存しま�
 
 #### IndexedDB
 
+**役割:** GitHubからPullしたデータの一時キャッシュ
+
+**重要な設計思想:**
+
+- **GitHubが唯一の真実の情報源（Single Source of Truth）**
+- IndexedDBは単なるキャッシュであり、GitHubから取得したデータを一時保存するだけ
+- 前回終了時のIndexedDBデータは意味を持たない
+- 毎回のPull成功時にIndexedDBは全削除→全作成される
+
 **保存対象:**
 
 - ノート（Note）データ
@@ -522,6 +531,7 @@ SimplestNote.mdは、データを2つの異なるストレージに保存しま�
 - ノート名の変更時
 - リーフタイトル・コンテンツの変更時
 - ドラッグ&ドロップによる並び替え時
+- **Pull成功時に全削除→全作成（最重要）**
 
 #### GitHub（リモートリポジトリ）
 
@@ -542,13 +552,19 @@ SimplestNote.mdは、データを2つの異なるストレージに保存しま�
 **Pullタイミング:**
 
 1. 初回Pull（アプリ起動時）
-   - 処理フロー: 「Pullします」→ Pull実行 → 結果表示
+   - 処理フロー: 「Pullします」→ Pull実行 → **IndexedDB全削除** → **IndexedDB全作成** → 画面表示 → 結果表示
+   - **初回Pull成功まで、画面にノート・リーフは表示されない**
 2. Pullテストボタンを押したとき
-   - 処理フロー: 「Pullします」→ Pull実行 → 結果表示
+   - 処理フロー: 「Pullします」→ Pull実行 → **IndexedDB全削除** → **IndexedDB全作成** → 結果表示
 3. 設定画面を閉じたとき
-   - 処理フロー: 「Pullします」→ Pull実行 → 結果表示
+   - 処理フロー: 「Pullします」→ Pull実行 → **IndexedDB全削除** → **IndexedDB全作成** → 結果表示
 
-**重要:** 設定情報はGitHubには含まれません。ノートとリーフのMarkdownファイルのみが同期されます。
+**重要な仕様:**
+
+- Pull成功のたびに、IndexedDBは完全にクリアされ、GitHubから取得したデータで再構築される
+- 前回終了時のIndexedDBデータは使用されない（次のPullで必ず上書きされる）
+- 設定情報（LocalStorage）はGitHubには含まれない
+- ノートとリーフのMarkdownファイルのみが同期される
 
 ### データフローパターン
 
@@ -594,19 +610,16 @@ onMount(() => {
   applyTheme(loadedSettings.theme, loadedSettings)
   document.title = loadedSettings.toolName
   ;(async () => {
-    // 2. IndexedDBからノートとリーフの読み込み
-    const [loadedNotes, loadedLeaves] = await Promise.all([loadNotes(), loadLeaves()])
-    notes.set(loadedNotes)
-    leaves.set(loadedLeaves)
-
-    // 3. 初回Pull（GitHubからデータを取得してIndexedDBに保存）
+    // 2. 初回Pull（GitHubからデータを取得）
+    //    重要: IndexedDBからは読み込まない
+    //    Pull成功時にIndexedDBは全削除→全作成される
     await handlePull(true)
 
-    // 4. URLから状態を復元（ディープリンク対応）
+    // 3. Pull成功後、URLから状態を復元（ディープリンク対応）
     restoreStateFromUrl()
   })()
 
-  // 5. ブラウザの戻る/進むボタンに対応
+  // 4. ブラウザの戻る/進むボタンに対応
   const handlePopState = () => {
     restoreStateFromUrl()
   }
@@ -617,6 +630,14 @@ onMount(() => {
   }
 })
 ```
+
+**重要な仕様:**
+
+- アプリ起動時、IndexedDBからの読み込みは行わない
+- 必ず最初にPullを実行し、GitHubから最新データを取得する
+- Pull成功時に、IndexedDBを全削除→GitHubから取得したデータで全作成
+- 初回Pull成功まで、画面にノート・リーフは表示されない（`isOperationsLocked = true`）
+- Pull失敗時は、ユーザーに設定確認を促すアラートを表示
 
 ### CRUD操作のパターン
 

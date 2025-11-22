@@ -17,7 +17,7 @@
     updateNotes,
     updateLeaves,
   } from './lib/stores'
-  import { clearAllData, loadSettings, loadNotes, loadLeaves } from './lib/storage'
+  import { clearAllData, loadSettings } from './lib/storage'
   import { pullFromGitHub, saveToGitHub } from './lib/github'
   import { applyTheme } from './lib/theme'
   import Header from './components/layout/Header.svelte'
@@ -115,12 +115,12 @@
     applyTheme(loadedSettings.theme, loadedSettings)
     document.title = loadedSettings.toolName
     ;(async () => {
-      const [loadedNotes, loadedLeaves] = await Promise.all([loadNotes(), loadLeaves()])
-      notes.set(loadedNotes)
-      leaves.set(loadedLeaves)
+      // 初回Pull（GitHubから最新データを取得）
+      // 重要: IndexedDBからは読み込まない
+      // Pull成功時にIndexedDBは全削除→全作成される
       await handlePull(true)
 
-      // データロード後にURLから状態を復元
+      // Pull成功後、URLから状態を復元
       restoreStateFromUrl()
     })()
 
@@ -592,8 +592,10 @@
     pullRunning = true
     isOperationsLocked = true
 
-    // Pullを試行する前に全消し
-    await clearAllData()
+    // 重要: GitHubが唯一の真実の情報源（Single Source of Truth）
+    // IndexedDBは単なるキャッシュであり、Pull成功時に全削除→全作成される
+    // 前回終了時のIndexedDBデータは使用しない
+    await clearAllData() // IndexedDB全削除
     notes.set([])
     leaves.set([])
     currentNote.set(null)
@@ -601,6 +603,7 @@
 
     const result = await pullFromGitHub($settings)
     if (result.success) {
+      // GitHubから取得したデータでIndexedDBを再作成
       updateNotes(result.notes)
       updateLeaves(result.leaves)
       isOperationsLocked = false
