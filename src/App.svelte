@@ -30,6 +30,7 @@
     showAlert,
     closeModal,
   } from './lib/ui'
+  import { resolvePath, buildPath } from './lib/routing'
   import Header from './components/layout/Header.svelte'
   import Breadcrumbs from './components/layout/Breadcrumbs.svelte'
   import Modal from './components/layout/Modal.svelte'
@@ -60,45 +61,74 @@
     if (isRestoringFromUrl) return
 
     const params = new URLSearchParams()
-    if ($currentNote) {
-      params.set('note', $currentNote.id)
-    }
-    if ($currentLeaf) {
-      params.set('leaf', $currentLeaf.id)
-    }
 
-    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
+    // 左ペイン（常に設定）
+    const leftPath = buildPath($currentNote, $currentLeaf, $notes)
+    params.set('left', leftPath)
+
+    // 右ペイン（将来の2ペイン対応用、現在は左と同じ）
+    params.set('right', leftPath)
+
+    const newUrl = `?${params.toString()}`
     window.history.pushState({}, '', newUrl)
   }
 
   function restoreStateFromUrl() {
     const params = new URLSearchParams(window.location.search)
-    const noteId = params.get('note')
-    const leafId = params.get('leaf')
+    let leftPath = params.get('left')
+    const rightPath = params.get('right')
+
+    // 互換性: 旧形式（?note=uuid&leaf=uuid）もサポート
+    if (!leftPath && !rightPath) {
+      const noteId = params.get('note')
+      const leafId = params.get('leaf')
+
+      if (leafId) {
+        const leaf = $leaves.find((n) => n.id === leafId)
+        if (leaf) {
+          const note = $notes.find((f) => f.id === leaf.noteId)
+          if (note) {
+            currentNote.set(note)
+            currentLeaf.set(leaf)
+            currentView.set('edit')
+          }
+        }
+      } else if (noteId) {
+        const note = $notes.find((f) => f.id === noteId)
+        if (note) {
+          currentNote.set(note)
+          currentLeaf.set(null)
+          currentView.set('note')
+        }
+      } else {
+        currentNote.set(null)
+        currentLeaf.set(null)
+        currentView.set('home')
+      }
+      return
+    }
 
     isRestoringFromUrl = true
 
-    if (leafId) {
-      const leaf = $leaves.find((n) => n.id === leafId)
-      if (leaf) {
-        const note = $notes.find((f) => f.id === leaf.noteId)
-        if (note) {
-          currentNote.set(note)
-          currentLeaf.set(leaf)
-          currentView.set('edit')
-        }
-      }
-    } else if (noteId) {
-      const note = $notes.find((f) => f.id === noteId)
-      if (note) {
-        currentNote.set(note)
-        currentLeaf.set(null)
-        currentView.set('note')
-      }
-    } else {
+    // 現在は1ペインのみなので、leftを使用
+    if (!leftPath) {
+      leftPath = '/'
+    }
+
+    const resolution = resolvePath(leftPath, $notes, $leaves)
+
+    if (resolution.type === 'home') {
       currentNote.set(null)
       currentLeaf.set(null)
       currentView.set('home')
+    } else if (resolution.type === 'note') {
+      currentNote.set(resolution.note)
+      currentLeaf.set(null)
+      currentView.set('note')
+    } else if (resolution.type === 'leaf') {
+      currentNote.set(resolution.note)
+      currentLeaf.set(resolution.leaf)
+      currentView.set('edit')
     }
 
     isRestoringFromUrl = false
@@ -255,6 +285,17 @@
     editingBreadcrumb = null
   }
 
+  // 名前重複チェック用ヘルパー
+  function generateUniqueName(baseName: string, existingNames: string[]): string {
+    let name = baseName
+    let counter = 1
+    while (existingNames.includes(name)) {
+      counter++
+      name = `${baseName}${counter}`
+    }
+    return name
+  }
+
   // ノート管理（束）
   function createNote(parentId?: string) {
     if (isOperationsLocked) return
@@ -263,9 +304,12 @@
       ? allNotes.filter((f) => f.parentId === parentId)
       : allNotes.filter((f) => !f.parentId)
 
+    const existingNames = targetNotes.map((n) => n.name)
+    const uniqueName = generateUniqueName('ノート', existingNames)
+
     const newNote: Note = {
       id: crypto.randomUUID(),
-      name: `ノート${targetNotes.length + 1}`,
+      name: uniqueName,
       parentId: parentId || undefined,
       order: targetNotes.length,
     }
@@ -361,9 +405,12 @@
     const allLeaves = $leaves
     const noteLeaves = allLeaves.filter((n) => n.noteId === $currentNote!.id)
 
+    const existingTitles = noteLeaves.map((l) => l.title)
+    const uniqueTitle = generateUniqueName('リーフ', existingTitles)
+
     const newLeaf: Leaf = {
       id: crypto.randomUUID(),
-      title: `リーフ${noteLeaves.length + 1}`,
+      title: uniqueTitle,
       noteId: $currentNote.id,
       content: '',
       updatedAt: Date.now(),
