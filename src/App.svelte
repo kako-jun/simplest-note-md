@@ -45,11 +45,68 @@
   let modalMessage = ''
   let modalType: 'confirm' | 'alert' = 'confirm'
   let modalCallback: (() => void) | null = null
+  let showSettings = false
 
   // リアクティブ宣言
   $: breadcrumbs = getBreadcrumbs($currentView, $currentNote, $currentLeaf, $notes)
   $: isGitHubConfigured = $githubConfigured
   $: document.title = $settings.toolName
+
+  // URLルーティング
+  let isRestoringFromUrl = false
+
+  function updateUrlFromState() {
+    if (isRestoringFromUrl) return
+
+    const params = new URLSearchParams()
+    if ($currentNote) {
+      params.set('note', $currentNote.id)
+    }
+    if ($currentLeaf) {
+      params.set('leaf', $currentLeaf.id)
+    }
+
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
+    window.history.pushState({}, '', newUrl)
+  }
+
+  function restoreStateFromUrl() {
+    const params = new URLSearchParams(window.location.search)
+    const noteId = params.get('note')
+    const leafId = params.get('leaf')
+
+    isRestoringFromUrl = true
+
+    if (leafId) {
+      const leaf = $leaves.find((n) => n.id === leafId)
+      if (leaf) {
+        const note = $notes.find((f) => f.id === leaf.noteId)
+        if (note) {
+          currentNote.set(note)
+          currentLeaf.set(leaf)
+          currentView.set('edit')
+        }
+      }
+    } else if (noteId) {
+      const note = $notes.find((f) => f.id === noteId)
+      if (note) {
+        currentNote.set(note)
+        currentLeaf.set(null)
+        currentView.set('note')
+      }
+    } else {
+      currentNote.set(null)
+      currentLeaf.set(null)
+      currentView.set('home')
+    }
+
+    isRestoringFromUrl = false
+  }
+
+  // ストアの変更をURLに反映
+  $: if ($currentNote || $currentLeaf || (!$currentNote && !$currentLeaf)) {
+    updateUrlFromState()
+  }
 
   // 初期化
   onMount(() => {
@@ -62,7 +119,20 @@
       notes.set(loadedNotes)
       leaves.set(loadedLeaves)
       await handlePull(true)
+
+      // データロード後にURLから状態を復元
+      restoreStateFromUrl()
     })()
+
+    // ブラウザの戻る/進むボタンに対応
+    const handlePopState = () => {
+      restoreStateFromUrl()
+    }
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
   })
 
   // モーダル関数
@@ -100,24 +170,18 @@
 
   // ナビゲーション
   async function goHome() {
-    if ($currentView === 'settings') {
-      await handleCloseSettings()
-    }
     currentView.set('home')
     currentNote.set(null)
     currentLeaf.set(null)
   }
 
   async function goSettings() {
-    if ($currentView !== 'settings') {
-      try {
-        updateSettings({ ...$settings })
-        notifyPush(true)
-      } catch (e) {
-        notifyPush(false)
-      }
-    }
-    currentView.set('settings')
+    showSettings = true
+  }
+
+  async function closeSettings() {
+    showSettings = false
+    await handleCloseSettings()
   }
 
   // パンくずリスト
@@ -135,16 +199,6 @@
       id: 'home',
       type: 'home',
     })
-
-    if (view === 'settings') {
-      crumbs.push({
-        label: '設定',
-        action: goSettings,
-        id: 'settings',
-        type: 'settings',
-      })
-      return crumbs
-    }
 
     if (note) {
       const parentNote = allNotes.find((f) => f.id === note.parentId)
@@ -567,9 +621,6 @@
       goHome()
     }}
     onSettingsClick={() => {
-      if ($currentView === 'settings') {
-        handleCloseSettings()
-      }
       goSettings()
     }}
   />
@@ -624,14 +675,6 @@
         onDownload={downloadLeaf}
         onDelete={deleteLeaf}
       />
-    {:else if $currentView === 'settings'}
-      <SettingsView
-        settings={$settings}
-        onThemeChange={handleThemeChange}
-        onSettingsChange={handleSettingsChange}
-        {pullRunning}
-        onPull={handlePull}
-      />
     {/if}
   </main>
 
@@ -642,6 +685,37 @@
     onConfirm={modalCallback}
     onClose={closeModal}
   />
+
+  {#if showSettings}
+    <div class="settings-modal-overlay" on:click={closeSettings}>
+      <div class="settings-modal-content" on:click|stopPropagation>
+        <button class="settings-close-button" on:click={closeSettings} aria-label="閉じる">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+        <SettingsView
+          settings={$settings}
+          onThemeChange={handleThemeChange}
+          onSettingsChange={handleSettingsChange}
+          {pullRunning}
+          onPull={handlePull}
+        />
+      </div>
+    </div>
+  {/if}
+
   {#if pullToast || pushToast}
     <div class="toast-stack">
       {#if pullToast}
@@ -721,5 +795,51 @@
   .toast.error {
     border-color: var(--error-color);
     color: var(--error-color);
+  }
+
+  .settings-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+  }
+
+  .settings-modal-content {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 900px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .settings-close-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+    z-index: 1;
+  }
+
+  .settings-close-button:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
   }
 </style>

@@ -37,6 +37,54 @@
   <div class="settings-content">
     <h2>設定</h2>
 
+    <div class="help-links">
+      <a
+        href="https://github.com/kako-jun/simplest-note-md#readme"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="help-link"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        </svg>
+        <span>使い方（テキスト）</span>
+      </a>
+      <a
+        href="https://www.youtube.com/watch?v=example"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="help-link"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+        <span>使い方（動画）</span>
+      </a>
+    </div>
+
+    <hr />
+
     <div class="form-section">
       <h3>GitHub連携</h3>
       <div class="form-row">
@@ -203,8 +251,6 @@
 <style>
   .settings-container {
     padding: 2rem;
-    height: calc(100vh - 80px);
-    overflow-y: auto;
   }
 
   .settings-content {
@@ -213,8 +259,41 @@
   }
 
   h2 {
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
     color: var(--text-primary);
+  }
+
+  .help-links {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .help-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+
+  .help-link:hover {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .help-link svg {
+    flex-shrink: 0;
   }
 
   h3 {
