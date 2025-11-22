@@ -218,8 +218,6 @@
       </div>
     </div>
 
-    <hr />
-
     <div class="about-section">
       <h3>SimplestNote.md</h3>
       <p>
@@ -286,6 +284,7 @@
     color: var(--text-primary);
     text-decoration: none;
     font-size: 0.9rem;
+    cursor: pointer;
     transition: all 0.2s;
   }
 
@@ -302,6 +301,7 @@
   }
 
   h3 {
+    margin-top: 0;
     margin-bottom: 1rem;
     color: var(--text-primary);
   }
@@ -380,6 +380,7 @@
   .theme-buttons button {
     padding: 0.5rem 1rem;
     border: none;
+    border-right: 1px solid var(--border-color);
     background: var(--bg-secondary);
     color: var(--text-primary);
     cursor: pointer;
@@ -390,6 +391,10 @@
     border-radius: 0;
     flex: 1;
     white-space: nowrap;
+  }
+
+  .theme-button-row button:last-child {
+    border-right: none;
   }
 
   .theme-button-row:first-child button:first-child {
@@ -432,6 +437,7 @@
   }
 
   .about-section {
+    margin-top: 3rem;
     text-align: center;
     color: var(--text-secondary);
     font-size: 0.9rem;
@@ -464,7 +470,7 @@
     color: var(--accent-color);
   }
 
-  button[type='button']:not(.theme-buttons button) {
+  button[type='button']:not(.theme-buttons button):not(.test-button) {
     padding: 0.5rem 1rem;
     border: none;
     border-radius: 4px;
@@ -475,7 +481,7 @@
     transition: opacity 0.2s;
   }
 
-  button[type='button']:not(.theme-buttons button):hover {
+  button[type='button']:not(.theme-buttons button):not(.test-button):hover {
     opacity: 0.9;
   }
 
@@ -488,16 +494,36 @@
   }
 
   .test-button {
-    margin-left: auto;
-    min-width: 120px;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .test-button:hover:not(:disabled) {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .test-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .test-icon {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
   }
 
   .sub-label {
