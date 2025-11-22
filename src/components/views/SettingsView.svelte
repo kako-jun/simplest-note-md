@@ -378,7 +378,7 @@
   }
 
   .theme-buttons button {
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 1rem;
     border: none;
     background: var(--bg-secondary);
     color: var(--text-primary);
@@ -386,9 +386,10 @@
     transition:
       background 0.2s,
       color 0.2s;
-    min-width: 70px;
+    min-width: 90px;
     border-radius: 0;
     flex: 1;
+    white-space: nowrap;
   }
 
   .theme-button-row:first-child button:first-child {
