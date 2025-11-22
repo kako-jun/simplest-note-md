@@ -1921,13 +1921,103 @@ https://example.com/simplest-note-md?left=/仕事/会議&right=/仕事/会議/�
 
 #### 実装タスク
 
-- [ ] ノート・リーフ作成時の名前重複チェック（同一階層）
-- [ ] URLクエリパース処理の実装（`left` / `right`）
-- [ ] パス文字列からノート・リーフを解決するロジック
+- [x] ノート・リーフ作成時の名前重複チェック（同一階層）
+  - `generateUniqueName()` ヘルパー関数を実装
+  - 「ノート」→「ノート2」→「ノート3」のように自動採番
+- [x] URLクエリパース処理の実装（`left` / `right`）
+  - 新形式: `?left=/path&right=/path`
+  - 旧形式（UUID）との後方互換性を維持
+- [x] パス文字列からノート・リーフを解決するロジック
+  - `src/lib/routing.ts` を新規作成
+  - `resolvePath()`: パス → ノート・リーフ
+  - `buildPath()`: ノート・リーフ → パス
 - [ ] 2ペイン表示のレイアウト実装（CSS Grid / Flexbox）
+  - **次の実装ステップ**
+  - main要素を左右2ペインに分割
+  - 左右それぞれ独立したビューを表示
+  - 状態変数: `rightNote`, `rightLeaf`, `rightView` を追加済み
 - [ ] レスポンシブ対応（画面幅による1ペイン/2ペイン切り替え）
+  - メディアクエリで画面幅を判定
+  - 縦長画面では右ペインを `display: none`
+  - `isDualPane` フラグで状態管理
 - [ ] ブラウザ履歴の管理
+  - 現在: `pushState` のみ実装済み
+  - 追加: `popstate` イベントハンドラは実装済み
 - [ ] エラーハンドリング（存在しないパスへのアクセス）
+  - 現在: ホームまたは親ノートにフォールバック
+  - 改善: 404エラー表示やトースト通知
+
+#### 実装詳細メモ（2025-01-23）
+
+**完了した実装（コミット: 22b41d1）**
+
+1. **名前重複チェック**
+
+   ```typescript
+   // App.svelte
+   function generateUniqueName(baseName: string, existingNames: string[]): string {
+     let name = baseName
+     let counter = 1
+     while (existingNames.includes(name)) {
+       counter++
+       name = `${baseName}${counter}`
+     }
+     return name
+   }
+   ```
+
+2. **パス解決ロジック**
+
+   ```typescript
+   // src/lib/routing.ts
+   export function resolvePath(path: string, notes: Note[], leaves: Leaf[]): PathResolution
+   export function buildPath(note: Note | null, leaf: Leaf | null, notes: Note[]): string
+   ```
+
+3. **URLルーティング**
+   - 現在: 1ペインのみ（`left` を使用）
+   - URL形式: `?left=/仕事/会議&right=/仕事/会議/議事録`
+   - 右ペインは現在は左と同じ値を設定（将来の拡張用）
+
+**次の実装ポイント: 2ペイン表示**
+
+現在の課題:
+
+- App.svelteの `<main>` が単一のビューのみ表示
+- 左右2つのビューを同時に表示する必要がある
+- 各ペインが独立した状態を持つ
+
+実装方針:
+
+```svelte
+<main class="dual-pane-container">
+  <div class="left-pane">
+    <!-- 左ペインのビュー -->
+  </div>
+  <div class="right-pane">
+    <!-- 右ペインのビュー -->
+  </div>
+</main>
+```
+
+CSS:
+
+```css
+.dual-pane-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .dual-pane-container {
+    grid-template-columns: 1fr;
+  }
+  .right-pane {
+    display: none;
+  }
+}
+```
 
 ---
 
