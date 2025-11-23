@@ -78,33 +78,34 @@
   let rightEditorView: any = null
   let rightPreviewView: any = null
 
-  // スクロール同期関数
-  function handleLeftScroll(scrollTop: number, scrollHeight: number) {
-    // 同じリーフで、左がedit/previewで右がその逆の場合のみ同期
+  // スクロール同期関数（統一版）
+  function handlePaneScroll(pane: Pane, scrollTop: number, scrollHeight: number) {
+    // 同じリーフで、edit/previewが逆の場合のみ同期
     if (!isDualPane || !leftLeaf || !rightLeaf || leftLeaf.id !== rightLeaf.id) return
-    if (
-      (leftView === 'edit' && rightView === 'preview') ||
-      (leftView === 'preview' && rightView === 'edit')
-    ) {
-      const target = rightView === 'edit' ? rightEditorView : rightPreviewView
+
+    const ownView = pane === 'left' ? leftView : rightView
+    const otherView = pane === 'left' ? rightView : leftView
+    const shouldSync =
+      (ownView === 'edit' && otherView === 'preview') ||
+      (ownView === 'preview' && otherView === 'edit')
+
+    if (shouldSync) {
+      const targetEditor = pane === 'left' ? rightEditorView : leftEditorView
+      const targetPreview = pane === 'left' ? rightPreviewView : leftPreviewView
+      const target = otherView === 'edit' ? targetEditor : targetPreview
       if (target && target.scrollTo) {
         target.scrollTo(scrollTop)
       }
     }
   }
 
+  // 後方互換性のためのラッパー関数
+  function handleLeftScroll(scrollTop: number, scrollHeight: number) {
+    handlePaneScroll('left', scrollTop, scrollHeight)
+  }
+
   function handleRightScroll(scrollTop: number, scrollHeight: number) {
-    // 同じリーフで、右がedit/previewで左がその逆の場合のみ同期
-    if (!isDualPane || !leftLeaf || !rightLeaf || leftLeaf.id !== rightLeaf.id) return
-    if (
-      (rightView === 'edit' && leftView === 'preview') ||
-      (rightView === 'preview' && leftView === 'edit')
-    ) {
-      const target = leftView === 'edit' ? leftEditorView : leftPreviewView
-      if (target && target.scrollTo) {
-        target.scrollTo(scrollTop)
-      }
-    }
+    handlePaneScroll('right', scrollTop, scrollHeight)
   }
 
   // リアクティブ宣言
@@ -585,28 +586,67 @@
     updateNotes(updatedNotes)
   }
 
+  // ドラッグ&ドロップ（汎用ヘルパー関数）
+  function handleDragStart<T extends { id: string }>(
+    item: T,
+    setDragged: (item: T | null) => void,
+    setDragOver: (id: string | null) => void
+  ) {
+    setDragged(item)
+    setDragOver(null)
+  }
+
+  function handleDragEnd(
+    setDragged: (item: null) => void,
+    setDragOver: (id: string | null) => void
+  ) {
+    setDragged(null)
+    setDragOver(null)
+  }
+
+  function handleDragOver<T extends { id: string }>(
+    e: DragEvent,
+    targetItem: T,
+    draggedItem: T | null,
+    isSameGroup: (dragged: T, target: T) => boolean,
+    setDragOver: (id: string | null) => void
+  ) {
+    e.preventDefault()
+    if (!draggedItem || draggedItem.id === targetItem.id) {
+      setDragOver(null)
+      return
+    }
+    if (!isSameGroup(draggedItem, targetItem)) {
+      setDragOver(null)
+      return
+    }
+    setDragOver(targetItem.id)
+  }
+
   // ドラッグ&ドロップ（ノート）
   function handleDragStartNote(note: Note) {
-    draggedNote = note
-    dragOverNoteId = null
+    handleDragStart(
+      note,
+      (n) => (draggedNote = n),
+      (id) => (dragOverNoteId = id)
+    )
   }
 
   function handleDragEndNote() {
-    draggedNote = null
-    dragOverNoteId = null
+    handleDragEnd(
+      (n) => (draggedNote = n),
+      (id) => (dragOverNoteId = id)
+    )
   }
 
   function handleDragOverNote(e: DragEvent, note: Note) {
-    e.preventDefault()
-    if (!draggedNote || draggedNote.id === note.id) {
-      dragOverNoteId = null
-      return
-    }
-    if (draggedNote.parentId !== note.parentId) {
-      dragOverNoteId = null
-      return
-    }
-    dragOverNoteId = note.id
+    handleDragOver(
+      e,
+      note,
+      draggedNote,
+      (dragged, target) => dragged.parentId === target.parentId,
+      (id) => (dragOverNoteId = id)
+    )
   }
 
   function handleDropNote(targetNote: Note) {
@@ -740,26 +780,28 @@
 
   // ドラッグ&ドロップ（リーフ）
   function handleDragStartLeaf(leaf: Leaf) {
-    draggedLeaf = leaf
-    dragOverLeafId = null
+    handleDragStart(
+      leaf,
+      (l) => (draggedLeaf = l),
+      (id) => (dragOverLeafId = id)
+    )
   }
 
   function handleDragEndLeaf() {
-    draggedLeaf = null
-    dragOverLeafId = null
+    handleDragEnd(
+      (l) => (draggedLeaf = l),
+      (id) => (dragOverLeafId = id)
+    )
   }
 
   function handleDragOverLeaf(e: DragEvent, leaf: Leaf) {
-    e.preventDefault()
-    if (!draggedLeaf || draggedLeaf.id === leaf.id) {
-      dragOverLeafId = null
-      return
-    }
-    if (draggedLeaf.noteId !== leaf.noteId) {
-      dragOverLeafId = null
-      return
-    }
-    dragOverLeafId = leaf.id
+    handleDragOver(
+      e,
+      leaf,
+      draggedLeaf,
+      (dragged, target) => dragged.noteId === target.noteId,
+      (id) => (dragOverLeafId = id)
+    )
   }
 
   function handleDropLeaf(targetLeaf: Leaf) {

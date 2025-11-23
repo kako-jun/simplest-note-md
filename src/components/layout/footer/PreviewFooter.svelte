@@ -1,5 +1,6 @@
 <script lang="ts">
   import Footer from '../Footer.svelte'
+  import SaveButton from '../../buttons/SaveButton.svelte'
 
   export let onDownload: () => void
   export let onToggleEdit: () => void
@@ -54,30 +55,6 @@
       </svg>
     </button>
 
-    <button
-      type="button"
-      class="primary save-button"
-      on:click={onSave}
-      title="保存"
-      aria-label="保存"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="button-icon"
-      >
-        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-        <polyline points="17 21 17 13 7 13 7 21" />
-        <polyline points="7 3 7 8 15 8" />
-      </svg>
-      {#if isDirty}
-        <span class="notification-badge"></span>
-      {/if}
-    </button>
+    <SaveButton {onSave} {isDirty} />
   </svelte:fragment>
 </Footer>
