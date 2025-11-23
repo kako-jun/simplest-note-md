@@ -37,6 +37,10 @@
   <div class="settings-content">
     <h2 id="settings-title">設定</h2>
 
+    <div class="qr-code-container">
+      <img src="/assets/qr-code.svg" alt="QRコード" class="qr-code-image" />
+    </div>
+
     <div class="help-links">
       <a
         href="https://github.com/kako-jun/simplest-note-md#readme"
@@ -219,12 +223,8 @@
     </div>
 
     <div class="about-section">
-      <h3>SimplestNote.md</h3>
-      <p>
-        コンフリクトばかりのObsidianや<br />
-        シンプルでないSimplenoteがいやになって作りました。<br />
-        「こういうのでいいんだよ」を目指しています。
-      </p>
+      <img src="/assets/app-icon.svg" alt="SimplestNote.md" class="about-icon" />
+      <p>「こういうのでいいんだよ」を目指しています。</p>
       <p class="author">
         作者: <strong>kako-jun</strong>
         <a
@@ -263,6 +263,22 @@
   h2 {
     margin-bottom: 1.5rem;
     color: var(--text-primary);
+  }
+
+  .qr-code-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .qr-code-image {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.5rem;
+    background: white;
   }
 
   .help-links {
@@ -441,6 +457,14 @@
     text-align: center;
     color: var(--text-secondary);
     font-size: 0.9rem;
+  }
+
+  .about-icon {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    margin: 0 auto 1rem;
+    display: block;
   }
 
   .about-section h3 {

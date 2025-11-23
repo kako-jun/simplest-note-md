@@ -1,6 +1,16 @@
 # SimplestNote.md
 
-ブラウザだけで動く、シンプルで軽量なMarkdownノートアプリケーションです。GitHub APIを使って、外部サービス不要でノートを直接リポジトリに同期できます。
+<p align="center">
+  <img src="./public/assets/app-icon.svg" alt="SimplestNote.md" width="128">
+</p>
+
+<p align="center">
+  「こういうのでいいんだよ」を目指しています。
+</p>
+
+<p align="center">
+  作者: <a href="https://github.com/kako-jun">kako-jun</a>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Made%20with-Svelte-FF3E00?style=flat-square&logo=svelte" alt="Made with Svelte">
