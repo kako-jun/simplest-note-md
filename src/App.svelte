@@ -34,6 +34,7 @@
   import Header from './components/layout/Header.svelte'
   import Breadcrumbs from './components/layout/Breadcrumbs.svelte'
   import Footer from './components/layout/Footer.svelte'
+  import Loading from './components/layout/Loading.svelte'
   import Modal from './components/layout/Modal.svelte'
   import Toast from './components/layout/Toast.svelte'
   import HomeView from './components/views/HomeView.svelte'
@@ -1218,6 +1219,10 @@
           </svelte:fragment>
         </Footer>
       {/if}
+
+      {#if pullRunning || isPushing}
+        <Loading />
+      {/if}
     </div>
 
     <div class="right-column" class:hidden={!isDualPane}>
@@ -1533,6 +1538,10 @@
           </svelte:fragment>
         </Footer>
       {/if}
+
+      {#if pullRunning || isPushing}
+        <Loading />
+      {/if}
     </div>
   </div>
 
@@ -1657,6 +1666,7 @@
     min-width: 0;
     height: 100%;
     overflow: hidden;
+    position: relative;
   }
 
   .main-pane {
