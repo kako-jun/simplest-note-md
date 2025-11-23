@@ -43,6 +43,19 @@ export interface PullResult {
   metadata: Metadata
 }
 /**
+ * GitHub設定を検証
+ */
+function validateGitHubSettings(settings: Settings): { valid: boolean; error?: string } {
+  if (!settings.token) {
+    return { valid: false, error: 'トークンが未設定です' }
+  }
+  if (!settings.repoName || !settings.repoName.includes('/')) {
+    return { valid: false, error: 'リポジトリ名が不正です（owner/repo）' }
+  }
+  return { valid: true }
+}
+
+/**
  * GitHub Contents APIを呼ぶヘルパー関数（キャッシュバスター付き）
  */
 async function fetchGitHubContents(path: string, repoName: string, token: string) {
@@ -116,10 +129,11 @@ export async function saveToGitHub(
   settings: Settings
 ): Promise<SaveResult> {
   // 設定の検証
-  if (!settings.token || !settings.repoName) {
+  const validation = validateGitHubSettings(settings)
+  if (!validation.valid) {
     return {
       success: false,
-      message: 'GitHub設定が不完全です。設定画面でトークンとリポジトリ名を入力してください。',
+      message: `❌ ${validation.error}`,
     }
   }
 
@@ -185,10 +199,11 @@ export async function pushAllWithTreeAPI(
   settings: Settings
 ): Promise<SaveResult> {
   // 設定の検証
-  if (!settings.token || !settings.repoName) {
+  const validation = validateGitHubSettings(settings)
+  if (!validation.valid) {
     return {
       success: false,
-      message: 'GitHub設定が不完全です。',
+      message: `❌ ${validation.error}`,
     }
   }
 
@@ -471,19 +486,11 @@ export async function pushAllWithTreeAPI(
 export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
   const defaultMetadata: Metadata = { version: 1, notes: {}, leaves: {}, pushCount: 0 }
 
-  if (!settings.token) {
+  const validation = validateGitHubSettings(settings)
+  if (!validation.valid) {
     return {
       success: false,
-      message: '❌ トークンが未設定です',
-      notes: [],
-      leaves: [],
-      metadata: defaultMetadata,
-    }
-  }
-  if (!settings.repoName || !settings.repoName.includes('/')) {
-    return {
-      success: false,
-      message: '❌ リポジトリ名が不正です（owner/repo）',
+      message: `❌ ${validation.error}`,
       notes: [],
       leaves: [],
       metadata: defaultMetadata,
@@ -676,11 +683,9 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
  * GitHub接続テスト（認証＋リポジトリ参照）
  */
 export async function testGitHubConnection(settings: Settings): Promise<TestResult> {
-  if (!settings.token) {
-    return { success: false, message: '❌ トークンが未設定です' }
-  }
-  if (!settings.repoName || !settings.repoName.includes('/')) {
-    return { success: false, message: '❌ リポジトリ名が不正です（owner/repo）' }
+  const validation = validateGitHubSettings(settings)
+  if (!validation.valid) {
+    return { success: false, message: `❌ ${validation.error}` }
   }
 
   const headers = {

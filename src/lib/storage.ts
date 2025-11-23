@@ -194,18 +194,25 @@ export async function clearAllData(): Promise<void> {
 }
 
 /**
+ * 汎用: アイテムを保存
+ */
+async function putItem<T>(storeName: string, item: T): Promise<void> {
+  const db = await openAppDB()
+  const tx = db.transaction(storeName, 'readwrite')
+  const store = tx.objectStore(storeName)
+  await new Promise<void>((resolve, reject) => {
+    const request = store.put(item)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+/**
  * カスタムフォントを保存
  */
 export async function saveCustomFont(font: CustomFont): Promise<void> {
   try {
-    const db = await openAppDB()
-    const tx = db.transaction(FONTS_STORE, 'readwrite')
-    const store = tx.objectStore(FONTS_STORE)
-    await new Promise<void>((resolve, reject) => {
-      const request = store.put(font)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
+    await putItem(FONTS_STORE, font)
   } catch (error) {
     console.error('Failed to save custom font to IndexedDB:', error)
     throw error
@@ -213,18 +220,25 @@ export async function saveCustomFont(font: CustomFont): Promise<void> {
 }
 
 /**
+ * 汎用: アイテムを読み込む
+ */
+async function getItem<T>(storeName: string, key: string): Promise<T | null> {
+  const db = await openAppDB()
+  const tx = db.transaction(storeName, 'readonly')
+  const store = tx.objectStore(storeName)
+  return await new Promise<T | null>((resolve, reject) => {
+    const request = store.get(key)
+    request.onsuccess = () => resolve((request.result as T) || null)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+/**
  * カスタムフォントを読み込む
  */
 export async function loadCustomFont(name: string): Promise<CustomFont | null> {
   try {
-    const db = await openAppDB()
-    const tx = db.transaction(FONTS_STORE, 'readonly')
-    const store = tx.objectStore(FONTS_STORE)
-    return await new Promise<CustomFont | null>((resolve, reject) => {
-      const request = store.get(name)
-      request.onsuccess = () => resolve((request.result as CustomFont) || null)
-      request.onerror = () => reject(request.error)
-    })
+    return await getItem<CustomFont>(FONTS_STORE, name)
   } catch (error) {
     console.error('Failed to load custom font from IndexedDB:', error)
     return null
@@ -232,18 +246,25 @@ export async function loadCustomFont(name: string): Promise<CustomFont | null> {
 }
 
 /**
+ * 汎用: アイテムを削除
+ */
+async function deleteItem(storeName: string, key: string): Promise<void> {
+  const db = await openAppDB()
+  const tx = db.transaction(storeName, 'readwrite')
+  const store = tx.objectStore(storeName)
+  await new Promise<void>((resolve, reject) => {
+    const request = store.delete(key)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+/**
  * カスタムフォントを削除
  */
 export async function deleteCustomFont(name: string): Promise<void> {
   try {
-    const db = await openAppDB()
-    const tx = db.transaction(FONTS_STORE, 'readwrite')
-    const store = tx.objectStore(FONTS_STORE)
-    await new Promise<void>((resolve, reject) => {
-      const request = store.delete(name)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
+    await deleteItem(FONTS_STORE, name)
   } catch (error) {
     console.error('Failed to delete custom font from IndexedDB:', error)
     throw error
@@ -255,14 +276,7 @@ export async function deleteCustomFont(name: string): Promise<void> {
  */
 export async function saveCustomBackground(background: CustomBackground): Promise<void> {
   try {
-    const db = await openAppDB()
-    const tx = db.transaction(BACKGROUNDS_STORE, 'readwrite')
-    const store = tx.objectStore(BACKGROUNDS_STORE)
-    await new Promise<void>((resolve, reject) => {
-      const request = store.put(background)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
+    await putItem(BACKGROUNDS_STORE, background)
   } catch (error) {
     console.error('Failed to save custom background to IndexedDB:', error)
     throw error
@@ -274,14 +288,7 @@ export async function saveCustomBackground(background: CustomBackground): Promis
  */
 export async function loadCustomBackground(name: string): Promise<CustomBackground | null> {
   try {
-    const db = await openAppDB()
-    const tx = db.transaction(BACKGROUNDS_STORE, 'readonly')
-    const store = tx.objectStore(BACKGROUNDS_STORE)
-    return await new Promise<CustomBackground | null>((resolve, reject) => {
-      const request = store.get(name)
-      request.onsuccess = () => resolve((request.result as CustomBackground) || null)
-      request.onerror = () => reject(request.error)
-    })
+    return await getItem<CustomBackground>(BACKGROUNDS_STORE, name)
   } catch (error) {
     console.error('Failed to load custom background from IndexedDB:', error)
     return null
@@ -293,14 +300,7 @@ export async function loadCustomBackground(name: string): Promise<CustomBackgrou
  */
 export async function deleteCustomBackground(name: string): Promise<void> {
   try {
-    const db = await openAppDB()
-    const tx = db.transaction(BACKGROUNDS_STORE, 'readwrite')
-    const store = tx.objectStore(BACKGROUNDS_STORE)
-    await new Promise<void>((resolve, reject) => {
-      const request = store.delete(name)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
+    await deleteItem(BACKGROUNDS_STORE, name)
   } catch (error) {
     console.error('Failed to delete custom background from IndexedDB:', error)
     throw error

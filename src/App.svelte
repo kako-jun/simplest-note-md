@@ -33,6 +33,17 @@
     closeModal,
   } from './lib/ui'
   import { resolvePath, buildPath } from './lib/routing'
+  import {
+    getBreadcrumbs as buildBreadcrumbs,
+    extractH1Title,
+    updateH1Title,
+  } from './lib/breadcrumbs'
+  import {
+    handleDragStart as dragStart,
+    handleDragEnd as dragEnd,
+    handleDragOver as dragOver,
+    reorderItems,
+  } from './lib/drag-drop'
   import Header from './components/layout/Header.svelte'
   import Breadcrumbs from './components/layout/Breadcrumbs.svelte'
   import Footer from './components/layout/Footer.svelte'
@@ -109,8 +120,24 @@
   }
 
   // リアクティブ宣言
-  $: breadcrumbs = getBreadcrumbs(leftView, leftNote, leftLeaf, $notes, 'left')
-  $: breadcrumbsRight = getBreadcrumbs(rightView, rightNote, rightLeaf, $notes, 'right')
+  $: breadcrumbs = buildBreadcrumbs(
+    leftView,
+    leftNote,
+    leftLeaf,
+    $notes,
+    'left',
+    goHome,
+    selectNote
+  )
+  $: breadcrumbsRight = buildBreadcrumbs(
+    rightView,
+    rightNote,
+    rightLeaf,
+    $notes,
+    'right',
+    goHome,
+    selectNote
+  )
   $: isGitHubConfigured = $githubConfigured
   $: document.title = $settings.toolName
 
@@ -383,53 +410,7 @@
     e.stopPropagation()
   }
 
-  // パンくずリスト（左右共通）
-  function getBreadcrumbs(
-    view: View,
-    note: Note | null,
-    leaf: Leaf | null,
-    allNotes: Note[],
-    pane: Pane
-  ): Breadcrumb[] {
-    const crumbs: Breadcrumb[] = []
-    const suffix = pane === 'right' ? '-right' : ''
-
-    crumbs.push({
-      label: 'SimplestNote.md',
-      action: () => goHome(pane),
-      id: `home${suffix}`,
-      type: 'home',
-    })
-
-    if (note) {
-      const parentNote = allNotes.find((f) => f.id === note.parentId)
-      if (parentNote) {
-        crumbs.push({
-          label: parentNote.name,
-          action: () => selectNote(parentNote, pane),
-          id: `${parentNote.id}${suffix}`,
-          type: 'note',
-        })
-      }
-      crumbs.push({
-        label: note.name,
-        action: () => selectNote(note, pane),
-        id: `${note.id}${suffix}`,
-        type: 'note',
-      })
-    }
-
-    if (leaf) {
-      crumbs.push({
-        label: leaf.title,
-        action: () => {},
-        id: `${leaf.id}${suffix}`,
-        type: 'leaf',
-      })
-    }
-
-    return crumbs
-  }
+  // パンくずリスト（左右共通）- breadcrumbs.tsに移動
 
   function startEditingBreadcrumb(crumb: Breadcrumb) {
     if (crumb.type === 'home' || crumb.type === 'settings') return
@@ -437,8 +418,16 @@
   }
 
   function refreshBreadcrumbs() {
-    breadcrumbs = getBreadcrumbs(leftView, leftNote, leftLeaf, $notes, 'left')
-    breadcrumbsRight = getBreadcrumbs(rightView, rightNote, rightLeaf, $notes, 'right')
+    breadcrumbs = buildBreadcrumbs(leftView, leftNote, leftLeaf, $notes, 'left', goHome, selectNote)
+    breadcrumbsRight = buildBreadcrumbs(
+      rightView,
+      rightNote,
+      rightLeaf,
+      $notes,
+      'right',
+      goHome,
+      selectNote
+    )
   }
 
   function saveEditBreadcrumb(id: string, newName: string, type: Breadcrumb['type']) {
@@ -586,46 +575,11 @@
     updateNotes(updatedNotes)
   }
 
-  // ドラッグ&ドロップ（汎用ヘルパー関数）
-  function handleDragStart<T extends { id: string }>(
-    item: T,
-    setDragged: (item: T | null) => void,
-    setDragOver: (id: string | null) => void
-  ) {
-    setDragged(item)
-    setDragOver(null)
-  }
-
-  function handleDragEnd(
-    setDragged: (item: null) => void,
-    setDragOver: (id: string | null) => void
-  ) {
-    setDragged(null)
-    setDragOver(null)
-  }
-
-  function handleDragOver<T extends { id: string }>(
-    e: DragEvent,
-    targetItem: T,
-    draggedItem: T | null,
-    isSameGroup: (dragged: T, target: T) => boolean,
-    setDragOver: (id: string | null) => void
-  ) {
-    e.preventDefault()
-    if (!draggedItem || draggedItem.id === targetItem.id) {
-      setDragOver(null)
-      return
-    }
-    if (!isSameGroup(draggedItem, targetItem)) {
-      setDragOver(null)
-      return
-    }
-    setDragOver(targetItem.id)
-  }
+  // ドラッグ&ドロップ（汎用ヘルパー関数）- drag-drop.tsに移動
 
   // ドラッグ&ドロップ（ノート）
   function handleDragStartNote(note: Note) {
-    handleDragStart(
+    dragStart(
       note,
       (n) => (draggedNote = n),
       (id) => (dragOverNoteId = id)
@@ -633,14 +587,14 @@
   }
 
   function handleDragEndNote() {
-    handleDragEnd(
+    dragEnd(
       (n) => (draggedNote = n),
       (id) => (dragOverNoteId = id)
     )
   }
 
   function handleDragOverNote(e: DragEvent, note: Note) {
-    handleDragOver(
+    dragOver(
       e,
       note,
       draggedNote,
@@ -654,27 +608,9 @@
     if (!draggedNote || draggedNote.id === targetNote.id) return
     if (draggedNote.parentId !== targetNote.parentId) return
 
-    const allNotes = $notes
-    const targetList = (
-      draggedNote.parentId
-        ? allNotes.filter((f) => f.parentId === draggedNote!.parentId)
-        : allNotes.filter((f) => !f.parentId)
-    ).sort((a, b) => a.order - b.order)
-
-    const fromIndex = targetList.findIndex((f) => f.id === draggedNote!.id)
-    const toIndex = targetList.findIndex((f) => f.id === targetNote.id)
-
-    const reordered = [...targetList]
-    const [movedItem] = reordered.splice(fromIndex, 1)
-    reordered.splice(toIndex, 0, movedItem)
-
-    const updatedNotes = allNotes.map((f) => {
-      const newOrderIndex = reordered.findIndex((r) => r.id === f.id)
-      if (newOrderIndex !== -1) {
-        return { ...f, order: newOrderIndex }
-      }
-      return f
-    })
+    const updatedNotes = reorderItems(draggedNote, targetNote, $notes, (n) =>
+      draggedNote.parentId ? n.parentId === draggedNote.parentId : !n.parentId
+    )
 
     updateNotes(updatedNotes)
     draggedNote = null
@@ -727,23 +663,8 @@
     })
   }
 
-  // リーフコンテンツから # 見出しを抽出
-  function extractH1Title(content: string): string | null {
-    const firstLine = content.split('\n')[0]
-    const match = firstLine.match(/^# (.+)/)
-    return match ? match[1].trim() : null
-  }
-
-  // リーフコンテンツの1行目の # 見出しを更新
-  function updateH1Title(content: string, newTitle: string): string {
-    const lines = content.split('\n')
-    const firstLine = lines[0]
-    if (firstLine.match(/^# /)) {
-      lines[0] = `# ${newTitle}`
-      return lines.join('\n')
-    }
-    return content
-  }
+  // リーフコンテンツから # 見出しを抽出 - breadcrumbs.tsに移動
+  // リーフコンテンツの1行目の # 見出しを更新 - breadcrumbs.tsに移動
 
   function updateLeafContent(content: string, leafId: string) {
     if (isOperationsLocked) return
@@ -780,7 +701,7 @@
 
   // ドラッグ&ドロップ（リーフ）
   function handleDragStartLeaf(leaf: Leaf) {
-    handleDragStart(
+    dragStart(
       leaf,
       (l) => (draggedLeaf = l),
       (id) => (dragOverLeafId = id)
@@ -788,14 +709,14 @@
   }
 
   function handleDragEndLeaf() {
-    handleDragEnd(
+    dragEnd(
       (l) => (draggedLeaf = l),
       (id) => (dragOverLeafId = id)
     )
   }
 
   function handleDragOverLeaf(e: DragEvent, leaf: Leaf) {
-    handleDragOver(
+    dragOver(
       e,
       leaf,
       draggedLeaf,
@@ -809,25 +730,12 @@
     if (!draggedLeaf || draggedLeaf.id === targetLeaf.id) return
     if (draggedLeaf.noteId !== targetLeaf.noteId) return
 
-    const allLeaves = $leaves
-    const noteLeaves = allLeaves
-      .filter((n) => n.noteId === draggedLeaf!.noteId)
-      .sort((a, b) => a.order - b.order)
-
-    const fromIndex = noteLeaves.findIndex((n) => n.id === draggedLeaf!.id)
-    const toIndex = noteLeaves.findIndex((n) => n.id === targetLeaf.id)
-
-    const reordered = [...noteLeaves]
-    const [movedItem] = reordered.splice(fromIndex, 1)
-    reordered.splice(toIndex, 0, movedItem)
-
-    const updatedLeaves = allLeaves.map((n) => {
-      const newOrderIndex = reordered.findIndex((r) => r.id === n.id)
-      if (newOrderIndex !== -1) {
-        return { ...n, order: newOrderIndex }
-      }
-      return n
-    })
+    const updatedLeaves = reorderItems(
+      draggedLeaf,
+      targetLeaf,
+      $leaves,
+      (l) => l.noteId === draggedLeaf.noteId
+    )
 
     updateLeaves(updatedLeaves)
     draggedLeaf = null
