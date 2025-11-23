@@ -632,3 +632,536 @@ async function executePullInternal(isInitial: boolean) {
 - すべての処理が`pane: 'left' | 'right'`引数で制御される
 - グローバルストアは全体で共有するデータのみ
 - 表示状態は各ペインがローカル変数で独立管理
+
+---
+
+## 10. コード重複削減と汎用化（実装済み 2025-11-24）
+
+Version 6.0では、徹底的なコード重複削減とDRY原則の適用により、保守性と再利用性を大幅に向上させました。
+
+### 実施した変更
+
+#### 1. パンくずリスト生成ロジックの分離（breadcrumbs.ts）
+
+**分離前:**
+
+- App.svelteに`getBreadcrumbs()`, `extractH1Title()`, `updateH1Title()`が含まれていた
+- 約80行のロジックがApp.svelteに埋め込まれていた
+
+**分離後:**
+
+```typescript
+// src/lib/breadcrumbs.ts（新規作成）
+export function getBreadcrumbs(
+  view: View,
+  note: Note | null,
+  leaf: Leaf | null,
+  allNotes: Note[],
+  pane: Pane,
+  goHome: (pane: Pane) => void,
+  selectNote: (note: Note, pane: Pane) => void,
+  selectLeaf: (leaf: Leaf, pane: Pane) => void
+): Breadcrumb[]
+
+export function extractH1Title(content: string): string | null
+
+export function updateH1Title(content: string, newTitle: string): string
+```
+
+**成果:**
+
+- App.svelteから約80行削減
+- パンくずリスト関連のロジックを一元化
+- 他のコンポーネントからも再利用可能
+
+#### 2. ドラッグ&ドロップユーティリティの汎用化（drag-drop.ts）
+
+**分離前:**
+
+- ノート用とリーフ用で重複したドラッグ&ドロップ処理
+- `handleDragStartNote()`, `handleDragStartLeaf()`等の重複関数
+- 型安全性が低い
+
+**分離後:**
+
+```typescript
+// src/lib/drag-drop.ts（新規作成）
+export function handleDragStart<T extends { id: string }>(item: T): void
+
+export function handleDragEnd(): void
+
+export function handleDragOver<T extends { id: string }>(item: T, callback: (item: T) => void): void
+
+export function reorderItems<T extends { order: number }>(
+  items: T[],
+  dragId: string,
+  dropId: string
+): T[]
+```
+
+**特徴:**
+
+- ジェネリック型（`<T>`）により、Note/Leaf両方に対応
+- 型安全性の向上（`id`プロパティを持つオブジェクトのみ受け付ける）
+- 並び替えロジックを汎用化
+
+**成果:**
+
+- App.svelteから約60行削減
+- ノートとリーフの重複処理を統一
+- テスタビリティの向上
+
+#### 3. ノートカード共通コンポーネント化（NoteCard.svelte）
+
+**問題点:**
+
+- HomeViewとNoteViewで同じノートカードUIが重複実装されていた
+- 約40行のHTMLとCSSが重複
+
+**解決策:**
+
+```svelte
+<!-- src/components/cards/NoteCard.svelte（新規作成） -->
+<script lang="ts">
+  import type { Note } from '$lib/types'
+
+  export let note: Note
+  export let onSelect: (note: Note) => void
+  export let onDragStart: (note: Note) => void
+  export let onDragOver: (note: Note) => void
+  export let isDragOver: boolean = false
+  export let itemCount: number = 0
+</script>
+
+<div
+  class="note-card {isDragOver ? 'drag-over' : ''}"
+  on:click={() => onSelect(note)}
+  on:dragstart={() => onDragStart(note)}
+  on:dragover|preventDefault={() => onDragOver(note)}
+  draggable="true"
+>
+  <div class="card-title">{note.name}</div>
+  <div class="card-meta">{itemCount} items</div>
+</div>
+```
+
+**使用例:**
+
+```svelte
+<!-- HomeView.svelte -->
+<NoteCard
+  {note}
+  onSelect={(n) => onSelectNote(n)}
+  onDragStart={(n) => handleDragStart(n)}
+  onDragOver={(n) => handleDragOver(n)}
+  isDragOver={dragOverId === note.id}
+  itemCount={getItemCount(note.id)}
+/>
+```
+
+**成果:**
+
+- HomeViewとNoteViewから各約40行削減（合計約80行削減）
+- UIの一貫性が保証される
+- 1箇所の修正で両方に反映される
+
+#### 4. IndexedDB操作の汎用化（storage.ts）
+
+**問題点:**
+
+- fonts/backgrounds関連の6つの関数で重複したIndexedDB操作
+- 同じパターンのopen/transaction/put/get/deleteが繰り返される
+
+**解決策:**
+
+```typescript
+// src/lib/storage.ts
+// 汎用ヘルパー関数を追加
+export async function putItem<T>(storeName: string, key: string, value: T): Promise<void> {
+  const db = await openDB()
+  const tx = db.transaction(storeName, 'readwrite')
+  await tx.objectStore(storeName).put(value, key)
+  await tx.done
+}
+
+export async function getItem<T>(storeName: string, key: string): Promise<T | null> {
+  const db = await openDB()
+  const tx = db.transaction(storeName, 'readonly')
+  return (await tx.objectStore(storeName).get(key)) || null
+}
+
+export async function deleteItem(storeName: string, key: string): Promise<void> {
+  const db = await openDB()
+  const tx = db.transaction(storeName, 'readwrite')
+  await tx.objectStore(storeName).delete(key)
+  await tx.done
+}
+```
+
+**リファクタリング例:**
+
+```typescript
+// 修正前
+export async function saveFontToIndexedDB(arrayBuffer: ArrayBuffer): Promise<void> {
+  const db = await openDB()
+  const tx = db.transaction('fonts', 'readwrite')
+  await tx.objectStore('fonts').put(arrayBuffer, 'custom-font')
+  await tx.done
+}
+
+// 修正後
+export async function saveFontToIndexedDB(arrayBuffer: ArrayBuffer): Promise<void> {
+  await putItem<ArrayBuffer>('fonts', 'custom-font', arrayBuffer)
+}
+```
+
+**成果:**
+
+- 6つの関数を簡略化（約60行削減）
+- 型安全性の向上（ジェネリック型`<T>`）
+- エラーハンドリングの一元化
+
+#### 5. GitHub設定検証の統一（github.ts）
+
+**問題点:**
+
+- 4つの関数（`saveToGitHub`, `pushAllWithTreeAPI`, `pullFromGitHub`, `testGitHubConnection`）で同じ設定検証が重複
+
+**解決策:**
+
+```typescript
+// src/lib/github.ts
+export function validateGitHubSettings(settings: Settings): {
+  valid: boolean
+  message?: string
+} {
+  if (!settings.token || !settings.repoName) {
+    return { valid: false, message: 'GitHub設定が不完全です' }
+  }
+  if (!settings.repoName.includes('/')) {
+    return { valid: false, message: 'リポジトリ名は"owner/repo"形式で入力してください' }
+  }
+  return { valid: true }
+}
+```
+
+**使用例:**
+
+```typescript
+export async function pushAllWithTreeAPI(
+  notes: Note[],
+  leaves: Leaf[],
+  settings: Settings,
+  existingFiles: GitHubFile[],
+  pushCount: number
+): Promise<{ success: boolean; message: string; pushCount?: number }> {
+  const validation = validateGitHubSettings(settings)
+  if (!validation.valid) {
+    return { success: false, message: validation.message! }
+  }
+  // ... Pushロジック
+}
+```
+
+**成果:**
+
+- 4つの関数から検証ロジックを削除（約40行削減）
+- 設定検証の一元管理
+- 将来の検証ルール追加が容易
+
+#### 6. Footerコンポーネントのリファクタリング
+
+**問題点:**
+
+- 4つのFooterコンポーネント（HomeFooter, NoteFooter, EditorFooter, PreviewFooter）で保存ボタンが重複実装されていた
+- isDirty状態のバッジ表示ロジックが4箇所に分散
+
+**解決策:**
+
+```svelte
+<!-- src/components/buttons/SaveButton.svelte（新規作成） -->
+<script lang="ts">
+  import { isDirty } from '$lib/stores'
+  import { _ } from 'svelte-i18n'
+
+  export let onSave: () => void
+</script>
+
+<button on:click={onSave} class="save-button">
+  💾 {$_('common.save')}
+  {#if $isDirty}
+    <span class="notification-badge"></span>
+  {/if}
+</button>
+```
+
+**使用例:**
+
+```svelte
+<!-- EditorFooter.svelte -->
+<script lang="ts">
+  import SaveButton from '../buttons/SaveButton.svelte'
+  export let onSave: () => void
+</script>
+
+<SaveButton {onSave} />
+```
+
+**成果:**
+
+- 4つのFooterコンポーネントから各約20行削減（合計約80行削減）
+- 保存ボタンの一元管理
+- isDirty状態の一貫した表示
+
+#### 7. スクロール同期関数の統一（App.svelte）
+
+**問題点:**
+
+- 左→右、右→左のスクロール同期で重複したロジック
+- `handleLeftPaneScroll()`, `handleRightPaneScroll()`の重複
+
+**解決策:**
+
+```typescript
+// src/App.svelte
+function handlePaneScroll(sourcePane: Pane, event: Event) {
+  const source = event.target as HTMLElement
+  const sourceScrollPercentage = source.scrollTop / (source.scrollHeight - source.clientHeight)
+
+  const targetPane = sourcePane === 'left' ? 'right' : 'left'
+  const targetElement = document.getElementById(`${targetPane}-pane`)
+
+  if (!targetElement) return
+
+  // 無限ループ防止フラグ
+  if (sourcePane === 'left') {
+    isScrollingSyncRight = true
+  } else {
+    isScrollingSyncLeft = true
+  }
+
+  const targetScrollTop =
+    sourceScrollPercentage * (targetElement.scrollHeight - targetElement.clientHeight)
+  targetElement.scrollTop = targetScrollTop
+
+  setTimeout(() => {
+    if (sourcePane === 'left') {
+      isScrollingSyncRight = false
+    } else {
+      isScrollingSyncLeft = false
+    }
+  }, 100)
+}
+```
+
+**使用例:**
+
+```svelte
+<div id="left-pane" on:scroll={(e) => handlePaneScroll('left', e)}>
+  <!-- 左ペインのコンテンツ -->
+</div>
+
+<div id="right-pane" on:scroll={(e) => handlePaneScroll('right', e)}>
+  <!-- 右ペインのコンテンツ -->
+</div>
+```
+
+**成果:**
+
+- 約30行のコード削減
+- 無限ループ防止ロジックの一元化
+- pane引数により左右対称性を保持
+
+#### 8. 背景画像管理の統一（background.ts）
+
+**問題点:**
+
+- 左右ペイン別のアップロード/削除関数が重複
+- `uploadBackgroundLeft()`, `uploadBackgroundRight()`等の重複
+
+**解決策:**
+
+```typescript
+// src/lib/background.ts
+export async function uploadAndApplyBackground(
+  file: File,
+  pane: 'left' | 'right',
+  opacity: number
+): Promise<void> {
+  const arrayBuffer = await readFileAsArrayBuffer(file)
+  const key = pane === 'left' ? 'custom-left' : 'custom-right'
+
+  await putItem<ArrayBuffer>('backgrounds', key, arrayBuffer)
+
+  const url = URL.createObjectURL(new Blob([arrayBuffer]))
+  const root = document.documentElement
+  root.style.setProperty(`--background-image-${pane}`, `url(${url})`)
+  root.style.setProperty(`--background-opacity-${pane}`, opacity.toString())
+}
+
+export async function removeAndDeleteCustomBackground(pane: 'left' | 'right'): Promise<void> {
+  const key = pane === 'left' ? 'custom-left' : 'custom-right'
+
+  await deleteItem('backgrounds', key)
+
+  const root = document.documentElement
+  root.style.removeProperty(`--background-image-${pane}`)
+  root.style.removeProperty(`--background-opacity-${pane}`)
+}
+```
+
+**成果:**
+
+- 約50行のコード削減
+- 左右ペインの処理を完全に統一
+- 保守性の向上
+
+#### 9. 設定画面の4コンポーネント分割
+
+**問題点:**
+
+- SettingsView.svelte が約400行の大きなファイル
+- テーマ選択、フォント、背景画像、GitHub設定が混在
+
+**解決策:**
+
+```
+src/components/settings/
+├── ThemeSelector.svelte        # テーマ選択（約80行）
+├── FontCustomizer.svelte       # カスタムフォント（約60行）
+├── BackgroundCustomizer.svelte # カスタム背景画像（約100行）
+└── GitHubSettings.svelte       # GitHub連携設定（約120行）
+```
+
+**成果:**
+
+- SettingsView.svelteを約360行削減
+- 各コンポーネントが単一責任を持つ
+- テスト・保守が容易に
+
+#### 10. alert()をアプリ独自のポップアップに統一
+
+**問題点:**
+
+- ブラウザ標準の`alert()`が使用されていた
+- アプリのデザインと統一されていない
+
+**解決策:**
+
+- 既存のModalコンポーネントを活用
+- すべての`alert()`呼び出しを`showAlert()`に置き換え
+
+```typescript
+// 修正前
+alert('リーフを削除できませんでした')
+
+// 修正後
+showAlert('リーフを削除できませんでした')
+```
+
+**成果:**
+
+- UIの一貫性が向上
+- アプリのテーマに合ったデザイン
+
+#### 11. ドラッグ&ドロップの視覚的フィードバック強化
+
+**問題点:**
+
+- ノートのドラッグ&ドロップ時は強調表示があった
+- リーフのドラッグ&ドロップ時は強調表示がなかった
+
+**解決策:**
+
+NoteView.svelteに欠けていたスタイルを追加:
+
+```css
+.note-card {
+  /* 基本スタイル */
+}
+
+.note-card:hover {
+  /* ホバー時のスタイル */
+}
+
+.drag-over {
+  border: 2px solid var(--accent-color);
+  box-shadow: 0 0 10px rgba(var(--accent-color-rgb), 0.5);
+}
+```
+
+**成果:**
+
+- ノートとリーフで一貫したドラッグ&ドロップ体験
+- 視覚的フィードバックの向上
+
+### 総合成果
+
+**コード削減:**
+
+- breadcrumbs.ts分離: 約80行削減
+- drag-drop.ts分離: 約60行削減
+- NoteCard.svelte作成: 約80行削減
+- storage.ts汎用化: 約60行削減
+- github.ts統一: 約40行削減
+- SaveButton.svelte作成: 約80行削減
+- スクロール同期統一: 約30行削減
+- 背景画像管理統一: 約50行削減
+- 設定画面分割: 約360行削減（構造改善のため、ファイル数は増加）
+- **総削減行数: 約840行** （設定画面分割を除くと約480行）
+
+**ファイル数の変化:**
+
+- コンポーネント数: 15個 → 22個
+- libモジュール数: 7個 → 13個
+
+**設計原則:**
+
+- **DRY原則**: 重複コードの徹底削減
+- **単一責任の原則**: 各コンポーネント・モジュールが単一の責任を持つ
+- **型安全性**: ジェネリック型による再利用性と型安全性の向上
+- **左右対称設計**: pane引数による統一的な処理
+
+**保守性の向上:**
+
+- コード重複削減により、1箇所の修正で複数箇所に反映
+- 汎用ヘルパー関数により、新機能追加が容易
+- 型安全性の向上により、バグの早期発見
+- コンポーネント分割により、テストが容易
+
+---
+
+## まとめ
+
+SimplestNote.mdは、継続的なリファクタリングにより以下を達成しました：
+
+### コード規模の変遷
+
+- **Version 1.0**: 1,373行の単一ファイル
+- **Version 3.0**: 約2,178行の15ファイル
+- **Version 5.0**: 完全な左右対称設計（約100行削減）
+- **Version 6.0**: 約6,300行の38ファイル（22コンポーネント、13モジュール）
+
+### リファクタリングの成果
+
+1. **コンポーネント分割**: 単一ファイルから22コンポーネントへ
+2. **状態管理改善**: Svelteストアによる一元管理
+3. **ビジネスロジック分離**: lib/層への明確な分離
+4. **モジュール化**: 13個の専門モジュール
+5. **Git Tree API**: GitHub API最適化とSHA比較
+6. **左右対称設計**: 完全な2ペイン対応
+7. **コード重複削減**: DRY原則の徹底適用（約840行削減）
+8. **汎用化**: ジェネリック型による再利用性向上
+9. **UI一貫性**: 共通コンポーネントによる統一
+10. **国際化対応**: svelte-i18nによる多言語サポート
+
+### 設計原則
+
+- **シンプリシティ**: 必要最小限のコード
+- **DRY原則**: 重複の徹底削減
+- **単一責任**: 各コンポーネントが単一の責任を持つ
+- **型安全性**: TypeScriptによる静的型チェック
+- **左右対称**: 完全に対等な2ペイン設計
+- **モジュール性**: 高い凝集度と低い結合度
+
+詳細なアーキテクチャについては、[architecture.md](./architecture.md)を参照してください。

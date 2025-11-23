@@ -191,10 +191,11 @@ npm run preview
 
 ### プロジェクト統計
 
-- **総行数**: 約2,400行（コメント・空行含む）
-- **コンポーネント数**: 9個
-- **libモジュール数**: 7個
-- **ドキュメント数**: 8個（このファイル含む）
+- **総行数**: 約6,300行（コメント・空行含む）
+- **ソースファイル数**: 38個（.svelte + .ts）
+- **コンポーネント数**: 22個
+- **libモジュール数**: 13個
+- **ドキュメント数**: 13個（このファイル + README.md + docs/下の11個）
 
 ### 主要技術
 
@@ -211,6 +212,44 @@ npm run preview
 ---
 
 ## 📝 変更履歴
+
+### Version 6.0 (2025-11-24)
+
+- **大規模リファクタリングによるコード品質向上**
+  - **ドラッグ&ドロップの視覚的フィードバック強化**
+    - リーフのドラッグ&ドロップ時にノートと同様の強調表示を追加
+    - アクセントカラーのボーダーとボックスシャドウで視覚的フィードバック
+  - **BackgroundCustomizer.svelteの最適化**
+    - 動的プロパティアクセスで左右ペインの重複コード削減（約30行削減）
+    - `hasCustomBackgroundLeft/Right`、`backgroundOpacityLeft/Right`の動的管理
+  - **コードの重複削減と汎用化**
+    - **breadcrumbs.ts分離**: パンくずリスト生成ロジックをApp.svelteから分離
+    - **drag-drop.ts分離**: ドラッグ&ドロップユーティリティを汎用化（`handleDragStart<T>()`, `handleDragEnd()`, `handleDragOver<T>()`, `reorderItems<T>()`）
+    - **NoteCard.svelte作成**: HomeViewとNoteViewの重複したノートカードUIをコンポーネント化（約40行削減）
+    - **storage.ts汎用化**: IndexedDB操作を`putItem<T>()`, `getItem<T>()`, `deleteItem()`の3つのヘルパー関数で統一
+    - **github.ts統一**: 設定検証ロジックを`validateGitHubSettings()`関数に統一
+    - App.svelteを1,499行→1,397行に削減（102行削減）
+  - **App.svelteとFooterコンポーネントのリファクタリング**
+    - スクロール同期関数を`handlePaneScroll()`に統一
+    - **SaveButton.svelte作成**: 全Footerコンポーネント共通の保存ボタンを分離
+    - 重複コード削減: 約150行
+  - **背景画像管理の統一**
+    - `uploadAndApplyBackground(file, pane, opacity)`統一関数を追加
+    - `removeAndDeleteCustomBackground(pane)`統一関数を追加
+    - 重複コード削減: 約50行
+  - **設定画面の4コンポーネント分割**
+    - ThemeSelector.svelte（テーマ選択）
+    - FontCustomizer.svelte（カスタムフォント）
+    - BackgroundCustomizer.svelte（カスタム背景画像）
+    - GitHubSettings.svelte（GitHub連携設定）
+  - **alert()をアプリ独自のポップアップに統一**
+    - Modalコンポーネントを活用してブラウザ標準alert()を置き換え
+  - **Cloudflare Pagesへ移行**
+    - GitHub PagesからCloudflare Pagesへデプロイ先変更
+    - より高速で信頼性の高いホスティング
+  - **総削減行数**: 約372行のコード削減
+  - **コンポーネント数**: 15個→22個に増加（分割により保守性向上）
+  - **libモジュール数**: 7個→13個に増加（モジュール化により再利用性向上）
 
 ### Version 5.1 (2025-11-24)
 
@@ -390,11 +429,11 @@ npm run preview
 ## 📞 サポート
 
 - **リポジトリ**: [simplest-note-md](https://github.com/ariori/simplest-note-md)
-- **デプロイ**: GitHub Pages（自動デプロイ）
-- **CI/CD**: GitHub Actions
+- **デモサイト**: [https://simplest-note-md.llll-ll.com](https://simplest-note-md.llll-ll.com)
+- **デプロイ**: Cloudflare Pages（自動デプロイ）
 
 ---
 
-**Document Version**: 5.1
+**Document Version**: 6.0
 **Last Updated**: 2025-11-24
 **Author**: Claude (Anthropic)
