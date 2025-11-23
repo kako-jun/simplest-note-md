@@ -8,6 +8,7 @@
     removeAndDeleteCustomBackgroundLeft,
     removeAndDeleteCustomBackgroundRight,
   } from '../../lib/background'
+  import { showAlert } from '../../lib/ui'
 
   export let settings: Settings
   export let onSettingsChange: (payload: Partial<Settings>) => void
@@ -77,7 +78,7 @@
     const validExtensions = ['.ttf', '.otf', '.woff', '.woff2']
     const fileName = file.name.toLowerCase()
     if (!validExtensions.some((ext) => fileName.endsWith(ext))) {
-      alert($_('settings.extras.font.invalidFormat'))
+      showAlert($_('settings.extras.font.invalidFormat'))
       return
     }
 
@@ -88,7 +89,7 @@
       onSettingsChange({ hasCustomFont: true })
     } catch (error) {
       console.error('Failed to upload font:', error)
-      alert($_('settings.extras.font.uploadFailed'))
+      showAlert($_('settings.extras.font.uploadFailed'))
     } finally {
       fontUploading = false
       input.value = ''
@@ -102,7 +103,7 @@
       onSettingsChange({ hasCustomFont: false })
     } catch (error) {
       console.error('Failed to reset font:', error)
-      alert($_('settings.extras.font.resetFailed'))
+      showAlert($_('settings.extras.font.resetFailed'))
     }
   }
 
@@ -124,7 +125,7 @@
     const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
     const fileName = file.name.toLowerCase()
     if (!validExtensions.some((ext) => fileName.endsWith(ext))) {
-      alert($_('settings.extras.background.invalidFormat'))
+      showAlert($_('settings.extras.background.invalidFormat'))
       return
     }
 
@@ -139,7 +140,7 @@
       })
     } catch (error) {
       console.error('Failed to upload left background:', error)
-      alert($_('settings.extras.background.uploadFailedLeft'))
+      showAlert($_('settings.extras.background.uploadFailedLeft'))
     } finally {
       backgroundLeftUploading = false
       input.value = ''
@@ -156,7 +157,7 @@
     const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
     const fileName = file.name.toLowerCase()
     if (!validExtensions.some((ext) => fileName.endsWith(ext))) {
-      alert($_('settings.extras.background.invalidFormat'))
+      showAlert($_('settings.extras.background.invalidFormat'))
       return
     }
 
@@ -171,7 +172,7 @@
       })
     } catch (error) {
       console.error('Failed to upload right background:', error)
-      alert($_('settings.extras.background.uploadFailedRight'))
+      showAlert($_('settings.extras.background.uploadFailedRight'))
     } finally {
       backgroundRightUploading = false
       input.value = ''
@@ -189,7 +190,7 @@
       })
     } catch (error) {
       console.error('Failed to reset left background:', error)
-      alert($_('settings.extras.background.resetFailedLeft'))
+      showAlert($_('settings.extras.background.resetFailedLeft'))
     }
   }
 
@@ -204,7 +205,7 @@
       })
     } catch (error) {
       console.error('Failed to reset right background:', error)
-      alert($_('settings.extras.background.resetFailedRight'))
+      showAlert($_('settings.extras.background.resetFailedRight'))
     }
   }
 
