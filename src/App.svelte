@@ -49,6 +49,7 @@
   let pullRunning = false
   let isOperationsLocked = true
   let showSettings = false
+  let isPulling = false // Pull処理中はURL更新をスキップ
 
   // 2ペイン用の状態（将来の拡張用、現在は1ペインのみ使用）
   let isDualPane = false // 画面幅で切り替え
@@ -66,7 +67,10 @@
   let isRestoringFromUrl = false
 
   function updateUrlFromState() {
-    if (isRestoringFromUrl) return
+    // 初期化完了まで、URL更新をスキップ
+    if (isRestoringFromUrl || isPulling || isOperationsLocked) {
+      return
+    }
 
     const params = new URLSearchParams()
 
@@ -82,7 +86,7 @@
     window.history.pushState({}, '', newUrl)
   }
 
-  function restoreStateFromUrl() {
+  function restoreStateFromUrl(alreadyRestoring = false) {
     const params = new URLSearchParams(window.location.search)
     let leftPath = params.get('left')
     let rightPath = params.get('right')
@@ -117,7 +121,9 @@
       return
     }
 
-    isRestoringFromUrl = true
+    if (!alreadyRestoring) {
+      isRestoringFromUrl = true
+    }
 
     // 左ペインの復元
     if (!leftPath) {
@@ -164,7 +170,9 @@
       rightView = $currentView
     }
 
-    isRestoringFromUrl = false
+    if (!alreadyRestoring) {
+      isRestoringFromUrl = false
+    }
   }
 
   // ストアの変更をURLに反映
@@ -196,10 +204,8 @@
       // 初回Pull（GitHubから最新データを取得）
       // 重要: IndexedDBからは読み込まない
       // Pull成功時にIndexedDBは全削除→全作成される
+      // Pull成功後、URLから状態を復元（handlePull内で実行）
       await handlePull(true)
-
-      // Pull成功後、URLから状態を復元
-      restoreStateFromUrl()
     })()
 
     // ブラウザの戻る/進むボタンに対応
@@ -739,6 +745,7 @@
   async function handlePull(isInitial = false) {
     pullRunning = true
     isOperationsLocked = true
+    isPulling = true // Pull処理中はURL更新をスキップ
 
     // Pull開始を通知
     showPullToast('Pullします')
@@ -755,10 +762,22 @@
     const result = await executePull($settings, isInitial)
 
     if (result.success) {
+      // 初回Pull時は、データ更新前にisRestoringFromUrlをtrueにする
+      // これにより、データ更新によるリアクティブ宣言の発火を防ぐ
+      if (isInitial) {
+        isRestoringFromUrl = true
+      }
+
       // GitHubから取得したデータでIndexedDBを再作成
       updateNotes(result.notes)
       updateLeaves(result.leaves)
       isOperationsLocked = false
+
+      // 初回Pull時はURLから状態を復元（既にisRestoringFromUrl=trueを設定済み）
+      if (isInitial) {
+        restoreStateFromUrl(true)
+        isRestoringFromUrl = false
+      }
     } else {
       if (isInitial) {
         showAlert('初回Pullに失敗しました。設定を確認して再度Pullしてください。')
@@ -768,6 +787,7 @@
     // 結果を通知
     showPullToast(result.message, result.variant)
     pullRunning = false
+    isPulling = false // Pull処理完了
   }
 </script>
 

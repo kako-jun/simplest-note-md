@@ -20,6 +20,17 @@
   export let disabled: boolean = false
 
   const canHaveSubNote = !currentNote.parentId
+
+  function formatDateTime(timestamp: number): string {
+    const date = new Date(timestamp)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  }
 </script>
 
 <section class="view-container">
@@ -60,7 +71,7 @@
       >
         <strong>{leaf.title}</strong>
         <div class="card-meta">
-          <small>更新: {new Date(leaf.updatedAt).toLocaleDateString()}</small>
+          <small>更新: {formatDateTime(leaf.updatedAt)}</small>
         </div>
       </div>
     {/each}
