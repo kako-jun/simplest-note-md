@@ -15,139 +15,251 @@ const headers = {
 
 ---
 
-## ファイルパスの構築
+## Push処理（Git Tree API）
 
-フォルダ階層に基づいてGitHub上のパスを生成。
+全リーフを1コミットでPushする実装。Git Tree APIを使用することで、削除・リネームを確実に処理し、APIリクエスト数を最小化（約8回）。
+
+### 処理フロー
+
+1. デフォルトブランチを取得
+2. 現在のブランチのHEADを取得
+3. 現在のコミットからTreeのSHAを取得
+4. 既存ツリーを取得（notes/以外のファイルとnotes/以下のSHAを記録）
+5. 新しいTreeを構築（全ファイルを明示的に指定）
+6. 新しいTreeを作成
+7. 新しいコミットを作成
+8. ブランチのリファレンスを更新（`force: true`）
+
+### SHA最適化
+
+変更されていないファイルは既存のSHAを使用し、変更されたファイルのみcontentを送信することで、ネットワーク転送量を大幅削減。
 
 ```typescript
-function buildPath(note: Note): string {
-  const folder = folders.find((f) => f.id === note.folderId)
-  if (!folder) return `notes/${note.title}.md`
+// SHA-1計算（Git blob形式）
+async function calculateGitBlobSha(content: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const contentBytes = encoder.encode(content)
+  const header = `blob ${contentBytes.length}\0` // UTF-8バイト数を使用
+  const headerBytes = encoder.encode(header)
 
-  const folderPath = getFolderPath(folder)
-  return `notes/${folderPath}/${note.title}.md`
+  const data = new Uint8Array(headerBytes.length + contentBytes.length)
+  data.set(headerBytes, 0)
+  data.set(contentBytes, headerBytes.length)
+
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-function getFolderPath(folder: Folder): string {
-  const parentFolder = folder.parentId ? folders.find((f) => f.id === folder.parentId) : null
+// リーフをTreeに追加
+for (const leaf of leaves) {
+  const path = buildPath(leaf, notes)
+  const existingSha = existingNotesFiles.get(path)
 
-  if (parentFolder) {
-    return `${parentFolder.name}/${folder.name}`
+  if (existingSha) {
+    const localSha = await calculateGitBlobSha(leaf.content)
+    if (localSha === existingSha) {
+      // 変化なし → 既存のSHAを使用（転送量削減）
+      treeItems.push({
+        path,
+        mode: '100644',
+        type: 'blob',
+        sha: existingSha,
+      })
+      continue
+    }
   }
-  return folder.name
+
+  // 新規ファイルまたは変化あり → contentを送信
+  treeItems.push({
+    path,
+    mode: '100644',
+    type: 'blob',
+    content: leaf.content,
+  })
+}
+```
+
+### base_treeを使わない方式
+
+`base_tree`を使わず、全ファイルを明示的に指定することで削除を確実に処理。
+
+**notes/以外のファイル:**
+
+- 既存ツリーから取得してSHAを保持
+- README.md等のnotes/以外のファイルは変更されない
+
+**notes/以下のファイル:**
+
+- 完全に再構築
+- treeItemsに含めないファイルは自動的に削除される
+
+```typescript
+// notes/以外のファイルを保持
+for (const item of preserveItems) {
+  treeItems.push(item) // 既存のSHA
+}
+
+// notes/以下を再構築
+// .gitkeep、リーフのみをtreeItemsに追加
+```
+
+### 強制更新（force: true）
+
+個人用アプリなので、ブランチ更新時に`force: true`を使用。
+
+```typescript
+{
+  sha: newCommitSha,
+  force: true, // 強制更新（他デバイスとの同時編集は非対応）
+}
+```
+
+**設計思想:**
+
+- Pushボタンを押した時点で、ユーザーは「今の状態が正しい」と判断している
+- 常に成功させることが重要
+- Pullしていない方が悪い（ユーザーの責任）
+
+### 並行実行の防止
+
+`isPushing`フラグでダブルクリック等による並行実行を防止。
+
+```typescript
+let isPushing = false
+async function handleSaveToGitHub() {
+  if (isPushing) return
+  isPushing = true
+  try {
+    await executePush(...)
+  } finally {
+    isPushing = false
+  }
+}
+```
+
+---
+
+## Pull処理
+
+GitHubから全データをPull。
+
+### Base64デコード
+
+GitHub APIは改行付きのBase64を返すため、改行を削除してからデコード。
+
+```typescript
+let content = ''
+if (contentData.content) {
+  try {
+    // GitHub APIは改行付きBase64を返すので改行を削除
+    const base64 = contentData.content.replace(/\n/g, '')
+    content = decodeURIComponent(escape(atob(base64)))
+  } catch (e) {
+    content = ''
+  }
+}
+```
+
+### 重要な仕様
+
+- GitHubが唯一の真実の情報源（Single Source of Truth）
+- IndexedDBは単なるキャッシュ
+- Pull成功時にIndexedDBは全削除→全作成
+
+---
+
+## ファイルパスの構築
+
+ノート階層に基づいてGitHub上のパスを生成。
+
+```typescript
+function buildPath(leaf: Leaf, notes: Note[]): string {
+  const note = notes.find((f) => f.id === leaf.noteId)
+  if (!note) return `notes/${leaf.title}.md`
+
+  const folderPath = getFolderPath(note, notes)
+  return `notes/${folderPath}/${leaf.title}.md`
+}
+
+function getFolderPath(note: Note, allNotes: Note[]): string {
+  const parentNote = note.parentId ? allNotes.find((f) => f.id === note.parentId) : null
+
+  if (parentNote) {
+    return `${parentNote.name}/${note.name}`
+  }
+  return note.name
 }
 ```
 
 **例:**
 
-- ルートフォルダ「仕事」→ `notes/仕事/メモ.md`
-- サブフォルダ「仕事/会議」→ `notes/仕事/会議/議事録.md`
+- ルートノート「仕事」のリーフ → `notes/仕事/リーフ1.md`
+- サブノート「仕事/会議」のリーフ → `notes/仕事/会議/議事録.md`
 
 ---
 
-## 既存ファイルのSHA取得
+## .gitkeepファイル
 
-GitHub APIでファイルを更新する際、既存ファイルのSHAが必要。
+Gitにはディレクトリの概念がないため、空のノート（リーフがないノート）を保持するために`.gitkeep`ファイルを使用。
 
 ```typescript
-async function fetchCurrentSha(path: string): Promise<string | null> {
-  const url = `https://api.github.com/repos/${settings.repoName}/contents/${path}`
+// 全ノートに対して.gitkeepを配置
+for (const note of notes) {
+  const notePath = getNotePath(note, notes)
+  const gitkeepPath = `${notePath}/.gitkeep`
+  const gitkeepExisting = existingNotesFiles.get(gitkeepPath)
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${settings.token}`,
-      },
-    })
-
-    if (response.ok) {
-      const data = await response.json()
-      return data.sha
-    }
-    return null // ファイルが存在しない
-  } catch (error) {
-    console.error('SHA fetch error:', error)
-    return null
-  }
+  treeItems.push({
+    path: gitkeepPath,
+    mode: '100644',
+    type: 'blob',
+    // 空ファイルなのでSHAは常に同じ
+    ...(gitkeepExisting === emptyGitkeepSha ? { sha: gitkeepExisting } : { content: '' }),
+  })
 }
 ```
+
+**Pull時の処理:**
+
+- `.gitkeep`ファイルはフィルタリングして除外
+- ユーザーには見えない
 
 ---
 
-## ファイルの保存
+## API呼び出し回数
 
-Base64エンコードしてPUTリクエスト。
+### Push処理（Git Tree API）
 
-```typescript
-async function saveToGitHub() {
-  if (!currentNote) return
-  if (!settings.token || !settings.repoName) {
-    showAlert('GitHub設定が不完全です。')
-    return
-  }
+1. リポジトリ情報取得（1回）
+2. ブランチのHEAD取得（1回）
+3. コミット取得（1回）
+4. 既存ツリー取得（1回）
+5. 新しいTree作成（1回）
+6. 新しいコミット作成（1回）
+7. ブランチ更新（1回）
 
-  const path = buildPath(currentNote)
-  const encodedContent = encodeContent(currentNote.content)
-  const sha = await fetchCurrentSha(path)
+**合計: 7回**
 
-  const body: any = {
-    message: 'auto-sync',
-    content: encodedContent,
-    committer: {
-      name: settings.username || 'SimplestNote User',
-      email: settings.email || 'user@example.com',
-    },
-  }
+### Pull処理
 
-  if (sha) {
-    body.sha = sha // 更新の場合はSHAを含める
-  }
+1. リポジトリ情報取得（1回）
+2. ツリー取得（1回、recursive）
+3. 各ファイルのコンテンツ取得（ファイル数回）
 
-  const url = `https://api.github.com/repos/${settings.repoName}/contents/${path}`
-
-  try {
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${settings.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    })
-
-    if (response.ok) {
-      syncMessage = '✅ GitHubに保存しました'
-      syncError = ''
-      setTimeout(() => {
-        syncMessage = ''
-      }, 3000)
-    } else {
-      const error = await response.json()
-      syncError = `❌ 同期エラー: ${error.message}`
-      syncMessage = ''
-    }
-  } catch (error) {
-    syncError = `❌ ネットワークエラー`
-    syncMessage = ''
-  }
-}
-```
+**合計: 2 + ファイル数**
 
 ---
 
-## Base64エンコーディング
+## エラーハンドリング
 
-日本語を含むテキストを正しくエンコード。
+- 各API呼び出しでエラーチェック
+- エラーメッセージをユーザーに表示
+- ネットワークエラーは catch で捕捉
 
 ```typescript
-function encodeContent(content: string): string {
-  // UTF-8 → Base64
-  return btoa(unescape(encodeURIComponent(content)))
+if (!response.ok) {
+  const error = await response.json()
+  return { success: false, message: `❌ エラー: ${error.message}` }
 }
 ```
-
-**解説:**
-
-1. `encodeURIComponent(content)`: UTF-8バイト列をパーセントエンコード
-2. `unescape()`: パーセントエンコードをバイト列に戻す
-3. `btoa()`: バイナリをBase64に変換

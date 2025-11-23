@@ -92,6 +92,10 @@
 - [x] Push/Pull処理の分離（sync.ts）
 - [x] トースト状態管理（ui.ts）
 - [x] 初回Pull時のIndexedDB全削除→全作成フロー
+- [x] **Git Tree APIによる一括Push**（削除・リネーム対応、APIリクエスト数削減）
+- [x] **SHA最適化**（変更されていないファイルは転送しない）
+- [x] **Push並行実行防止**（isPushingフラグ）
+- [x] **強制更新**（force: true、個人用アプリなので常に成功を優先）
 
 ### 🚧 実装中の機能
 

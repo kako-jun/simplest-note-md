@@ -272,3 +272,150 @@ GitHubを唯一の真実の情報源（Single Source of Truth）とする設計�
 - アプリ起動時（初回Pull）
 - 設定画面の「Pullテスト」ボタン押下時
 - 設定画面を閉じるとき
+
+---
+
+## 8. Git Tree APIとSHA最適化（実装済み 2025-01-23）
+
+Push処理をGit Tree APIに移行し、SHA比較による最適化を実装しました。
+
+### Git Tree APIの導入
+
+**以前の実装:**
+
+- ファイルごとにPUT APIを呼び出し
+- 削除・リネームが正しく処理されない
+- APIリクエスト数が多い（ファイル数 × 2回）
+
+**新しい実装:**
+
+- Git Tree APIで1コミットで全ファイルをPush
+- APIリクエスト数を7回に削減
+- 削除・リネームを確実に処理
+
+### base_treeを使わない方式
+
+`base_tree`パラメータを使わず、全ファイルを明示的に指定することで削除を確実に処理。
+
+**処理フロー:**
+
+1. 既存ツリーを取得
+2. notes/以外のファイル → SHAを保持
+3. notes/以下のファイル → 完全に再構築
+4. treeItemsに含めないファイルは自動的に削除
+
+**メリット:**
+
+- 削除が確実に動作（treeItemsに含めないだけ）
+- README.md等のnotes/以外のファイルは保持
+
+### SHA最適化
+
+変更されていないファイルは既存のSHAを使用し、ネットワーク転送量を削減。
+
+**SHA-1計算:**
+
+```typescript
+async function calculateGitBlobSha(content: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const contentBytes = encoder.encode(content)
+  const header = `blob ${contentBytes.length}\0` // UTF-8バイト数
+  const headerBytes = encoder.encode(header)
+
+  const data = new Uint8Array(headerBytes.length + contentBytes.length)
+  data.set(headerBytes, 0)
+  data.set(contentBytes, headerBytes.length)
+
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+```
+
+**重要な修正:**
+
+- 文字数（`content.length`）ではなくUTF-8バイト数を使用
+- 日本語を含むファイルでSHAが正しく計算される
+
+**最適化の効果:**
+
+```typescript
+// 変化なし → 既存のSHAを使用（転送なし）
+treeItems.push({
+  path,
+  mode: '100644',
+  type: 'blob',
+  sha: existingSha,
+})
+
+// 変化あり → contentを送信
+treeItems.push({
+  path,
+  mode: '100644',
+  type: 'blob',
+  content: leaf.content,
+})
+```
+
+### Pull時のBase64デコード修正
+
+GitHub APIは改行付きのBase64を返すため、改行を削除してからデコード。
+
+```typescript
+// GitHub APIは改行付きBase64を返すので改行を削除
+const base64 = contentData.content.replace(/\n/g, '')
+content = decodeURIComponent(escape(atob(base64)))
+```
+
+### Push並行実行の防止
+
+`isPushing`フラグでダブルクリック等による並行実行を防止。
+
+```typescript
+let isPushing = false
+async function handleSaveToGitHub() {
+  if (isPushing) return
+  isPushing = true
+  try {
+    await executePush(...)
+  } finally {
+    isPushing = false
+  }
+}
+```
+
+### 強制更新（force: true）
+
+個人用アプリなので、ブランチ更新時に`force: true`を使用。
+
+**設計思想:**
+
+- Pushボタンを押した時点で、ユーザーは「今の状態が正しい」と判断している
+- 常に成功させることが重要
+- Pullしていない方が悪い（ユーザーの責任）
+
+### 連番の修正
+
+`generateUniqueName`を修正し、リーフ1から開始するように変更。
+
+```typescript
+// 修正前: リーフ、リーフ2、リーフ3...
+// 修正後: リーフ1、リーフ2、リーフ3...
+function generateUniqueName(baseName: string, existingNames: string[]): string {
+  let counter = 1
+  let name = `${baseName}${counter}`
+  while (existingNames.includes(name)) {
+    counter++
+    name = `${baseName}${counter}`
+  }
+  return name
+}
+```
+
+### 成果
+
+- **転送量削減**: 変更されていないファイルは転送しない
+- **信頼性向上**: 削除・リネームが確実に動作
+- **パフォーマンス向上**: APIリクエスト数を大幅削減（ファイル数 × 2 → 7回）
+- **並行実行防止**: ダブルクリック等での不具合を解消
+- **UTF-8対応**: 日本語を含むファイルで正しくSHA計算
