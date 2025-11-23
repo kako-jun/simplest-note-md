@@ -224,37 +224,49 @@ export function removeCustomBackgrounds(): void {
 }
 
 /**
+ * カスタム背景画像をアップロードして保存・適用（統一関数）
+ */
+export async function uploadAndApplyBackground(
+  file: File,
+  pane: 'left' | 'right',
+  opacity: number = 0.2
+): Promise<void> {
+  const background = await loadBackgroundFile(file)
+  background.name = pane === 'left' ? CUSTOM_BACKGROUND_KEY_LEFT : CUSTOM_BACKGROUND_KEY_RIGHT
+  await saveCustomBackground(background)
+
+  // 反対側のペインの背景も読み込んで再適用
+  const otherPaneKey = pane === 'left' ? CUSTOM_BACKGROUND_KEY_RIGHT : CUSTOM_BACKGROUND_KEY_LEFT
+  const otherBackground = await loadCustomBackground(otherPaneKey)
+  const otherOpacity = 0.1 // デフォルト値
+
+  if (pane === 'left') {
+    await applyCustomBackgrounds(background, otherBackground, opacity, otherOpacity)
+  } else {
+    await applyCustomBackgrounds(otherBackground, background, otherOpacity, opacity)
+  }
+}
+
+/**
  * カスタム背景画像をアップロードして保存・適用（左ペイン）
+ * @deprecated Use uploadAndApplyBackground(file, 'left', opacity) instead
  */
 export async function uploadAndApplyBackgroundLeft(
   file: File,
   opacity: number = 0.2
 ): Promise<void> {
-  const background = await loadBackgroundFile(file)
-  background.name = CUSTOM_BACKGROUND_KEY_LEFT
-  await saveCustomBackground(background)
-
-  // 右ペインの背景も読み込んで再適用
-  const rightBackground = await loadCustomBackground(CUSTOM_BACKGROUND_KEY_RIGHT)
-  const rightOpacity = 0.1 // デフォルト値
-  await applyCustomBackgrounds(background, rightBackground, opacity, rightOpacity)
+  return uploadAndApplyBackground(file, 'left', opacity)
 }
 
 /**
  * カスタム背景画像をアップロードして保存・適用（右ペイン）
+ * @deprecated Use uploadAndApplyBackground(file, 'right', opacity) instead
  */
 export async function uploadAndApplyBackgroundRight(
   file: File,
   opacity: number = 0.2
 ): Promise<void> {
-  const background = await loadBackgroundFile(file)
-  background.name = CUSTOM_BACKGROUND_KEY_RIGHT
-  await saveCustomBackground(background)
-
-  // 左ペインの背景も読み込んで再適用
-  const leftBackground = await loadCustomBackground(CUSTOM_BACKGROUND_KEY_LEFT)
-  const leftOpacity = 0.1 // デフォルト値
-  await applyCustomBackgrounds(leftBackground, background, leftOpacity, opacity)
+  return uploadAndApplyBackground(file, 'right', opacity)
 }
 
 /**
@@ -276,25 +288,36 @@ export async function loadAndApplyCustomBackgrounds(
 }
 
 /**
+ * カスタム背景画像を削除（統一関数）
+ */
+export async function removeAndDeleteCustomBackground(pane: 'left' | 'right'): Promise<void> {
+  const keyToDelete = pane === 'left' ? CUSTOM_BACKGROUND_KEY_LEFT : CUSTOM_BACKGROUND_KEY_RIGHT
+  await deleteCustomBackground(keyToDelete)
+
+  // 反対側のペインの背景を保持したまま再適用
+  const otherPaneKey = pane === 'left' ? CUSTOM_BACKGROUND_KEY_RIGHT : CUSTOM_BACKGROUND_KEY_LEFT
+  const otherBackground = await loadCustomBackground(otherPaneKey)
+  const defaultOpacity = 0.1
+
+  if (pane === 'left') {
+    await applyCustomBackgrounds(null, otherBackground, defaultOpacity, defaultOpacity)
+  } else {
+    await applyCustomBackgrounds(otherBackground, null, defaultOpacity, defaultOpacity)
+  }
+}
+
+/**
  * カスタム背景画像を削除（左ペイン）
+ * @deprecated Use removeAndDeleteCustomBackground('left') instead
  */
 export async function removeAndDeleteCustomBackgroundLeft(): Promise<void> {
-  await deleteCustomBackground(CUSTOM_BACKGROUND_KEY_LEFT)
-
-  // 右ペインの背景を保持したまま再適用
-  const rightBackground = await loadCustomBackground(CUSTOM_BACKGROUND_KEY_RIGHT)
-  const rightOpacity = 0.1
-  await applyCustomBackgrounds(null, rightBackground, 0.1, rightOpacity)
+  return removeAndDeleteCustomBackground('left')
 }
 
 /**
  * カスタム背景画像を削除（右ペイン）
+ * @deprecated Use removeAndDeleteCustomBackground('right') instead
  */
 export async function removeAndDeleteCustomBackgroundRight(): Promise<void> {
-  await deleteCustomBackground(CUSTOM_BACKGROUND_KEY_RIGHT)
-
-  // 左ペインの背景を保持したまま再適用
-  const leftBackground = await loadCustomBackground(CUSTOM_BACKGROUND_KEY_LEFT)
-  const leftOpacity = 0.1
-  await applyCustomBackgrounds(leftBackground, null, leftOpacity, 0.1)
+  return removeAndDeleteCustomBackground('right')
 }

@@ -1,12 +1,7 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import type { Settings } from '../../lib/types'
-  import {
-    uploadAndApplyBackgroundLeft,
-    uploadAndApplyBackgroundRight,
-    removeAndDeleteCustomBackgroundLeft,
-    removeAndDeleteCustomBackgroundRight,
-  } from '../../lib/background'
+  import { uploadAndApplyBackground, removeAndDeleteCustomBackground } from '../../lib/background'
   import { showAlert } from '../../lib/ui'
 
   export let settings: Settings
@@ -46,7 +41,14 @@
     try {
       if (pane === 'left') {
         backgroundLeftUploading = true
-        await uploadAndApplyBackgroundLeft(file, BACKGROUND_OPACITY)
+      } else {
+        backgroundRightUploading = true
+      }
+
+      await uploadAndApplyBackground(file, pane, BACKGROUND_OPACITY)
+
+      // 設定を更新
+      if (pane === 'left') {
         settings.hasCustomBackgroundLeft = true
         settings.backgroundOpacityLeft = BACKGROUND_OPACITY
         onSettingsChange({
@@ -54,8 +56,6 @@
           backgroundOpacityLeft: BACKGROUND_OPACITY,
         })
       } else {
-        backgroundRightUploading = true
-        await uploadAndApplyBackgroundRight(file, BACKGROUND_OPACITY)
         settings.hasCustomBackgroundRight = true
         settings.backgroundOpacityRight = BACKGROUND_OPACITY
         onSettingsChange({
@@ -82,8 +82,10 @@
 
   async function handleResetBackground(pane: Pane) {
     try {
+      await removeAndDeleteCustomBackground(pane)
+
+      // 設定を更新
       if (pane === 'left') {
-        await removeAndDeleteCustomBackgroundLeft()
         settings.hasCustomBackgroundLeft = false
         settings.backgroundOpacityLeft = BACKGROUND_OPACITY
         onSettingsChange({
@@ -91,7 +93,6 @@
           backgroundOpacityLeft: BACKGROUND_OPACITY,
         })
       } else {
-        await removeAndDeleteCustomBackgroundRight()
         settings.hasCustomBackgroundRight = false
         settings.backgroundOpacityRight = BACKGROUND_OPACITY
         onSettingsChange({
