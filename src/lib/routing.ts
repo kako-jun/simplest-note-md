@@ -12,24 +12,24 @@ export interface PathResolution {
 /**
  * パス文字列からノート・リーフを解決する
  *
- * @param path - パス文字列（例: "/仕事/会議/議事録"）
+ * @param path - パス文字列（例: "仕事>会議>議事録"）
  * @param notes - 全ノート配列
  * @param leaves - 全リーフ配列
  * @returns パス解決結果
  */
 export function resolvePath(path: string, notes: Note[], leaves: Leaf[]): PathResolution {
   // ホームまたは空パス
-  if (!path || path === '/') {
+  if (!path || path === '/' || path === '') {
     return { type: 'home', note: null, leaf: null }
   }
 
-  // パスを分割（先頭の "/" を除去）
-  const segments = path.replace(/^\//, '').split('/')
+  // パスを分割（">" で区切る、URLエンコード不要）
+  const segments = path.split('>')
   if (segments.length === 0 || segments[0] === '') {
     return { type: 'home', note: null, leaf: null }
   }
 
-  // デコード
+  // デコード（念のため）
   const decodedSegments = segments.map((s) => decodeURIComponent(s))
 
   // 1番目: ルートノートを探す
@@ -86,11 +86,11 @@ export function resolvePath(path: string, notes: Note[], leaves: Leaf[]): PathRe
  * @param note - ノート
  * @param leaf - リーフ（オプション）
  * @param notes - 全ノート配列
- * @returns パス文字列（例: "/仕事/会議/議事録"）
+ * @returns パス文字列（例: "仕事>会議>議事録"）
  */
 export function buildPath(note: Note | null, leaf: Leaf | null, notes: Note[]): string {
   if (!note) {
-    return '/'
+    return ''
   }
 
   const segments: string[] = []
@@ -99,17 +99,17 @@ export function buildPath(note: Note | null, leaf: Leaf | null, notes: Note[]): 
   if (note.parentId) {
     const parentNote = notes.find((n) => n.id === note.parentId)
     if (parentNote) {
-      segments.push(encodeURIComponent(parentNote.name))
+      segments.push(parentNote.name)
     }
   }
 
   // 現在のノートを追加
-  segments.push(encodeURIComponent(note.name))
+  segments.push(note.name)
 
   // リーフがあれば追加
   if (leaf) {
-    segments.push(encodeURIComponent(leaf.title))
+    segments.push(leaf.title)
   }
 
-  return '/' + segments.join('/')
+  return segments.join('>')
 }
