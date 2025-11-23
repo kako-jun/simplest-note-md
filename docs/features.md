@@ -203,3 +203,107 @@ showConfirm('このノートを削除しますか？', () => {
 // エラー通知
 showAlert('GitHub同期に失敗しました。')
 ```
+
+## 2ペイン表示
+
+### アスペクト比判定
+
+画面のアスペクト比（横 > 縦）で2ペイン表示を自動切替。
+
+```typescript
+// アスペクト比を監視して isDualPane を更新（横 > 縦で2ペイン表示）
+const updateDualPane = () => {
+  isDualPane = window.innerWidth > window.innerHeight
+}
+updateDualPane()
+
+window.addEventListener('resize', updateDualPane)
+```
+
+### レスポンシブレイアウト
+
+```svelte
+<div class="content-wrapper" class:single-pane={!isDualPane}>
+  <div class="pane-divider" class:hidden={!isDualPane}></div>
+  <div class="left-column">
+    <!-- 左ペイン -->
+  </div>
+  <div class="right-column" class:hidden={!isDualPane}>
+    <!-- 右ペイン -->
+  </div>
+</div>
+```
+
+### CSS Grid切替
+
+```css
+.content-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  /* ... */
+}
+
+.content-wrapper.single-pane {
+  grid-template-columns: 1fr;
+}
+
+.hidden {
+  display: none;
+}
+```
+
+### 動作
+
+- **スマホ縦向き**: 1ペイン表示
+- **スマホ横向き**: 2ペイン表示
+- **PC横長画面**: 2ペイン表示
+- **画面回転時**: 自動的に切り替わる
+
+## ノート階層制限
+
+### 2階層制限の実装
+
+ルートノート→サブノートの2階層までに制限。
+
+```typescript
+function createNote(parentId?: string) {
+  if (isOperationsLocked) return
+  const allNotes = $notes
+
+  // 階層制限チェック: サブノートの下にはサブノートを作成できない
+  if (parentId) {
+    const parentNote = allNotes.find((n) => n.id === parentId)
+    if (parentNote && parentNote.parentId) {
+      showAlert('サブノートの下にはサブノートを作成できません。')
+      return
+    }
+  }
+
+  // ... ノート作成処理
+}
+```
+
+### UIでの制御
+
+```svelte
+<script>
+  // リアクティブ宣言: currentNoteが変わるたびに再計算
+  $: canHaveSubNote = !currentNote.parentId
+</script>
+
+{#if canHaveSubNote}
+  <button on:click={onCreateNote}>新規サブノート</button>
+{/if}
+```
+
+### 階層構造
+
+```
+ホーム
+├── ノート1 (ルートノート)
+│   ├── サブノート1 ← サブノート作成可能
+│   │   └── リーフ ← サブノート作成不可、リーフのみ作成可能
+│   └── サブノート2
+└── ノート2 (ルートノート)
+    └── サブノート3
+```
