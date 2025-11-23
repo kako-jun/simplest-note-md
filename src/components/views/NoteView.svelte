@@ -93,4 +93,32 @@
     grid-template-columns: repeat(auto-fill, minmax(200px, 240px));
     gap: 1rem;
   }
+
+  .note-card {
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .note-card:hover {
+    border-color: var(--accent-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .card-meta {
+    margin-top: 0.5rem;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .drag-over {
+    border-color: var(--accent-color);
+    background: var(--bg-tertiary);
+    box-shadow: 0 0 0 2px var(--accent-color);
+  }
 </style>
