@@ -7,6 +7,7 @@ export interface PathResolution {
   type: 'home' | 'note' | 'leaf'
   note: Note | null
   leaf: Leaf | null
+  isPreview: boolean
 }
 
 /**
@@ -20,13 +21,21 @@ export interface PathResolution {
 export function resolvePath(path: string, notes: Note[], leaves: Leaf[]): PathResolution {
   // ホームまたは空パス
   if (!path || path === '/' || path === '') {
-    return { type: 'home', note: null, leaf: null }
+    return { type: 'home', note: null, leaf: null, isPreview: false }
+  }
+
+  // `:preview` サフィックスを検出
+  let isPreview = false
+  let cleanPath = path
+  if (path.endsWith(':preview')) {
+    isPreview = true
+    cleanPath = path.slice(0, -8) // ':preview' を除去
   }
 
   // パスを分割（">" で区切る、URLエンコード不要）
-  const segments = path.split('>')
+  const segments = cleanPath.split('>')
   if (segments.length === 0 || segments[0] === '') {
-    return { type: 'home', note: null, leaf: null }
+    return { type: 'home', note: null, leaf: null, isPreview: false }
   }
 
   // デコード（念のため）
@@ -36,12 +45,12 @@ export function resolvePath(path: string, notes: Note[], leaves: Leaf[]): PathRe
   const rootNote = notes.find((n) => !n.parentId && n.name === decodedSegments[0])
   if (!rootNote) {
     // ノートが見つからない場合はホームに戻す
-    return { type: 'home', note: null, leaf: null }
+    return { type: 'home', note: null, leaf: null, isPreview: false }
   }
 
   // 1セグメントのみ: ルートノートを返す
   if (decodedSegments.length === 1) {
-    return { type: 'note', note: rootNote, leaf: null }
+    return { type: 'note', note: rootNote, leaf: null, isPreview: false }
   }
 
   // 2番目: サブノートまたはリーフを探す
@@ -52,17 +61,17 @@ export function resolvePath(path: string, notes: Note[], leaves: Leaf[]): PathRe
 
   if (subNote && decodedSegments.length === 2) {
     // 2セグメント: サブノートを返す
-    return { type: 'note', note: subNote, leaf: null }
+    return { type: 'note', note: subNote, leaf: null, isPreview: false }
   }
 
   if (!subNote && decodedSegments.length === 2) {
     // サブノートが見つからない場合、リーフを探す
     const leaf = leaves.find((l) => l.noteId === rootNote.id && l.title === secondName)
     if (leaf) {
-      return { type: 'leaf', note: rootNote, leaf }
+      return { type: 'leaf', note: rootNote, leaf, isPreview }
     }
     // リーフも見つからない場合はルートノートに戻す
-    return { type: 'note', note: rootNote, leaf: null }
+    return { type: 'note', note: rootNote, leaf: null, isPreview: false }
   }
 
   // 3番目: リーフを探す（サブノート配下）
@@ -70,14 +79,14 @@ export function resolvePath(path: string, notes: Note[], leaves: Leaf[]): PathRe
     const leafTitle = decodedSegments[2]
     const leaf = leaves.find((l) => l.noteId === subNote.id && l.title === leafTitle)
     if (leaf) {
-      return { type: 'leaf', note: subNote, leaf }
+      return { type: 'leaf', note: subNote, leaf, isPreview }
     }
     // リーフが見つからない場合はサブノートに戻す
-    return { type: 'note', note: subNote, leaf: null }
+    return { type: 'note', note: subNote, leaf: null, isPreview: false }
   }
 
   // それ以外は階層が深すぎるのでルートノートに戻す
-  return { type: 'note', note: rootNote, leaf: null }
+  return { type: 'note', note: rootNote, leaf: null, isPreview: false }
 }
 
 /**
@@ -86,9 +95,15 @@ export function resolvePath(path: string, notes: Note[], leaves: Leaf[]): PathRe
  * @param note - ノート
  * @param leaf - リーフ（オプション）
  * @param notes - 全ノート配列
- * @returns パス文字列（例: "仕事>会議>議事録"）
+ * @param view - ビュータイプ（オプション）
+ * @returns パス文字列（例: "仕事>会議>議事録"、プレビュー時は "仕事>会議>議事録:preview"）
  */
-export function buildPath(note: Note | null, leaf: Leaf | null, notes: Note[]): string {
+export function buildPath(
+  note: Note | null,
+  leaf: Leaf | null,
+  notes: Note[],
+  view?: string
+): string {
   if (!note) {
     return ''
   }
@@ -111,5 +126,12 @@ export function buildPath(note: Note | null, leaf: Leaf | null, notes: Note[]): 
     segments.push(leaf.title)
   }
 
-  return segments.join('>')
+  let path = segments.join('>')
+
+  // プレビューモードの場合は `:preview` サフィックスを追加
+  if (view === 'preview' && leaf) {
+    path += ':preview'
+  }
+
+  return path
 }

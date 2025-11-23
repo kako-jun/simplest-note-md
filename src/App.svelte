@@ -42,6 +42,7 @@
   import HomeView from './components/views/HomeView.svelte'
   import NoteView from './components/views/NoteView.svelte'
   import EditorView from './components/views/EditorView.svelte'
+  import PreviewView from './components/views/PreviewView.svelte'
   import SettingsView from './components/views/SettingsView.svelte'
 
   // ローカル状態
@@ -81,11 +82,11 @@
     const params = new URLSearchParams()
 
     // 左ペイン（常に設定）
-    const leftPath = buildPath($currentNote, $currentLeaf, $notes)
+    const leftPath = buildPath($currentNote, $currentLeaf, $notes, $currentView)
     params.set('left', leftPath)
 
     // 右ペイン（2ペイン表示時は独立した状態、1ペイン時は左と同じ）
-    const rightPath = isDualPane ? buildPath(rightNote, rightLeaf, $notes) : leftPath
+    const rightPath = isDualPane ? buildPath(rightNote, rightLeaf, $notes, rightView) : leftPath
     params.set('right', rightPath)
 
     const newUrl = `?${params.toString()}`
@@ -149,7 +150,7 @@
     } else if (leftResolution.type === 'leaf') {
       currentNote.set(leftResolution.note)
       currentLeaf.set(leftResolution.leaf)
-      currentView.set('edit')
+      currentView.set(leftResolution.isPreview ? 'preview' : 'edit')
     }
 
     // 右ペインの復元（2ペイン表示時のみ）
@@ -167,7 +168,7 @@
       } else if (rightResolution.type === 'leaf') {
         rightNote = rightResolution.note
         rightLeaf = rightResolution.leaf
-        rightView = 'edit'
+        rightView = rightResolution.isPreview ? 'preview' : 'edit'
       }
     } else {
       // 1ペイン表示時は右ペインを左と同じにする
@@ -241,6 +242,26 @@
     currentView.set('home')
     currentNote.set(null)
     currentLeaf.set(null)
+  }
+
+  // プレビュートグル（左ペイン）
+  function togglePreview() {
+    if ($currentView === 'edit') {
+      currentView.set('preview')
+    } else if ($currentView === 'preview') {
+      currentView.set('edit')
+    }
+    updateUrlFromState()
+  }
+
+  // プレビュートグル（右ペイン）
+  function togglePreviewRight() {
+    if (rightView === 'edit') {
+      rightView = 'preview'
+    } else if (rightView === 'preview') {
+      rightView = 'edit'
+    }
+    updateUrlFromState()
   }
 
   // 右ペイン用ナビゲーション
@@ -1002,6 +1023,8 @@
             onDownload={downloadLeaf}
             onDelete={deleteLeaf}
           />
+        {:else if $currentView === 'preview' && $currentLeaf}
+          <PreviewView leaf={$currentLeaf} />
         {/if}
       </main>
 
@@ -1236,6 +1259,110 @@
           <svelte:fragment slot="right">
             <button
               type="button"
+              on:click={togglePreview}
+              title="プレビュー"
+              aria-label="プレビュー"
+              disabled={isOperationsLocked}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="button-icon"
+              >
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              class="primary save-button"
+              on:click={handleSaveToGitHub}
+              title="Save"
+              aria-label="Save"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="button-icon"
+              >
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+              {#if $isDirty}
+                <span class="notification-badge"></span>
+              {/if}
+            </button>
+          </svelte:fragment>
+        </Footer>
+      {:else if $currentView === 'preview' && $currentLeaf}
+        <Footer>
+          <svelte:fragment slot="left">
+            <button
+              type="button"
+              on:click={() => downloadLeaf($currentLeaf.id)}
+              title="Download"
+              aria-label="Download"
+              disabled={isOperationsLocked}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="button-icon"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+          </svelte:fragment>
+          <svelte:fragment slot="right">
+            <button
+              type="button"
+              on:click={togglePreview}
+              title="編集"
+              aria-label="編集"
+              disabled={isOperationsLocked}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="button-icon"
+              >
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
               class="primary save-button"
               on:click={handleSaveToGitHub}
               title="Save"
@@ -1330,6 +1457,8 @@
             onDownload={downloadLeaf}
             onDelete={deleteLeaf}
           />
+        {:else if rightView === 'preview' && rightLeaf}
+          <PreviewView leaf={rightLeaf} />
         {/if}
       </main>
 
@@ -1562,6 +1691,110 @@
             </button>
           </svelte:fragment>
           <svelte:fragment slot="right">
+            <button
+              type="button"
+              on:click={togglePreviewRight}
+              title="プレビュー"
+              aria-label="プレビュー"
+              disabled={isOperationsLocked}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="button-icon"
+              >
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              class="primary save-button"
+              on:click={handleSaveToGitHub}
+              title="Save"
+              aria-label="Save"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="button-icon"
+              >
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+              {#if $isDirty}
+                <span class="notification-badge"></span>
+              {/if}
+            </button>
+          </svelte:fragment>
+        </Footer>
+      {:else if rightView === 'preview' && rightLeaf}
+        <Footer>
+          <svelte:fragment slot="left">
+            <button
+              type="button"
+              on:click={() => downloadLeaf(rightLeaf.id)}
+              title="Download"
+              aria-label="Download"
+              disabled={isOperationsLocked}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="button-icon"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+          </svelte:fragment>
+          <svelte:fragment slot="right">
+            <button
+              type="button"
+              on:click={togglePreviewRight}
+              title="編集"
+              aria-label="編集"
+              disabled={isOperationsLocked}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="button-icon"
+              >
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+            </button>
+
             <button
               type="button"
               class="primary save-button"

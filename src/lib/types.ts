@@ -7,7 +7,7 @@ export type UUID = string
 
 export type ThemeType = 'yomi' | 'campus' | 'greenboard' | 'whiteboard' | 'dotsD' | 'dotsF'
 
-export type View = 'home' | 'settings' | 'edit' | 'note'
+export type View = 'home' | 'settings' | 'edit' | 'note' | 'preview'
 
 export interface Settings {
   token: string
