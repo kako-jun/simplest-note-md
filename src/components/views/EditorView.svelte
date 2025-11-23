@@ -5,22 +5,34 @@
 
   export let leaf: Leaf
   export let theme: ThemeType
-  export let onContentChange: (content: string) => void
+  export let onContentChange: (content: string, leafId: string) => void
   export let onSave: () => void
-  export let onDownload: () => void
-  export let onDelete: () => void
+  export let onDownload: (leafId: string) => void
+  export let onDelete: (leafId: string) => void
   export let disabled: boolean = false
+
+  function handleContentChange(content: string) {
+    onContentChange(content, leaf.id)
+  }
+
+  function handleDelete() {
+    onDelete(leaf.id)
+  }
+
+  function handleDownload() {
+    onDownload(leaf.id)
+  }
 </script>
 
 <section class="editor-section">
-  <MarkdownEditor content={leaf.content} {theme} onChange={onContentChange} />
+  <MarkdownEditor content={leaf.content} {theme} onChange={handleContentChange} />
 </section>
 
 <Footer>
   <svelte:fragment slot="left">
     <button
       type="button"
-      on:click={onDelete}
+      on:click={handleDelete}
       title="リーフを削除"
       aria-label="リーフを削除"
       {disabled}
@@ -44,7 +56,13 @@
       </svg>
     </button>
 
-    <button type="button" on:click={onDownload} title="Download" aria-label="Download" {disabled}>
+    <button
+      type="button"
+      on:click={handleDownload}
+      title="Download"
+      aria-label="Download"
+      {disabled}
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="16"

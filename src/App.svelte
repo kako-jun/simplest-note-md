@@ -411,8 +411,18 @@
       }
     } else if (type === 'leaf') {
       const allLeaves = $leaves
+      const targetLeaf = allLeaves.find((n) => n.id === actualId)
+
+      // リーフのコンテンツの1行目が # 見出しの場合、見出しテキストも更新
+      let updatedContent = targetLeaf?.content || ''
+      if (targetLeaf && extractH1Title(targetLeaf.content)) {
+        updatedContent = updateH1Title(targetLeaf.content, newName.trim())
+      }
+
       const updatedLeaves = allLeaves.map((n) =>
-        n.id === actualId ? { ...n, title: newName.trim() } : n
+        n.id === actualId
+          ? { ...n, title: newName.trim(), content: updatedContent, updatedAt: Date.now() }
+          : n
       )
       updateLeaves(updatedLeaves)
       const updatedLeaf = updatedLeaves.find((n) => n.id === actualId)
@@ -595,7 +605,7 @@
       id: crypto.randomUUID(),
       title: uniqueTitle,
       noteId: $currentNote.id,
-      content: '',
+      content: `# ${uniqueTitle}\n\n`,
       updatedAt: Date.now(),
       order: noteLeaves.length,
     }
@@ -609,18 +619,20 @@
     currentView.set('edit')
   }
 
-  function deleteLeaf() {
+  function deleteLeaf(leafId: string) {
     if (isOperationsLocked) {
       showAlert('初回Pullが完了するまで操作できません。設定からPullしてください。')
       return
     }
-    if (!$currentLeaf) return
+
+    const allLeaves = $leaves
+    const targetLeaf = allLeaves.find((l) => l.id === leafId)
+    if (!targetLeaf) return
 
     showConfirm('このリーフを削除しますか？', () => {
-      const allLeaves = $leaves
-      updateLeaves(allLeaves.filter((n) => n.id !== $currentLeaf!.id))
+      updateLeaves(allLeaves.filter((n) => n.id !== leafId))
 
-      const note = $notes.find((f) => f.id === $currentLeaf!.noteId)
+      const note = $notes.find((f) => f.id === targetLeaf.noteId)
       if (note) {
         selectNote(note)
       } else {
@@ -629,16 +641,55 @@
     })
   }
 
-  function updateLeafContent(content: string) {
+  // リーフコンテンツから # 見出しを抽出
+  function extractH1Title(content: string): string | null {
+    const firstLine = content.split('\n')[0]
+    const match = firstLine.match(/^# (.+)/)
+    return match ? match[1].trim() : null
+  }
+
+  // リーフコンテンツの1行目の # 見出しを更新
+  function updateH1Title(content: string, newTitle: string): string {
+    const lines = content.split('\n')
+    const firstLine = lines[0]
+    if (firstLine.match(/^# /)) {
+      lines[0] = `# ${newTitle}`
+      return lines.join('\n')
+    }
+    return content
+  }
+
+  function updateLeafContent(content: string, leafId: string) {
     if (isOperationsLocked) return
-    if (!$currentLeaf) return
 
     const allLeaves = $leaves
+    const targetLeaf = allLeaves.find((l) => l.id === leafId)
+    if (!targetLeaf) return
+
+    // コンテンツの1行目が # 見出しの場合、リーフのタイトルも自動更新
+    const h1Title = extractH1Title(content)
+    const newTitle = h1Title || targetLeaf.title
+
+    // グローバルストアを更新（左右ペイン両方に反映される）
     const updatedLeaves = allLeaves.map((n) =>
-      n.id === $currentLeaf!.id ? { ...n, content, updatedAt: Date.now() } : n
+      n.id === leafId ? { ...n, content, title: newTitle, updatedAt: Date.now() } : n
     )
     updateLeaves(updatedLeaves)
-    currentLeaf.update((n) => (n ? { ...n, content, updatedAt: Date.now() } : n))
+
+    // 左ペインのリーフを編集している場合は currentLeaf も更新
+    if ($currentLeaf?.id === leafId) {
+      currentLeaf.update((n) => (n ? { ...n, content, title: newTitle, updatedAt: Date.now() } : n))
+    }
+
+    // 右ペインのリーフを編集している場合は rightLeaf も更新
+    if (rightLeaf?.id === leafId) {
+      rightLeaf = { ...rightLeaf, content, title: newTitle, updatedAt: Date.now() }
+    }
+
+    // タイトルが変更された場合、パンくずリストも更新
+    if (h1Title) {
+      refreshBreadcrumbs()
+    }
   }
 
   // ドラッグ&ドロップ（リーフ）
@@ -751,18 +802,21 @@
   }
 
   // ダウンロード
-  function downloadLeaf() {
+  function downloadLeaf(leafId: string) {
     if (isOperationsLocked) {
       showPushToast('初回Pullが完了するまでダウンロードできません', 'error')
       return
     }
-    if (!$currentLeaf) return
 
-    const blob = new Blob([$currentLeaf.content], { type: 'text/markdown' })
+    const allLeaves = $leaves
+    const targetLeaf = allLeaves.find((l) => l.id === leafId)
+    if (!targetLeaf) return
+
+    const blob = new Blob([targetLeaf.content], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${$currentLeaf.title}.md`
+    a.download = `${targetLeaf.title}.md`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
