@@ -201,7 +201,7 @@ export async function pushAllWithTreeAPI(
 
     // 4. GitHub上の既存notes/配下のファイルリストを取得（削除検出用）
     const existingTreeRes = await fetch(
-      `https://api.github.com/repos/${settings.repoName}/git/trees/${branch}?recursive=1`,
+      `https://api.github.com/repos/${settings.repoName}/git/trees/${baseTreeSha}?recursive=1`,
       { headers }
     )
     const existingGitHubFiles = new Set<string>()
@@ -266,13 +266,14 @@ export async function pushAllWithTreeAPI(
     }
 
     // GitHub上にあるがローカルにないファイルを削除
-    // 重要: sha: null を使う場合、mode と type は指定しない（path と sha のみ）
     for (const githubPath of existingGitHubFiles) {
       if (!localFilePaths.has(githubPath)) {
         treeItems.push({
           path: githubPath,
-          sha: null, // 削除を指定（mode/type不要）
-        } as any)
+          mode: '100644',
+          type: 'blob',
+          sha: null, // 削除を指定
+        })
       }
     }
 
