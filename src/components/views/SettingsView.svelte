@@ -309,7 +309,6 @@
                 </button>
               {/if}
             </div>
-            <p class="font-help-text">対応形式: .ttf, .otf, .woff, .woff2</p>
           </div>
         </div>
       </div>
@@ -539,7 +538,10 @@
     margin-top: 1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+  }
+
+  .tool-name-field label {
+    margin-bottom: 0.5rem;
   }
 
   .theme-buttons button.active {
@@ -664,7 +666,10 @@
     margin-top: 1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+  }
+
+  .font-field .sub-label {
+    margin-bottom: 0.5rem;
   }
 
   .font-controls {
@@ -672,11 +677,5 @@
     gap: 0.5rem;
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .font-help-text {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
   }
 </style>
