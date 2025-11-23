@@ -5,6 +5,26 @@
 
 import type { Leaf, Note, Settings } from './types'
 
+/**
+ * Git blob形式のSHA-1を計算
+ * Git仕様: sha1("blob " + UTF-8バイト数 + "\0" + content)
+ */
+async function calculateGitBlobSha(content: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const contentBytes = encoder.encode(content)
+  const header = `blob ${contentBytes.length}\0`
+  const headerBytes = encoder.encode(header)
+
+  // headerとcontentを結合
+  const data = new Uint8Array(headerBytes.length + contentBytes.length)
+  data.set(headerBytes, 0)
+  data.set(contentBytes, headerBytes.length)
+
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 export interface SaveResult {
   success: boolean
   message: string
@@ -148,7 +168,9 @@ export async function saveToGitHub(
 
 /**
  * Git Tree APIを使って全リーフを1コミットでPush
- * リネーム・削除されたファイルも正しく処理される
+ *
+ * notes/以下を完全に再構築することで削除・リネームを確実に処理
+ * notes/以外のファイル（README等）は保持される
  */
 export async function pushAllWithTreeAPI(
   leaves: Leaf[],
@@ -199,90 +221,111 @@ export async function pushAllWithTreeAPI(
     const commitData = await commitRes.json()
     const baseTreeSha = commitData.tree.sha
 
-    // 4. GitHub上の既存notes/配下のファイルリストを取得（削除検出用）
+    // 4. 既存ツリーを取得
     const existingTreeRes = await fetch(
       `https://api.github.com/repos/${settings.repoName}/git/trees/${baseTreeSha}?recursive=1`,
       { headers }
     )
-    const existingGitHubFiles = new Set<string>()
+    const preserveItems: Array<{ path: string; mode: string; type: string; sha: string }> = []
+    const existingNotesFiles = new Map<string, string>() // path -> sha
     if (existingTreeRes.ok) {
       const existingTreeData = await existingTreeRes.json()
-      const entries: { path: string; type: string }[] = existingTreeData.tree || []
+      const entries: { path: string; mode: string; type: string; sha: string }[] =
+        existingTreeData.tree || []
       for (const entry of entries) {
-        if (entry.type === 'blob' && entry.path.startsWith('notes/')) {
-          existingGitHubFiles.add(entry.path)
+        if (entry.type === 'blob') {
+          if (!entry.path.startsWith('notes/')) {
+            // notes/以外のファイルを全て保持
+            preserveItems.push({
+              path: entry.path,
+              mode: entry.mode,
+              type: entry.type,
+              sha: entry.sha,
+            })
+          } else {
+            // notes/以下のファイルのSHAを記録
+            existingNotesFiles.set(entry.path, entry.sha)
+          }
         }
       }
     }
 
-    // 5. ローカルのファイルパスリストを構築
-    const localFilePaths = new Set<string>()
-    localFilePaths.add('notes/.gitkeep')
-
-    for (const leaf of leaves) {
-      const path = buildPath(leaf, notes)
-      localFilePaths.add(path)
-    }
-
-    // 6. 新しいTreeを構築
+    // 5. 新しいTreeを構築（base_treeは使わない）
     const treeItems: Array<{
       path: string
       mode: string
       type: string
       content?: string
-      sha?: string | null
+      sha?: string
     }> = []
 
+    // notes/以外のファイルを保持
+    for (const item of preserveItems) {
+      treeItems.push(item)
+    }
+
+    // .gitkeep用の空コンテンツのSHA（常に同じ）
+    const emptyGitkeepSha = await calculateGitBlobSha('')
+
     // notes/.gitkeep を追加（notesディレクトリが空でも削除されないように）
+    const notesGitkeepPath = 'notes/.gitkeep'
+    const notesGitkeepExisting = existingNotesFiles.get(notesGitkeepPath)
     treeItems.push({
-      path: 'notes/.gitkeep',
+      path: notesGitkeepPath,
       mode: '100644',
       type: 'blob',
-      content: '',
+      ...(notesGitkeepExisting === emptyGitkeepSha
+        ? { sha: notesGitkeepExisting }
+        : { content: '' }),
     })
 
     // 全ノートに対して.gitkeepを配置（リーフがなくてもディレクトリを保持）
     for (const note of notes) {
       const notePath = getNotePath(note, notes)
       const gitkeepPath = `${notePath}/.gitkeep`
+      const gitkeepExisting = existingNotesFiles.get(gitkeepPath)
       treeItems.push({
         path: gitkeepPath,
         mode: '100644',
         type: 'blob',
-        content: '',
+        ...(gitkeepExisting === emptyGitkeepSha ? { sha: gitkeepExisting } : { content: '' }),
       })
-      localFilePaths.add(gitkeepPath)
     }
 
-    // 全リーフをTreeに追加
+    // 全リーフをTreeに追加（変化していないファイルは既存SHAを使用）
     for (const leaf of leaves) {
       const path = buildPath(leaf, notes)
+      const existingSha = existingNotesFiles.get(path)
+
+      if (existingSha) {
+        // 既存ファイルがある場合、SHAを計算して比較
+        const localSha = await calculateGitBlobSha(leaf.content)
+        if (localSha === existingSha) {
+          // 変化なし → 既存のSHAを使用（転送量削減）
+          treeItems.push({
+            path,
+            mode: '100644',
+            type: 'blob',
+            sha: existingSha,
+          })
+          continue
+        }
+      }
+
+      // 新規ファイルまたは変化あり → contentを送信
       treeItems.push({
         path,
         mode: '100644',
         type: 'blob',
-        content: leaf.content, // Git APIはUTF-8をそのまま受け付ける
+        content: leaf.content,
       })
     }
 
-    // GitHub上にあるがローカルにないファイルを削除
-    for (const githubPath of existingGitHubFiles) {
-      if (!localFilePaths.has(githubPath)) {
-        treeItems.push({
-          path: githubPath,
-          mode: '100644',
-          type: 'blob',
-          sha: null, // 削除を指定
-        })
-      }
-    }
-
-    // 8. 新しいTreeを作成
+    // 6. 新しいTreeを作成（base_treeなし、全ファイルを明示的に指定）
     const newTreeRes = await fetch(`https://api.github.com/repos/${settings.repoName}/git/trees`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        base_tree: baseTreeSha,
         tree: treeItems,
       }),
     })
@@ -293,7 +336,7 @@ export async function pushAllWithTreeAPI(
     const newTreeData = await newTreeRes.json()
     const newTreeSha = newTreeData.sha
 
-    // 9. 新しいコミットを作成
+    // 7. 新しいコミットを作成
     const newCommitRes = await fetch(
       `https://api.github.com/repos/${settings.repoName}/git/commits`,
       {
@@ -321,7 +364,8 @@ export async function pushAllWithTreeAPI(
     const newCommitData = await newCommitRes.json()
     const newCommitSha = newCommitData.sha
 
-    // 10. ブランチのリファレンスを更新
+    // 8. ブランチのリファレンスを更新（強制更新）
+    // 注: 他のデバイスとの同時編集は想定していないため、force: trueで上書き
     const updateRefRes = await fetch(
       `https://api.github.com/repos/${settings.repoName}/git/refs/heads/${branch}`,
       {
@@ -329,13 +373,13 @@ export async function pushAllWithTreeAPI(
         headers,
         body: JSON.stringify({
           sha: newCommitSha,
-          force: false, // 強制更新しない（競合を検出）
+          force: true, // 強制更新（他デバイスとの同時編集は非対応）
         }),
       }
     )
     if (!updateRefRes.ok) {
       const error = await updateRefRes.json()
-      return { success: false, message: `❌ ブランチ更新失敗: ${error.message}` }
+      return { success: false, message: `❌ ブランチ更新失敗: ${JSON.stringify(error)}` }
     }
 
     return {
@@ -463,7 +507,9 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
       let content = ''
       if (contentData.content) {
         try {
-          content = decodeURIComponent(escape(atob(contentData.content)))
+          // GitHub APIは改行付きBase64を返すので改行を削除
+          const base64 = contentData.content.replace(/\n/g, '')
+          content = decodeURIComponent(escape(atob(base64)))
         } catch (e) {
           content = ''
         }

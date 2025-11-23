@@ -435,8 +435,8 @@
 
   // 名前重複チェック用ヘルパー
   function generateUniqueName(baseName: string, existingNames: string[]): string {
-    let name = baseName
     let counter = 1
+    let name = `${baseName}${counter}`
     while (existingNames.includes(name)) {
       counter++
       name = `${baseName}${counter}`
@@ -676,14 +676,23 @@
   }
 
   // GitHub同期
+  let isPushing = false
   async function handleSaveToGitHub() {
-    // Push開始を通知
-    showPushToast('Pushします')
+    // 実行中は何もしない（ダブルクリック防止）
+    if (isPushing) return
 
-    const result = await executePush($leaves, $notes, $settings, isOperationsLocked)
+    isPushing = true
+    try {
+      // Push開始を通知
+      showPushToast('Pushします')
 
-    // 結果を通知
-    showPushToast(result.message, result.variant)
+      const result = await executePush($leaves, $notes, $settings, isOperationsLocked)
+
+      // 結果を通知
+      showPushToast(result.message, result.variant)
+    } finally {
+      isPushing = false
+    }
   }
 
   // ダウンロード
@@ -823,7 +832,7 @@
           <EditorView
             leaf={$currentLeaf}
             theme={$settings.theme}
-            disabled={isOperationsLocked}
+            disabled={isOperationsLocked || isPushing}
             onContentChange={updateLeafContent}
             onSave={handleSaveToGitHub}
             onDownload={downloadLeaf}
