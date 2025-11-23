@@ -38,6 +38,14 @@
       return
     }
 
+    // 動的プロパティキーを生成
+    const hasCustomKey = pane === 'left' ? 'hasCustomBackgroundLeft' : 'hasCustomBackgroundRight'
+    const opacityKey = pane === 'left' ? 'backgroundOpacityLeft' : 'backgroundOpacityRight'
+    const errorMsgKey =
+      pane === 'left'
+        ? 'settings.extras.background.uploadFailedLeft'
+        : 'settings.extras.background.uploadFailedRight'
+
     try {
       if (pane === 'left') {
         backgroundLeftUploading = true
@@ -48,28 +56,15 @@
       await uploadAndApplyBackground(file, pane, BACKGROUND_OPACITY)
 
       // 設定を更新
-      if (pane === 'left') {
-        settings.hasCustomBackgroundLeft = true
-        settings.backgroundOpacityLeft = BACKGROUND_OPACITY
-        onSettingsChange({
-          hasCustomBackgroundLeft: true,
-          backgroundOpacityLeft: BACKGROUND_OPACITY,
-        })
-      } else {
-        settings.hasCustomBackgroundRight = true
-        settings.backgroundOpacityRight = BACKGROUND_OPACITY
-        onSettingsChange({
-          hasCustomBackgroundRight: true,
-          backgroundOpacityRight: BACKGROUND_OPACITY,
-        })
-      }
+      settings[hasCustomKey] = true
+      settings[opacityKey] = BACKGROUND_OPACITY
+      onSettingsChange({
+        [hasCustomKey]: true,
+        [opacityKey]: BACKGROUND_OPACITY,
+      })
     } catch (error) {
       console.error(`Failed to upload ${pane} background:`, error)
-      const errorMsg =
-        pane === 'left'
-          ? $_('settings.extras.background.uploadFailedLeft')
-          : $_('settings.extras.background.uploadFailedRight')
-      showAlert(errorMsg)
+      showAlert($_(errorMsgKey))
     } finally {
       if (pane === 'left') {
         backgroundLeftUploading = false
@@ -81,32 +76,27 @@
   }
 
   async function handleResetBackground(pane: Pane) {
+    // 動的プロパティキーを生成
+    const hasCustomKey = pane === 'left' ? 'hasCustomBackgroundLeft' : 'hasCustomBackgroundRight'
+    const opacityKey = pane === 'left' ? 'backgroundOpacityLeft' : 'backgroundOpacityRight'
+    const errorMsgKey =
+      pane === 'left'
+        ? 'settings.extras.background.resetFailedLeft'
+        : 'settings.extras.background.resetFailedRight'
+
     try {
       await removeAndDeleteCustomBackground(pane)
 
       // 設定を更新
-      if (pane === 'left') {
-        settings.hasCustomBackgroundLeft = false
-        settings.backgroundOpacityLeft = BACKGROUND_OPACITY
-        onSettingsChange({
-          hasCustomBackgroundLeft: false,
-          backgroundOpacityLeft: BACKGROUND_OPACITY,
-        })
-      } else {
-        settings.hasCustomBackgroundRight = false
-        settings.backgroundOpacityRight = BACKGROUND_OPACITY
-        onSettingsChange({
-          hasCustomBackgroundRight: false,
-          backgroundOpacityRight: BACKGROUND_OPACITY,
-        })
-      }
+      settings[hasCustomKey] = false
+      settings[opacityKey] = BACKGROUND_OPACITY
+      onSettingsChange({
+        [hasCustomKey]: false,
+        [opacityKey]: BACKGROUND_OPACITY,
+      })
     } catch (error) {
       console.error(`Failed to reset ${pane} background:`, error)
-      const errorMsg =
-        pane === 'left'
-          ? $_('settings.extras.background.resetFailedLeft')
-          : $_('settings.extras.background.resetFailedRight')
-      showAlert(errorMsg)
+      showAlert($_(errorMsgKey))
     }
   }
 </script>
