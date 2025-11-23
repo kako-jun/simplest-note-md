@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { flip } from 'svelte/animate'
   import Footer from '../layout/Footer.svelte'
   import type { Note, Leaf } from '../../lib/types'
 
@@ -12,10 +13,15 @@
   export let onDeleteNote: () => void
   export let onDragStartNote: (note: Note) => void
   export let onDragStartLeaf: (leaf: Leaf) => void
-  export let onDragOver: (e: DragEvent) => void
+  export let onDragEndNote: () => void
+  export let onDragEndLeaf: () => void
+  export let onDragOverNote: (e: DragEvent, note: Note) => void
+  export let onDragOverLeaf: (e: DragEvent, leaf: Leaf) => void
   export let onDropNote: (note: Note) => void
   export let onDropLeaf: (leaf: Leaf) => void
   export let onSave: () => void
+  export let dragOverNoteId: string | null = null
+  export let dragOverLeafId: string | null = null
   export let getNoteItems: (noteId: string) => string[]
   export let disabled: boolean = false
 
@@ -40,13 +46,16 @@
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <div
         class="note-card note-group-card"
+        class:drag-over={dragOverNoteId === subNote.id}
         draggable="true"
         role="button"
         tabindex="0"
         on:dragstart={() => onDragStartNote(subNote)}
-        on:dragover={onDragOver}
+        on:dragend={onDragEndNote}
+        on:dragover={(e) => onDragOverNote(e, subNote)}
         on:drop|preventDefault={() => onDropNote(subNote)}
         on:click={() => onSelectNote(subNote)}
+        animate:flip={{ duration: 300 }}
       >
         <strong>{subNote.name}</strong>
         <div class="card-meta">
@@ -61,13 +70,16 @@
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <div
         class="note-card"
+        class:drag-over={dragOverLeafId === leaf.id}
         draggable="true"
         role="button"
         tabindex="0"
         on:dragstart={() => onDragStartLeaf(leaf)}
-        on:dragover={onDragOver}
+        on:dragend={onDragEndLeaf}
+        on:dragover={(e) => onDragOverLeaf(e, leaf)}
         on:drop|preventDefault={() => onDropLeaf(leaf)}
         on:click={() => onSelectLeaf(leaf)}
+        animate:flip={{ duration: 300 }}
       >
         <strong>{leaf.title}</strong>
         <div class="card-meta">
@@ -221,5 +233,11 @@
 
   .note-item {
     display: block;
+  }
+
+  .drag-over {
+    border-color: var(--accent-color);
+    background: var(--bg-tertiary);
+    box-shadow: 0 0 0 2px var(--accent-color);
   }
 </style>

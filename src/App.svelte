@@ -46,6 +46,8 @@
   let editingBreadcrumb: string | null = null
   let draggedNote: Note | null = null
   let draggedLeaf: Leaf | null = null
+  let dragOverNoteId: string | null = null // ドラッグオーバー中のノートID
+  let dragOverLeafId: string | null = null // ドラッグオーバー中のリーフID
   let pullRunning = false
   let isOperationsLocked = true
   let showSettings = false
@@ -517,20 +519,38 @@
   // ドラッグ&ドロップ（ノート）
   function handleDragStartNote(note: Note) {
     draggedNote = note
+    dragOverNoteId = null
   }
 
-  function handleDragOver(e: DragEvent) {
+  function handleDragEndNote() {
+    draggedNote = null
+    dragOverNoteId = null
+  }
+
+  function handleDragOverNote(e: DragEvent, note: Note) {
     e.preventDefault()
+    if (!draggedNote || draggedNote.id === note.id) {
+      dragOverNoteId = null
+      return
+    }
+    if (draggedNote.parentId !== note.parentId) {
+      dragOverNoteId = null
+      return
+    }
+    dragOverNoteId = note.id
   }
 
   function handleDropNote(targetNote: Note) {
+    dragOverNoteId = null
     if (!draggedNote || draggedNote.id === targetNote.id) return
     if (draggedNote.parentId !== targetNote.parentId) return
 
     const allNotes = $notes
-    const targetList = draggedNote.parentId
-      ? allNotes.filter((f) => f.parentId === draggedNote!.parentId)
-      : allNotes.filter((f) => !f.parentId)
+    const targetList = (
+      draggedNote.parentId
+        ? allNotes.filter((f) => f.parentId === draggedNote!.parentId)
+        : allNotes.filter((f) => !f.parentId)
+    ).sort((a, b) => a.order - b.order)
 
     const fromIndex = targetList.findIndex((f) => f.id === draggedNote!.id)
     const toIndex = targetList.findIndex((f) => f.id === targetNote.id)
@@ -615,9 +635,29 @@
   // ドラッグ&ドロップ（リーフ）
   function handleDragStartLeaf(leaf: Leaf) {
     draggedLeaf = leaf
+    dragOverLeafId = null
+  }
+
+  function handleDragEndLeaf() {
+    draggedLeaf = null
+    dragOverLeafId = null
+  }
+
+  function handleDragOverLeaf(e: DragEvent, leaf: Leaf) {
+    e.preventDefault()
+    if (!draggedLeaf || draggedLeaf.id === leaf.id) {
+      dragOverLeafId = null
+      return
+    }
+    if (draggedLeaf.noteId !== leaf.noteId) {
+      dragOverLeafId = null
+      return
+    }
+    dragOverLeafId = leaf.id
   }
 
   function handleDropLeaf(targetLeaf: Leaf) {
+    dragOverLeafId = null
     if (!draggedLeaf || draggedLeaf.id === targetLeaf.id) return
     if (draggedLeaf.noteId !== targetLeaf.noteId) return
 
@@ -824,9 +864,11 @@
             onSelectNote={selectNote}
             onCreateNote={() => createNote()}
             onDragStart={handleDragStartNote}
-            onDragOver={handleDragOver}
+            onDragEnd={handleDragEndNote}
+            onDragOver={handleDragOverNote}
             onDrop={handleDropNote}
             onSave={handleSaveToGitHub}
+            {dragOverNoteId}
             {getNoteItems}
           />
         {:else if $currentView === 'note' && $currentNote}
@@ -842,10 +884,15 @@
             onDeleteNote={deleteNote}
             onDragStartNote={handleDragStartNote}
             onDragStartLeaf={handleDragStartLeaf}
-            onDragOver={handleDragOver}
+            onDragEndNote={handleDragEndNote}
+            onDragEndLeaf={handleDragEndLeaf}
+            onDragOverNote={handleDragOverNote}
+            onDragOverLeaf={handleDragOverLeaf}
             onDropNote={handleDropNote}
             onDropLeaf={handleDropLeaf}
             onSave={handleSaveToGitHub}
+            {dragOverNoteId}
+            {dragOverLeafId}
             {getNoteItems}
           />
         {:else if $currentView === 'edit' && $currentLeaf}
@@ -881,9 +928,11 @@
             onSelectNote={selectNoteRight}
             onCreateNote={() => createNoteRight()}
             onDragStart={handleDragStartNote}
-            onDragOver={handleDragOver}
+            onDragEnd={handleDragEndNote}
+            onDragOver={handleDragOverNote}
             onDrop={handleDropNote}
             onSave={handleSaveToGitHub}
+            {dragOverNoteId}
             {getNoteItems}
           />
         {:else if rightView === 'note' && rightNote}
@@ -903,10 +952,15 @@
             onDeleteNote={deleteNote}
             onDragStartNote={handleDragStartNote}
             onDragStartLeaf={handleDragStartLeaf}
-            onDragOver={handleDragOver}
+            onDragEndNote={handleDragEndNote}
+            onDragEndLeaf={handleDragEndLeaf}
+            onDragOverNote={handleDragOverNote}
+            onDragOverLeaf={handleDragOverLeaf}
             onDropNote={handleDropNote}
             onDropLeaf={handleDropLeaf}
             onSave={handleSaveToGitHub}
+            {dragOverNoteId}
+            {dragOverLeafId}
             {getNoteItems}
           />
         {:else if rightView === 'edit' && rightLeaf}

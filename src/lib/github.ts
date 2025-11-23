@@ -6,6 +6,16 @@
 import type { Leaf, Note, Settings } from './types'
 
 /**
+ * メタデータファイルの型定義
+ * パス（相対パス）をキーにして、order, id, updatedAtを保存
+ */
+interface Metadata {
+  version: number
+  notes: Record<string, { id: string; order: number }> // "仕事" or "仕事/会議"
+  leaves: Record<string, { id: string; updatedAt: number; order: number }> // "仕事/議事録.md"
+}
+
+/**
  * Git blob形式のSHA-1を計算
  * Git仕様: sha1("blob " + UTF-8バイト数 + "\0" + content)
  */
@@ -267,6 +277,46 @@ export async function pushAllWithTreeAPI(
     // .gitkeep用の空コンテンツのSHA（常に同じ）
     const emptyGitkeepSha = await calculateGitBlobSha('')
 
+    // metadata.jsonを生成
+    const metadata: Metadata = {
+      version: 1,
+      notes: {},
+      leaves: {},
+    }
+
+    // ノートのメタ情報を追加
+    for (const note of notes) {
+      const folderPath = getFolderPath(note, notes)
+      metadata.notes[folderPath] = {
+        id: note.id,
+        order: note.order,
+      }
+    }
+
+    // リーフのメタ情報を追加
+    for (const leaf of leaves) {
+      const path = buildPath(leaf, notes).replace(/^notes\//, '') // "notes/"を除去
+      metadata.leaves[path] = {
+        id: leaf.id,
+        updatedAt: leaf.updatedAt,
+        order: leaf.order,
+      }
+    }
+
+    const metadataContent = JSON.stringify(metadata, null, 2)
+    const metadataPath = 'notes/metadata.json'
+    const metadataExisting = existingNotesFiles.get(metadataPath)
+    const metadataSha = await calculateGitBlobSha(metadataContent)
+
+    treeItems.push({
+      path: metadataPath,
+      mode: '100644',
+      type: 'blob',
+      ...(metadataExisting === metadataSha
+        ? { sha: metadataExisting }
+        : { content: metadataContent }),
+    })
+
     // notes/.gitkeep を追加（notesディレクトリが空でも削除されないように）
     const notesGitkeepPath = 'notes/.gitkeep'
     const notesGitkeepExisting = existingNotesFiles.get(notesGitkeepPath)
@@ -457,6 +507,25 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
     const treeData = await treeRes.json()
     const entries: { path: string; type: string }[] = treeData.tree || []
 
+    // notes/metadata.jsonを取得
+    let metadata: Metadata = { version: 1, notes: {}, leaves: {} }
+    try {
+      const metadataRes = await fetch(
+        `https://api.github.com/repos/${settings.repoName}/contents/notes/metadata.json`,
+        { headers }
+      )
+      if (metadataRes.ok) {
+        const metadataData = await metadataRes.json()
+        if (metadataData.content) {
+          const base64 = metadataData.content.replace(/\n/g, '')
+          const jsonText = decodeURIComponent(escape(atob(base64)))
+          metadata = JSON.parse(jsonText)
+        }
+      }
+    } catch (e) {
+      console.warn('notes/metadata.json not found or invalid, using defaults')
+    }
+
     const noteMap = new Map<string, Note>()
     const leaves: Leaf[] = []
 
@@ -468,11 +537,16 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
           parentId = noteMap.get(partial)!.id
           continue
         }
-        const note: Note = {
+        // metadata.jsonからメタ情報を取得
+        const meta = metadata.notes[partial] || {
           id: crypto.randomUUID(),
+          order: noteMap.size,
+        }
+        const note: Note = {
+          id: meta.id,
           name: pathParts[i],
           parentId,
-          order: noteMap.size,
+          order: meta.order,
         }
         noteMap.set(partial, note)
         parentId = note.id
@@ -515,21 +589,33 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
         }
       }
 
-      leaves.push({
+      // metadata.jsonからメタ情報を取得
+      const leafPath = entry.path.replace(/^notes\//, '')
+      const leafMeta = metadata.leaves[leafPath] || {
         id: crypto.randomUUID(),
+        updatedAt: Date.now(),
+        order: leaves.length,
+      }
+
+      leaves.push({
+        id: leafMeta.id,
         title,
         noteId,
         content,
-        updatedAt: Date.now(),
-        order: leaves.length,
+        updatedAt: leafMeta.updatedAt,
+        order: leafMeta.order,
       })
     }
+
+    // orderでソート（同一親ノート内、同一noteId内でソート）
+    const sortedNotes = Array.from(noteMap.values()).sort((a, b) => a.order - b.order)
+    const sortedLeaves = leaves.sort((a, b) => a.order - b.order)
 
     return {
       success: true,
       message: '✅ Pull OK',
-      notes: Array.from(noteMap.values()),
-      leaves,
+      notes: sortedNotes,
+      leaves: sortedLeaves,
     }
   } catch (error) {
     console.error('GitHub pull error:', error)

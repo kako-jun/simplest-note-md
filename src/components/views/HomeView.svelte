@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { flip } from 'svelte/animate'
   import Footer from '../layout/Footer.svelte'
   import type { Note } from '../../lib/types'
 
@@ -6,9 +7,11 @@
   export let onSelectNote: (note: Note) => void
   export let onCreateNote: () => void
   export let onDragStart: (note: Note) => void
-  export let onDragOver: (e: DragEvent) => void
+  export let onDragEnd: () => void
+  export let onDragOver: (e: DragEvent, note: Note) => void
   export let onDrop: (note: Note) => void
   export let onSave: () => void
+  export let dragOverNoteId: string | null = null
   export let getNoteItems: (noteId: string) => string[]
   export let disabled: boolean = false
 </script>
@@ -20,13 +23,16 @@
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <div
         class="note-card note-group-card"
+        class:drag-over={dragOverNoteId === note.id}
         draggable="true"
         role="button"
         tabindex="0"
         on:dragstart={() => onDragStart(note)}
-        on:dragover={onDragOver}
+        on:dragend={onDragEnd}
+        on:dragover={(e) => onDragOver(e, note)}
         on:drop|preventDefault={() => onDrop(note)}
         on:click={() => onSelectNote(note)}
+        animate:flip={{ duration: 300 }}
       >
         <strong>{note.name}</strong>
         <div class="card-meta">
@@ -128,5 +134,11 @@
 
   .note-item {
     display: block;
+  }
+
+  .drag-over {
+    border-color: var(--accent-color);
+    background: var(--bg-tertiary);
+    box-shadow: 0 0 0 2px var(--accent-color);
   }
 </style>
