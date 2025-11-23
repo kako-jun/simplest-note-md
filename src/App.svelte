@@ -194,14 +194,13 @@
     applyTheme(loadedSettings.theme, loadedSettings)
     document.title = loadedSettings.toolName
 
-    // 画面幅を監視して isDualPane を更新
-    const mediaQuery = window.matchMedia('(min-width: 1025px)')
-    isDualPane = mediaQuery.matches
-
-    const handleMediaChange = (e: MediaQueryListEvent) => {
-      isDualPane = e.matches
+    // アスペクト比を監視して isDualPane を更新（横 > 縦で2ペイン表示）
+    const updateDualPane = () => {
+      isDualPane = window.innerWidth > window.innerHeight
     }
-    mediaQuery.addEventListener('change', handleMediaChange)
+    updateDualPane()
+
+    window.addEventListener('resize', updateDualPane)
     ;(async () => {
       // 初回Pull（GitHubから最新データを取得）
       // 重要: IndexedDBからは読み込まない
@@ -218,7 +217,7 @@
 
     return () => {
       window.removeEventListener('popstate', handlePopState)
-      mediaQuery.removeEventListener('change', handleMediaChange)
+      window.removeEventListener('resize', updateDualPane)
     }
   })
 
@@ -456,6 +455,16 @@
   function createNote(parentId?: string) {
     if (isOperationsLocked) return
     const allNotes = $notes
+
+    // 階層制限チェック: サブノートの下にはサブノートを作成できない
+    if (parentId) {
+      const parentNote = allNotes.find((n) => n.id === parentId)
+      if (parentNote && parentNote.parentId) {
+        showAlert('サブノートの下にはサブノートを作成できません。')
+        return
+      }
+    }
+
     const targetNotes = parentId
       ? allNotes.filter((f) => f.parentId === parentId)
       : allNotes.filter((f) => !f.parentId)
@@ -843,8 +852,8 @@
     }}
   />
 
-  <div class="content-wrapper">
-    <div class="pane-divider"></div>
+  <div class="content-wrapper" class:single-pane={!isDualPane}>
+    <div class="pane-divider" class:hidden={!isDualPane}></div>
     <div class="left-column">
       <div class="breadcrumbs-pane">
         <Breadcrumbs
@@ -909,7 +918,7 @@
       </main>
     </div>
 
-    <div class="right-column">
+    <div class="right-column" class:hidden={!isDualPane}>
       <div class="breadcrumbs-pane">
         <Breadcrumbs
           breadcrumbs={breadcrumbsRight}
@@ -1071,6 +1080,10 @@
     position: relative;
   }
 
+  .content-wrapper.single-pane {
+    grid-template-columns: 1fr;
+  }
+
   .pane-divider {
     position: absolute;
     top: 0;
@@ -1106,16 +1119,8 @@
     overflow: hidden;
   }
 
-  @media (max-width: 1024px) {
-    .content-wrapper {
-      grid-template-columns: 1fr;
-    }
-    .pane-divider {
-      display: none;
-    }
-    .right-column {
-      display: none;
-    }
+  .hidden {
+    display: none;
   }
 
   .settings-modal-overlay {
