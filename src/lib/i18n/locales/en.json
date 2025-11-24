@@ -22,7 +22,10 @@
     "shareImage": "Share Image",
     "download": "Download as File",
     "urlCopied": "URL copied",
-    "markdownCopied": "Markdown copied"
+    "markdownCopied": "Markdown copied",
+    "imageCopied": "Image copied",
+    "imageCopyFailed": "Failed to copy image",
+    "shareFailed": "Failed to share"
   },
   "home": {
     "pushCount": "Push Count",
@@ -134,5 +137,12 @@
   "loading": {
     "pulling": "Pulling...",
     "pushing": "Pushing..."
+  },
+  "welcome": {
+    "title": "Thank you for your interest in SimplestNote.md!",
+    "message1": "To save your notes, GitHub configuration is required.",
+    "message2": "Please set up your repository and token in settings.",
+    "openSettings": "Open Settings",
+    "later": "Later"
   }
 }

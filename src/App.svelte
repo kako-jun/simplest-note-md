@@ -22,7 +22,7 @@
   import { loadAndApplyCustomFont } from './lib/font'
   import { loadAndApplyCustomBackgrounds } from './lib/background'
   import { executePush, executePull } from './lib/sync'
-  import { initI18n } from './lib/i18n'
+  import { initI18n, _ } from './lib/i18n'
   import {
     pushToastState,
     pullToastState,
@@ -74,6 +74,7 @@
   let showSettings = false
   let isPulling = false // Pull処理中はURL更新をスキップ
   let i18nReady = false // i18n初期化完了フラグ
+  let showWelcome = false // ウェルカムモーダル表示フラグ
 
   // 左右ペイン用の状態（対等なローカル変数）
   let isDualPane = false // 画面幅で切り替え
@@ -303,7 +304,17 @@
       // 重要: IndexedDBからは読み込まない
       // Pull成功時にIndexedDBは全削除→全作成される
       // Pull成功後、URLから状態を復元（handlePull内で実行）
-      await handlePull(true)
+
+      // GitHub設定チェック
+      const isConfigured = loadedSettings.token && loadedSettings.repoName
+      if (isConfigured) {
+        // 設定済みの場合は通常通り初回Pullを実行
+        await handlePull(true)
+      } else {
+        // 未設定の場合はウェルカムモーダルを表示
+        showWelcome = true
+        isOperationsLocked = false // ウェルカムモーダルを閉じられるようにロック解除
+      }
     })()
 
     // アスペクト比を監視して isDualPane を更新（横 > 縦で2ペイン表示）
@@ -454,6 +465,15 @@
   async function closeSettings() {
     showSettings = false
     await handleCloseSettings()
+  }
+
+  function closeWelcome() {
+    showWelcome = false
+  }
+
+  function openSettingsFromWelcome() {
+    showWelcome = false
+    showSettings = true
   }
 
   function handleOverlayKeydown(e: KeyboardEvent) {
@@ -922,17 +942,11 @@
       const previewView = pane === 'left' ? leftPreviewView : rightPreviewView
       if (previewView && previewView.captureAsImage) {
         await previewView.captureAsImage(targetLeaf.title)
-        showPushToast(
-          $settings.locale === 'ja' ? '画像をダウンロードしました' : 'Image downloaded',
-          'success'
-        )
+        showPushToast($_('toast.imageDownloaded'), 'success')
       }
     } catch (error) {
       console.error('画像ダウンロードに失敗しました:', error)
-      showPushToast(
-        $settings.locale === 'ja' ? '画像ダウンロードに失敗しました' : 'Failed to download image',
-        'error'
-      )
+      showPushToast($_('toast.imageDownloadFailed'), 'error')
     }
   }
 
@@ -942,11 +956,11 @@
     navigator.clipboard
       .writeText(url)
       .then(() => {
-        showPushToast($settings.locale === 'ja' ? 'URLをコピーしました' : 'URL copied', 'success')
+        showPushToast($_('share.urlCopied'), 'success')
       })
       .catch((err) => {
         console.error('URLのコピーに失敗しました:', err)
-        showPushToast('URLのコピーに失敗しました', 'error')
+        showPushToast($_('share.urlCopied'), 'error')
       })
   }
 
@@ -966,14 +980,11 @@
     navigator.clipboard
       .writeText(leaf.content)
       .then(() => {
-        showPushToast(
-          $settings.locale === 'ja' ? 'Markdownをコピーしました' : 'Markdown copied',
-          'success'
-        )
+        showPushToast($_('share.markdownCopied'), 'success')
       })
       .catch((err) => {
         console.error('Markdownのコピーに失敗しました:', err)
-        showPushToast('Markdownのコピーに失敗しました', 'error')
+        showPushToast($_('share.markdownCopied'), 'error')
       })
   }
 
@@ -985,13 +996,10 @@
 
     try {
       await previewView.copyImageToClipboard()
-      showPushToast($settings.locale === 'ja' ? '画像をコピーしました' : 'Image copied', 'success')
+      showPushToast($_('share.imageCopied'), 'success')
     } catch (error) {
       console.error('画像のコピーに失敗しました:', error)
-      showPushToast(
-        $settings.locale === 'ja' ? '画像のコピーに失敗しました' : 'Failed to copy image',
-        'error'
-      )
+      showPushToast($_('share.imageCopyFailed'), 'error')
     }
   }
 
@@ -1013,7 +1021,7 @@
         // ユーザーが共有をキャンセルした場合は何もしない
       } else {
         console.error('共有に失敗しました:', error)
-        showPushToast($settings.locale === 'ja' ? '共有に失敗しました' : 'Failed to share', 'error')
+        showPushToast($_('share.shareFailed'), 'error')
       }
     }
   }
@@ -1097,9 +1105,8 @@
         restoreStateFromUrl(false)
       }
     } else {
-      if (isInitial) {
-        showAlert('初回Pullに失敗しました。設定を確認して再度Pullしてください。')
-      }
+      // 初回Pull失敗時は静かに処理（設定未完了は正常な状態）
+      // 2回目以降のPull失敗はトーストで通知される
     }
 
     // 結果を通知
@@ -1442,6 +1449,30 @@
       </div>
     {/if}
 
+    {#if showWelcome}
+      <div class="welcome-modal-overlay">
+        <div class="welcome-modal-content">
+          <h2 class="welcome-title">
+            {$_('welcome.title')}
+          </h2>
+          <p class="welcome-message">
+            {$_('welcome.message1')}
+          </p>
+          <p class="welcome-message">
+            {$_('welcome.message2')}
+          </p>
+          <div class="welcome-buttons">
+            <button class="welcome-button primary" on:click={openSettingsFromWelcome}>
+              {$_('welcome.openSettings')}
+            </button>
+            <button class="welcome-button secondary" on:click={closeWelcome}>
+              {$_('welcome.later')}
+            </button>
+          </div>
+        </div>
+      </div>
+    {/if}
+
     <Toast
       pullMessage={$pullToastState.message}
       pullVariant={$pullToastState.variant}
@@ -1628,5 +1659,82 @@
     height: 8px;
     background: #ef4444;
     border-radius: 50%;
+  }
+
+  .welcome-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 2rem;
+  }
+
+  .welcome-modal-content {
+    background: var(--bg-primary);
+    border-radius: 16px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+    padding: 3rem 2rem;
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .welcome-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    line-height: 1.4;
+  }
+
+  .welcome-message {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+
+  .welcome-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+  }
+
+  .welcome-button {
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+
+  .welcome-button.primary {
+    background: var(--accent-color);
+    color: white;
+  }
+
+  .welcome-button.primary:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  .welcome-button.secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .welcome-button.secondary:hover {
+    background: var(--bg-tertiary);
   }
 </style>
