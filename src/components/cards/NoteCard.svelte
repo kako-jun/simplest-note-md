@@ -3,6 +3,7 @@
 
   export let note: Note
   export let dragOver: boolean = false
+  export let isSelected: boolean = false
   export let onSelect: () => void
   export let onDragStart: () => void
   export let onDragEnd: () => void
@@ -18,6 +19,7 @@
   class="note-card"
   class:note-group-card={isGroup}
   class:drag-over={dragOver}
+  class:selected={isSelected}
   draggable="true"
   role="button"
   tabindex="0"
@@ -52,6 +54,12 @@
   .note-card:hover {
     border-color: var(--accent-color);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .note-card.selected {
+    border-color: var(--accent-color);
+    background: var(--bg-tertiary);
+    box-shadow: 0 0 0 2px var(--accent-color);
   }
 
   .card-meta {

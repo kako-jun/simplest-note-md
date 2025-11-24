@@ -15,6 +15,8 @@
   export let dragOverNoteId: string | null = null
   export let getNoteItems: (noteId: string) => string[]
   export let disabled: boolean = false
+  export let selectedIndex: number = 0
+  export let isActive: boolean = true
 </script>
 
 <section class="view-container">
@@ -31,10 +33,11 @@
         <p>{$_('home.noNotes')}</p>
       </div>
     {:else if notes.length > 0}
-      {#each notes as note (note.id)}
+      {#each notes as note, index (note.id)}
         <NoteCard
           {note}
           dragOver={dragOverNoteId === note.id}
+          isSelected={isActive && index === selectedIndex}
           onSelect={() => onSelectNote(note)}
           onDragStart={() => onDragStart(note)}
           onDragEnd={() => onDragEnd()}

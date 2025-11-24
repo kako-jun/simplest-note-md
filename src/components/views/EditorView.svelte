@@ -8,6 +8,7 @@
   export let onContentChange: (content: string, leafId: string) => void
   export let onSave: () => void
   export let onClose: (() => void) | null = null
+  export let onSwitchPane: (() => void) | null = null
   export let onDownload: (leafId: string) => void
   export let onDelete: (leafId: string) => void
   export let disabled: boolean = false
@@ -44,6 +45,7 @@
     onChange={handleContentChange}
     {onSave}
     {onClose}
+    {onSwitchPane}
     {onScroll}
   />
 </section>

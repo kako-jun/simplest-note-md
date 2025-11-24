@@ -83,6 +83,11 @@
   let rightLeaf: Leaf | null = null
   let rightView: View = 'home'
 
+  // キーボードナビゲーション用の状態
+  let selectedIndexLeft = 0 // 左ペインで選択中のアイテムインデックス
+  let selectedIndexRight = 0 // 右ペインで選択中のアイテムインデックス
+  let focusedPane: Pane = 'left' // フォーカス中のペイン
+
   // スクロール同期用のコンポーネント参照
   let leftEditorView: any = null
   let leftPreviewView: any = null
@@ -324,10 +329,17 @@
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
 
+    // グローバルキーボードナビゲーション
+    const handleKeyDown = (e: KeyboardEvent) => {
+      handleGlobalKeyDown(e)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+
     return () => {
       window.removeEventListener('popstate', handlePopState)
       window.removeEventListener('resize', updateDualPane)
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('keydown', handleKeyDown)
     }
   })
 
@@ -378,6 +390,183 @@
     const parentNote = $notes.find((n) => n.id === leaf.noteId)
     if (parentNote) {
       selectNote(parentNote, pane)
+    }
+  }
+
+  function switchPane(pane: Pane) {
+    // 2ペイン表示時のみ有効
+    if (!isDualPane) return
+
+    // もう一方のペインに切り替え
+    focusedPane = pane === 'left' ? 'right' : 'left'
+  }
+
+  // キーボードナビゲーション
+  function handleGlobalKeyDown(e: KeyboardEvent) {
+    // event.targetを取得してどこから来たイベントか判定
+    const target = e.target as HTMLElement
+    if (!target) return
+
+    // CodeMirrorエディタ内からのイベントは無視
+    const isInEditor = target.closest('.cm-content') || target.closest('.cm-editor')
+    if (isInEditor) return
+
+    // input/textarea内からのイベントは無視
+    if (target.tagName === 'INPUT') return
+    if (target.tagName === 'TEXTAREA') return
+
+    // contenteditable要素内からのイベントは無視
+    if (target.getAttribute('contenteditable') === 'true') return
+    if (target.closest('[contenteditable="true"]')) return
+
+    // 設定画面が開いている場合も無効化
+    if (showSettings) return
+
+    // フォーカス中のペインがhome/noteビューでない場合は無効化
+    const currentView = focusedPane === 'left' ? leftView : rightView
+    if (currentView !== 'home' && currentView !== 'note') return
+
+    // 処理するキーの場合のみデフォルト動作を防止
+    if (['h', 'j', 'k', 'l', 'Enter', 'Escape', ' '].includes(e.key)) {
+      e.preventDefault()
+    } else {
+      return // 処理対象外のキーは無視
+    }
+
+    // 現在のビューに応じてアイテムリストを取得
+    const items = getCurrentItems(focusedPane)
+    const selectedIndex = focusedPane === 'left' ? selectedIndexLeft : selectedIndexRight
+
+    switch (e.key) {
+      case ' ':
+        // スペースでペイン切り替え（2ペイン表示時のみ）
+        if (isDualPane) {
+          switchPane(focusedPane)
+        }
+        break
+      case 'h':
+        navigateGrid('left', items, selectedIndex)
+        break
+      case 'j':
+        navigateGrid('down', items, selectedIndex)
+        break
+      case 'k':
+        navigateGrid('up', items, selectedIndex)
+        break
+      case 'l':
+        navigateGrid('right', items, selectedIndex)
+        break
+      case 'Enter':
+        openSelectedItem(items, selectedIndex)
+        break
+      case 'Escape':
+        goBackToParent(focusedPane)
+        break
+    }
+  }
+
+  // 現在のビューに応じたアイテムリストを取得
+  function getCurrentItems(pane: Pane): Array<Note | Leaf> {
+    const view = pane === 'left' ? leftView : rightView
+    const note = pane === 'left' ? leftNote : rightNote
+
+    if (view === 'home') {
+      return $rootNotes
+    } else if (view === 'note' && note) {
+      // サブノートとリーフを結合
+      const subNotes = $notes
+        .filter((n) => n.parentId === note.id)
+        .sort((a, b) => a.order - b.order)
+      const leaves = $leaves.filter((l) => l.noteId === note.id).sort((a, b) => a.order - b.order)
+      return [...subNotes, ...leaves]
+    }
+    return []
+  }
+
+  // グリッドナビゲーション（方向指定）
+  function navigateGrid(
+    direction: 'up' | 'down' | 'left' | 'right',
+    items: Array<Note | Leaf>,
+    currentIndex: number
+  ) {
+    if (items.length === 0) return
+
+    // グリッドのカラム数を計算（CSS Gridの設定に合わせる）
+    // NoteCard/LeafCard は min-width: 200px, gap: 1rem
+    const gridColumns = calculateGridColumns()
+
+    let newIndex = currentIndex
+
+    switch (direction) {
+      case 'up':
+        newIndex = Math.max(0, currentIndex - gridColumns)
+        break
+      case 'down':
+        newIndex = Math.min(items.length - 1, currentIndex + gridColumns)
+        break
+      case 'left':
+        if (currentIndex % gridColumns !== 0) {
+          newIndex = Math.max(0, currentIndex - 1)
+        }
+        break
+      case 'right':
+        if ((currentIndex + 1) % gridColumns !== 0 && currentIndex < items.length - 1) {
+          newIndex = Math.min(items.length - 1, currentIndex + 1)
+        }
+        break
+    }
+
+    // 選択インデックスを更新
+    if (focusedPane === 'left') {
+      selectedIndexLeft = newIndex
+    } else {
+      selectedIndexRight = newIndex
+    }
+  }
+
+  // グリッドのカラム数を計算
+  function calculateGridColumns(): number {
+    // .main-pane の幅を取得
+    const pane = document.querySelector('.main-pane')
+    if (!pane) return 3 // デフォルト値
+
+    const paneWidth = pane.clientWidth
+    const cardMinWidth = 200 // NoteCard の min-width
+    const gap = 16 // 1rem = 16px
+
+    // グリッドのカラム数を計算
+    const columns = Math.floor((paneWidth + gap) / (cardMinWidth + gap))
+    return Math.max(1, columns)
+  }
+
+  // 選択中のアイテムを開く
+  function openSelectedItem(items: Array<Note | Leaf>, index: number) {
+    if (index < 0 || index >= items.length) return
+
+    const item = items[index]
+    if ('noteId' in item) {
+      // Leaf
+      selectLeaf(item as Leaf, focusedPane)
+    } else {
+      // Note
+      selectNote(item as Note, focusedPane)
+    }
+  }
+
+  // 親に戻る
+  function goBackToParent(pane: Pane) {
+    const view = pane === 'left' ? leftView : rightView
+    const note = pane === 'left' ? leftNote : rightNote
+
+    if (view === 'note' && note) {
+      const parentNote = $notes.find((n) => n.id === note.parentId)
+      if (parentNote) {
+        selectNote(parentNote, pane)
+      } else {
+        goHome(pane)
+      }
+    } else if (view === 'home') {
+      // ホーム画面では何もしない
     }
   }
 
@@ -1079,6 +1268,8 @@
             <HomeView
               notes={$rootNotes}
               disabled={isOperationsLocked}
+              selectedIndex={selectedIndexLeft}
+              isActive={focusedPane === 'left'}
               onSelectNote={(note) => selectNote(note, 'left')}
               onCreateNote={() => createNote(undefined, 'left')}
               onDragStart={handleDragStartNote}
@@ -1099,6 +1290,8 @@
                 .filter((l) => l.noteId === leftNote.id)
                 .sort((a, b) => a.order - b.order)}
               disabled={isOperationsLocked}
+              selectedIndex={selectedIndexLeft}
+              isActive={focusedPane === 'left'}
               onSelectNote={(note) => selectNote(note, 'left')}
               onSelectLeaf={(leaf) => selectLeaf(leaf, 'left')}
               onCreateNote={() => createNote(leftNote.id, 'left')}
@@ -1127,6 +1320,7 @@
               onContentChange={updateLeafContent}
               onSave={handleSaveToGitHub}
               onClose={() => closeLeaf('left')}
+              onSwitchPane={() => switchPane('left')}
               onDownload={downloadLeafAsMarkdown}
               onDelete={(leafId) => deleteLeaf(leafId, 'left')}
               onScroll={handleLeftScroll}
@@ -1195,6 +1389,8 @@
             <HomeView
               notes={$rootNotes}
               disabled={isOperationsLocked}
+              selectedIndex={selectedIndexRight}
+              isActive={focusedPane === 'right'}
               onSelectNote={(note) => selectNote(note, 'right')}
               onCreateNote={() => createNote(undefined, 'right')}
               onDragStart={handleDragStartNote}
@@ -1215,6 +1411,8 @@
                 .filter((l) => l.noteId === rightNote.id)
                 .sort((a, b) => a.order - b.order)}
               disabled={isOperationsLocked}
+              selectedIndex={selectedIndexRight}
+              isActive={focusedPane === 'right'}
               onSelectNote={(note) => selectNote(note, 'right')}
               onSelectLeaf={(leaf) => selectLeaf(leaf, 'right')}
               onCreateNote={() => createNote(rightNote.id, 'right')}
@@ -1243,6 +1441,7 @@
               onContentChange={updateLeafContent}
               onSave={handleSaveToGitHub}
               onClose={() => closeLeaf('right')}
+              onSwitchPane={() => switchPane('right')}
               onDownload={downloadLeafAsMarkdown}
               onDelete={(leafId) => deleteLeaf(leafId, 'right')}
               onScroll={handleRightScroll}

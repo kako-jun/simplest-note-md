@@ -9,6 +9,7 @@
   export let onChange: (newContent: string) => void
   export let onSave: (() => void) | null = null
   export let onClose: (() => void) | null = null
+  export let onSwitchPane: (() => void) | null = null
   export let onScroll: ((scrollTop: number, scrollHeight: number) => void) | null = null
 
   let editorContainer: HTMLDivElement
@@ -198,6 +199,13 @@
           Vim.defineEx('quit', 'q', function () {
             onClose()
           })
+        }
+        // スペースキーでペイン切り替え（ノーマルモード）
+        if (onSwitchPane) {
+          Vim.defineAction('switchPane', function () {
+            onSwitchPane()
+          })
+          Vim.mapCommand('<Space>', 'action', 'switchPane')
         }
       }, 100)
     }

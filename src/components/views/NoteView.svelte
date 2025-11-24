@@ -25,6 +25,8 @@
   export let dragOverLeafId: string | null = null
   export let getNoteItems: (noteId: string) => string[]
   export let disabled: boolean = false
+  export let selectedIndex: number = 0
+  export let isActive: boolean = true
 
   // リアクティブ宣言: ノートが変わるたびに再計算
   $: canHaveSubNote = !currentNote.parentId
@@ -48,10 +50,11 @@
         <p>{currentNote.parentId ? $_('note.noLeaves') : $_('note.noItems')}</p>
       </div>
     {:else if subNotes.length > 0 || leaves.length > 0}
-      {#each subNotes as subNote (subNote.id)}
+      {#each subNotes as subNote, index (subNote.id)}
         <NoteCard
           note={subNote}
           dragOver={dragOverNoteId === subNote.id}
+          isSelected={isActive && index === selectedIndex}
           onSelect={() => onSelectNote(subNote)}
           onDragStart={() => onDragStartNote(subNote)}
           onDragEnd={() => onDragEndNote()}
@@ -61,12 +64,13 @@
           isGroup={true}
         />
       {/each}
-      {#each leaves as leaf (leaf.id)}
+      {#each leaves as leaf, leafIndex (leaf.id)}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div
           class="note-card"
           class:drag-over={dragOverLeafId === leaf.id}
+          class:selected={isActive && subNotes.length + leafIndex === selectedIndex}
           draggable="true"
           role="button"
           tabindex="0"
@@ -113,6 +117,12 @@
   .note-card:hover {
     border-color: var(--accent-color);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .note-card.selected {
+    border-color: var(--accent-color);
+    background: var(--bg-tertiary);
+    box-shadow: 0 0 0 2px var(--accent-color);
   }
 
   .card-meta {
