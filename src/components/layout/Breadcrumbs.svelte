@@ -1,12 +1,15 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import type { Breadcrumb } from '../../lib/types'
+  import ShareButton from '../buttons/ShareButton.svelte'
 
   export let breadcrumbs: Breadcrumb[]
   export let editingId: string | null = null
   export let onStartEdit: (crumb: Breadcrumb) => void
   export let onSaveEdit: (id: string, newName: string, type: Breadcrumb['type']) => void
   export let onCancelEdit: () => void
+  export let onCopyUrl: (() => void) | null = null
+  export let onCopyMarkdown: (() => void) | null = null
 
   let inputValue = ''
   let inputElement: HTMLInputElement | null = null
@@ -38,92 +41,110 @@
       onCancelEdit()
     }
   }
+
+  // リーフ表示かどうかを判定
+  $: isLeafView = breadcrumbs.some((crumb) => crumb.type === 'leaf')
 </script>
 
 <div class="breadcrumbs">
-  {#each breadcrumbs as crumb, index}
-    {#if index > 0}
-      <span class="separator">›</span>
-    {/if}
-
-    <span class="breadcrumb-item">
-      {#if editingId === crumb.id}
-        <input
-          bind:this={inputElement}
-          bind:value={inputValue}
-          on:keydown={(e) => handleKeydown(e, crumb)}
-          on:blur={() => handleBlur(crumb)}
-          class="breadcrumb-input"
-        />
-      {:else}
-        <button
-          class="breadcrumb-button"
-          class:current={index === breadcrumbs.length - 1}
-          on:click={crumb.action}
-          title={index === 0 ? $_('breadcrumbs.goHome') : undefined}
-          aria-label={index === 0 ? $_('breadcrumbs.goHome') : crumb.label}
-        >
-          {#if index === 0}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-          {:else}
-            {crumb.label}
-          {/if}
-        </button>
-        {#if index === breadcrumbs.length - 1 && (crumb.type === 'note' || crumb.type === 'leaf')}
-          <button
-            class="edit-button"
-            on:click={() => handleStartEdit(crumb)}
-            title={crumb.type === 'leaf'
-              ? $_('breadcrumbs.editLeafName')
-              : $_('breadcrumbs.editNoteName')}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-            </svg>
-          </button>
-        {/if}
+  <div class="breadcrumbs-left">
+    {#each breadcrumbs as crumb, index}
+      {#if index > 0}
+        <span class="separator">›</span>
       {/if}
-    </span>
-  {/each}
+
+      <span class="breadcrumb-item">
+        {#if editingId === crumb.id}
+          <input
+            bind:this={inputElement}
+            bind:value={inputValue}
+            on:keydown={(e) => handleKeydown(e, crumb)}
+            on:blur={() => handleBlur(crumb)}
+            class="breadcrumb-input"
+          />
+        {:else}
+          <button
+            class="breadcrumb-button"
+            class:current={index === breadcrumbs.length - 1}
+            on:click={crumb.action}
+            title={index === 0 ? $_('breadcrumbs.goHome') : undefined}
+            aria-label={index === 0 ? $_('breadcrumbs.goHome') : crumb.label}
+          >
+            {#if index === 0}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            {:else}
+              {crumb.label}
+            {/if}
+          </button>
+          {#if index === breadcrumbs.length - 1 && (crumb.type === 'note' || crumb.type === 'leaf')}
+            <button
+              class="edit-button"
+              on:click={() => handleStartEdit(crumb)}
+              title={crumb.type === 'leaf'
+                ? $_('breadcrumbs.editLeafName')
+                : $_('breadcrumbs.editNoteName')}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+              </svg>
+            </button>
+          {/if}
+        {/if}
+      </span>
+    {/each}
+  </div>
+
+  {#if isLeafView && onCopyUrl && onCopyMarkdown}
+    <ShareButton {onCopyUrl} {onCopyMarkdown} />
+  {/if}
 </div>
 
 <style>
   .breadcrumbs {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0;
-    padding-left: 1rem;
+    justify-content: space-between;
+    padding: 0 1rem;
     height: 40px;
     background: rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(0, 0, 0, 0.15);
     font-size: 0.9rem;
+    position: relative;
+    z-index: 100;
+  }
+
+  .breadcrumbs-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
   }
 
   :global([data-theme='greenboard']) .breadcrumbs,

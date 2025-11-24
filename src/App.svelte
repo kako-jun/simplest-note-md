@@ -824,6 +824,38 @@
     URL.revokeObjectURL(url)
   }
 
+  // シェア機能
+  function handleCopyUrl(pane: Pane) {
+    const url = window.location.href
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        showPushToast($settings.locale === 'ja' ? 'URLをコピーしました' : 'URL copied', 'success')
+      })
+      .catch((err) => {
+        console.error('URLのコピーに失敗しました:', err)
+        showPushToast('URLのコピーに失敗しました', 'error')
+      })
+  }
+
+  function handleCopyMarkdown(pane: Pane) {
+    const leaf = pane === 'left' ? leftLeaf : rightLeaf
+    if (!leaf) return
+
+    navigator.clipboard
+      .writeText(leaf.content)
+      .then(() => {
+        showPushToast(
+          $settings.locale === 'ja' ? 'Markdownをコピーしました' : 'Markdown copied',
+          'success'
+        )
+      })
+      .catch((err) => {
+        console.error('Markdownのコピーに失敗しました:', err)
+        showPushToast('Markdownのコピーに失敗しました', 'error')
+      })
+  }
+
   // 設定
   function handleThemeChange(theme: typeof $settings.theme) {
     const next = { ...$settings, theme }
@@ -947,6 +979,8 @@
           onStartEdit={startEditingBreadcrumb}
           onSaveEdit={saveEditBreadcrumb}
           onCancelEdit={cancelEditBreadcrumb}
+          onCopyUrl={() => handleCopyUrl('left')}
+          onCopyMarkdown={() => handleCopyMarkdown('left')}
         />
 
         <main class="main-pane">
@@ -1057,6 +1091,8 @@
           onStartEdit={startEditingBreadcrumb}
           onSaveEdit={saveEditBreadcrumb}
           onCancelEdit={cancelEditBreadcrumb}
+          onCopyUrl={() => handleCopyUrl('right')}
+          onCopyMarkdown={() => handleCopyMarkdown('right')}
         />
 
         <main class="main-pane">
@@ -1315,7 +1351,7 @@
     bottom: 0;
     width: 1px;
     background: rgba(0, 0, 0, 0.15);
-    z-index: 100;
+    z-index: 150;
     pointer-events: none;
   }
 

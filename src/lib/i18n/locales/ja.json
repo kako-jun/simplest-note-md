@@ -14,6 +14,14 @@
     "editNoteName": "ノート名を編集",
     "editLeafName": "リーフ名を編集"
   },
+  "share": {
+    "title": "シェア",
+    "copyUrl": "URLをコピー",
+    "copyMarkdown": "Markdownをコピー",
+    "download": "ファイルでダウンロード",
+    "urlCopied": "URLをコピーしました",
+    "markdownCopied": "Markdownをコピーしました"
+  },
   "home": {
     "pushCount": "Push回数",
     "noNotes": "ノートがまだありません。\n左下のボタンから新規ノートを作成できます。"

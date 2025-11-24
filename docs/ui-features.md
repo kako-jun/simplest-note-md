@@ -751,3 +751,384 @@ select {
 - 右端からの距離を完全にコントロール可能
 - テーマの色に自動的に追従
 - 一貫したデザイン
+
+---
+
+## シェア機能
+
+### 概要
+
+リーフのURLやコンテンツをコピーして共有するための機能。パンくずリストから直接アクセス可能。
+
+### 機能
+
+#### 1. URLコピー
+
+現在表示中のページのURLをクリップボードにコピー。
+
+```typescript
+function handleCopyUrl(pane: Pane) {
+  const url = window.location.href
+  navigator.clipboard
+    .writeText(url)
+    .then(() => {
+      showPushToast('URLをコピーしました', 'success')
+    })
+    .catch((err) => {
+      console.error('URLのコピーに失敗しました:', err)
+      showPushToast('URLのコピーに失敗しました', 'error')
+    })
+}
+```
+
+**ユースケース:**
+
+- 同じリーフをスマホとPCで開く
+- 他のユーザーに特定のリーフを共有
+- ブックマークとして保存
+
+#### 2. Markdownコピー
+
+現在編集中のリーフのMarkdownコンテンツをクリップボードにコピー。
+
+```typescript
+function handleCopyMarkdown(pane: Pane) {
+  const leaf = pane === 'left' ? leftLeaf : rightLeaf
+  if (!leaf) return
+
+  navigator.clipboard
+    .writeText(leaf.content)
+    .then(() => {
+      showPushToast('Markdownをコピーしました', 'success')
+    })
+    .catch((err) => {
+      console.error('Markdownのコピーに失敗しました:', err)
+      showPushToast('Markdownのコピーに失敗しました', 'error')
+    })
+}
+```
+
+**ユースケース:**
+
+- 他のMarkdownエディタで編集
+- メールやチャットで共有
+- 別のノートアプリに移行
+
+### UI実装
+
+パンくずリスト（Breadcrumbs.svelte）にシェアボタンを配置：
+
+```svelte
+<Breadcrumbs
+  {breadcrumbs}
+  onCopyUrl={() => handleCopyUrl('left')}
+  onCopyMarkdown={() => handleCopyMarkdown('left')}
+/>
+```
+
+**表示条件:**
+
+- リーフ表示時（EditorView, PreviewView）のみ表示
+- ホーム画面やノート画面では非表示
+
+### 仕様
+
+- **対象**: リーフのみ（ノートは対象外）
+- **左右ペイン**: 各ペインで独立して動作
+- **フィードバック**: トースト通知で成功/失敗を通知
+- **i18n対応**: 日本語・英語の翻訳あり
+
+---
+
+## PWA対応
+
+### 概要
+
+スマホでホーム画面に追加した際、ネイティブアプリのように起動できるPWA（Progressive Web App）機能。
+
+### 実装
+
+#### 1. Web App Manifest
+
+`vite.config.ts` で `vite-plugin-pwa` を使用：
+
+```typescript
+VitePWA({
+  registerType: 'autoUpdate',
+  workbox: {
+    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+    runtimeCaching: [
+      {
+        urlPattern: /^https:\/\/api\.github\.com\/.*/i,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'github-api-cache',
+          expiration: {
+            maxEntries: 50,
+            maxAgeSeconds: 60 * 5, // 5分
+          },
+        },
+      },
+    ],
+  },
+  manifest: {
+    name: 'SimplestNote.md',
+    short_name: 'SimplestNote',
+    description: 'A simple markdown note-taking app with GitHub sync',
+    theme_color: '#1a1a1a',
+    background_color: '#1a1a1a',
+    display: 'standalone',
+    start_url: '/',
+    icons: [
+      {
+        src: '/icon-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+      },
+      {
+        src: '/icon-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+      },
+    ],
+  },
+})
+```
+
+#### 2. アイコン
+
+ImageMagickで生成：
+
+```bash
+# 192x192
+convert -size 192x192 xc:'#2196F3' -fill white -font DejaVu-Sans-Bold \
+  -pointsize 80 -gravity center -annotate +0+0 'md' /public/icon-192.png
+
+# 512x512
+convert -size 512x512 xc:'#2196F3' -fill white -font DejaVu-Sans-Bold \
+  -pointsize 220 -gravity center -annotate +0+0 'md' /public/icon-512.png
+```
+
+**デザイン:**
+
+- 青い背景（#2196F3）
+- 白文字「md」
+- シンプルで視認性が高い
+
+#### 3. favicon
+
+ブラウザタブ用の32×32アイコン：
+
+```html
+<link rel="icon" type="image/png" href="/favicon.png" />
+```
+
+### 動作
+
+#### スマホでの挙動
+
+1. **ホーム画面に追加前**: 通常のWebサイトとして動作
+2. **ホーム画面に追加**: Chromeの「ホーム画面に追加」機能で追加
+3. **起動時**: ブラウザUIが非表示になり、スタンドアロンモードで起動
+   - アドレスバー非表示
+   - タブUI非表示
+   - ネイティブアプリのような見た目
+
+### Service Worker
+
+キャッシュ戦略：
+
+- **静的アセット**: `precache`（ビルド時に全て登録）
+- **GitHub API**: `NetworkFirst`（ネットワーク優先、5分キャッシュ）
+
+### 仕様
+
+- **オフライン動作**: 限定的（初回Pullが必須のため）
+- **自動更新**: Service Workerは自動更新
+- **プラットフォーム**: iOS Safari, Android Chrome, Desktop Chrome対応
+
+---
+
+## タイトルリンク化
+
+### 概要
+
+ヘッダーのタイトルをクリック可能なリンクに変更し、Ctrl+クリックや中クリックで別タブを開けるようにする機能。
+
+### 実装
+
+#### Before（ボタン）
+
+```svelte
+<button class="title-button" on:click={onTitleClick}>
+  {title}
+</button>
+```
+
+#### After（リンク）
+
+```svelte
+<a
+  class="title-button"
+  href="/"
+  on:click={(e) => {
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+      e.preventDefault()
+      onTitleClick()
+    }
+  }}
+>
+  {title}
+</a>
+```
+
+### 動作
+
+| 操作                           | 動作                                       |
+| ------------------------------ | ------------------------------------------ |
+| **通常クリック**               | ホーム画面に遷移（既存動作）               |
+| **Ctrl+クリック（Win/Linux）** | 新しいタブでホームを開く                   |
+| **Cmd+クリック（Mac）**        | 新しいタブでホームを開く                   |
+| **中クリック**                 | 新しいタブでホームを開く                   |
+| **Shift+クリック**             | 新しいウィンドウでホームを開く             |
+| **右クリック**                 | コンテキストメニュー（新しいタブで開く等） |
+
+### CSS
+
+リンクの下線を非表示：
+
+```css
+.title-button {
+  text-decoration: none;
+}
+```
+
+### ユースケース
+
+- 複数タブでアプリを開く
+- 左右のペインで別々のノートを開く
+- ブラウザの「戻る」ボタンで履歴を辿る
+
+---
+
+## GitHub設定ヘルプアイコン
+
+### 概要
+
+GitHub設定の入力欄（リポジトリ名・トークン）に「？」アイコンを追加し、初心者向けに設定方法を画像で説明する機能。
+
+### 実装
+
+#### UIコンポーネント
+
+```svelte
+<div class="label-with-help">
+  <label for="github-token">
+    {$_('settings.github.token')} <span class="required">*</span>
+  </label>
+  <span class="help-icon" on:click={openTokenHelp} title="How to get GitHub token">
+    <svg><!-- ?アイコン --></svg>
+  </span>
+</div>
+```
+
+#### モーダル表示
+
+```svelte
+{#if showTokenHelp}
+  <div class="modal-overlay" on:click={closeTokenHelp}>
+    <div class="modal-content" on:click={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <h3>{$_('settings.github.tokenHelp.title')}</h3>
+        <button class="close-button" on:click={closeTokenHelp}>×</button>
+      </div>
+      <div class="modal-body">
+        <img
+          src="/assets/github-token-help.png"
+          alt="How to create GitHub Personal Access Token"
+          class="help-image"
+        />
+        <p class="help-description">
+          {$_('settings.github.tokenHelp.description')}
+        </p>
+      </div>
+    </div>
+  </div>
+{/if}
+```
+
+### デザイン
+
+#### ヘルプアイコン
+
+- **位置**: ラベルの右横
+- **サイズ**: 18×18px
+- **色**: アクセントカラー（opacity: 0.7）
+- **ホバー**: opacity: 1、scale: 1.1
+
+```css
+.help-icon {
+  display: inline-flex;
+  color: var(--accent-color);
+  opacity: 0.7;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.help-icon:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+```
+
+#### モーダル
+
+- **背景**: 半透明黒（rgba(0, 0, 0, 0.7)）
+- **コンテンツ**: 最大幅800px、角丸12px
+- **画像**: 100%幅、角丸8px
+- **閉じる**: ×ボタン（2rem、右上）
+
+### 説明画像
+
+#### リポジトリ名（github-repo-help.png）
+
+- GitHubリポジトリのURL表示
+- `username/repository-name` の形式を強調
+
+#### トークン（github-token-help.png）
+
+- GitHub → Settings → Developer settings
+- Personal access tokens → Tokens (classic)
+- Generate new token
+- repo権限にチェック
+
+**現状**: 仮画像（PLACEHOLDER）
+**今後**: 実際のスクリーンショットに差し替え可能
+
+### i18n対応
+
+翻訳ファイルに追加：
+
+```json
+{
+  "settings": {
+    "github": {
+      "repoHelp": {
+        "title": "リポジトリ名の確認方法",
+        "description": "GitHubでリポジトリを開き、URLから「ユーザー名/リポジトリ名」の形式で入力してください。"
+      },
+      "tokenHelp": {
+        "title": "GitHub Personal Access Tokenの取得方法",
+        "description": "上記の手順でGitHub Personal Access Tokenを取得できます。取得したトークンは大切に保管してください。"
+      }
+    }
+  }
+}
+```
+
+### 仕様
+
+- **対象項目**: リポジトリ名、トークン
+- **画像形式**: PNG
+- **言語対応**: 全言語共通の1枚（矢印・囲みで説明）
+- **モーダル**: 背景クリックで閉じる、Escキーは未対応

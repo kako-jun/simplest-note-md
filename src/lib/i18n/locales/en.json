@@ -14,6 +14,14 @@
     "editNoteName": "Edit note name",
     "editLeafName": "Edit leaf name"
   },
+  "share": {
+    "title": "Share",
+    "copyUrl": "Copy URL",
+    "copyMarkdown": "Copy Markdown",
+    "download": "Download as File",
+    "urlCopied": "URL copied",
+    "markdownCopied": "Markdown copied"
+  },
   "home": {
     "pushCount": "Push Count",
     "noNotes": "No notes yet.\nYou can create a new note using the button at the bottom left."
