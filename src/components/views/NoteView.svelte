@@ -43,11 +43,11 @@
 
 <section class="view-container">
   <div class="card-grid">
-    {#if subNotes.length === 0 && leaves.length === 0}
+    {#if subNotes.length === 0 && leaves.length === 0 && !disabled}
       <div class="empty-state">
         <p>{currentNote.parentId ? $_('note.noLeaves') : $_('note.noItems')}</p>
       </div>
-    {:else}
+    {:else if subNotes.length > 0 || leaves.length > 0}
       {#each subNotes as subNote (subNote.id)}
         <NoteCard
           note={subNote}

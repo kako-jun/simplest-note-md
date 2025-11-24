@@ -26,11 +26,11 @@
   </div>
 
   <div class="card-grid">
-    {#if notes.length === 0}
+    {#if notes.length === 0 && !disabled}
       <div class="empty-state">
         <p>{$_('home.noNotes')}</p>
       </div>
-    {:else}
+    {:else if notes.length > 0}
       {#each notes as note (note.id)}
         <NoteCard
           {note}
