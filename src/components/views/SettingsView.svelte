@@ -189,8 +189,8 @@
 <style>
   .settings-container {
     padding: 2rem;
+    padding-bottom: 5rem;
     position: relative;
-    min-height: 100vh;
   }
 
   .settings-content {
