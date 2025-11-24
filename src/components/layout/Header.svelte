@@ -8,7 +8,16 @@
 </script>
 
 <header>
-  <button class="title-button" on:click={onTitleClick}>{title}</button>
+  <a
+    class="title-button"
+    href="/"
+    on:click={(e) => {
+      if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+        e.preventDefault()
+        onTitleClick()
+      }
+    }}>{title}</a
+  >
   <button
     class="settings-button"
     on:click={onSettingsClick}
@@ -65,6 +74,7 @@
     border: none;
     cursor: pointer;
     padding: 0;
+    text-decoration: none;
   }
 
   .title-button:hover {
