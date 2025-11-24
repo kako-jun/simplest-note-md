@@ -1262,7 +1262,7 @@
           />
         {/if}
 
-        {#if !isGitHubConfigured && !showWelcome}
+        {#if isOperationsLocked && !showWelcome && !pullRunning}
           <div class="config-required-overlay"></div>
         {/if}
         {#if pullRunning || isPushing}
@@ -1393,7 +1393,7 @@
           />
         {/if}
 
-        {#if !isGitHubConfigured && !showWelcome}
+        {#if isOperationsLocked && !showWelcome && !pullRunning}
           <div class="config-required-overlay"></div>
         {/if}
         {#if pullRunning || isPushing}
