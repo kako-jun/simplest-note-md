@@ -92,15 +92,16 @@ libモジュール数: 13個
 
 ### フレームワーク & ライブラリ
 
-| 技術            | バージョン | 役割                                |
-| --------------- | ---------- | ----------------------------------- |
-| **Svelte**      | 4.2.19     | リアクティブUIフレームワーク        |
-| **TypeScript**  | 5.7.2      | 型安全性の提供                      |
-| **Vite**        | 5.4.10     | ビルドツール & 開発サーバー         |
-| **CodeMirror**  | 6.0.1      | 高機能エディタ                      |
-| **marked**      | 17+        | マークダウン→HTML変換（プレビュー） |
-| **DOMPurify**   | 3+         | XSSサニタイゼーション               |
-| **svelte-i18n** | 4+         | 国際化（i18n）対応                  |
+| 技術                | バージョン | 役割                                |
+| ------------------- | ---------- | ----------------------------------- |
+| **Svelte**          | 4.2.19     | リアクティブUIフレームワーク        |
+| **TypeScript**      | 5.7.2      | 型安全性の提供                      |
+| **Vite**            | 5.4.10     | ビルドツール & 開発サーバー         |
+| **vite-plugin-pwa** | 1.1.0      | PWA（Service Worker）自動生成       |
+| **CodeMirror**      | 6.0.1      | 高機能エディタ                      |
+| **marked**          | 17+        | マークダウン→HTML変換（プレビュー） |
+| **DOMPurify**       | 3+         | XSSサニタイゼーション               |
+| **svelte-i18n**     | 4+         | 国際化（i18n）対応                  |
 
 ### CodeMirrorエコシステム
 
@@ -346,12 +347,52 @@ CSS変数を使用したテーマシステムの実装。
 
 #### `vite.config.ts`
 
-Cloudflare Pages用の設定。
+パフォーマンス最適化とPWA対応を含むビルド設定。
 
 ```typescript
+import { VitePWA } from 'vite-plugin-pwa'
+
 export default defineConfig({
-  plugins: [svelte()],
-  base: '/', // ルートパス
+  plugins: [
+    svelte(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/api\.github\.com\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'github-api-cache',
+              expiration: { maxAgeSeconds: 300 },
+            },
+          },
+        ],
+      },
+      manifest: {
+        name: 'SimplestNote.md',
+        short_name: 'SimplestNote',
+        description: 'A simple markdown note-taking app with GitHub sync',
+        theme_color: '#1a1a1a',
+        background_color: '#1a1a1a',
+        display: 'standalone',
+        start_url: '/',
+      },
+    }),
+  ],
+  base: '/',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          codemirror: ['codemirror', '@codemirror/view', '@codemirror/state', ...],
+          'markdown-tools': ['marked', 'dompurify'],
+          i18n: ['svelte-i18n'],
+        },
+      },
+    },
+  },
 })
 ```
 
@@ -485,6 +526,88 @@ npm run build
 npm run preview
 ```
 
+### パフォーマンス最適化（Version 6.1）
+
+#### 遅延ロード戦略
+
+大きなライブラリを動的インポートで必要な時だけロードすることで、初回表示を大幅に高速化しています。
+
+**CodeMirrorの遅延ロード:**
+
+```typescript
+// MarkdownEditor.svelte
+async function loadCodeMirror() {
+  const [
+    { EditorState: ES },
+    { EditorView: EV, keymap: km },
+    { defaultKeymap: dk, history: h, historyKeymap: hk },
+    { markdown: md },
+    { basicSetup: bs },
+  ] = await Promise.all([
+    import('@codemirror/state'),
+    import('@codemirror/view'),
+    import('@codemirror/commands'),
+    import('@codemirror/lang-markdown'),
+    import('codemirror'),
+  ])
+  // ...
+}
+
+onMount(async () => {
+  await loadCodeMirror()
+  initializeEditor()
+})
+```
+
+**marked/DOMPurifyの遅延ロード:**
+
+```typescript
+// PreviewView.svelte
+async function loadMarkdownTools() {
+  const [{ marked: m }, DOMPurifyModule] = await Promise.all([
+    import('marked'),
+    import('dompurify'),
+  ])
+  marked = m
+  DOMPurify = DOMPurifyModule.default
+}
+```
+
+#### マニュアルチャンク分割
+
+Viteの`manualChunks`設定により、ベンダーライブラリを効率的に分割：
+
+- **codemirror チャンク**: 609.98 KB（gzip: 209.03 KB）
+- **markdown-tools チャンク**: 64.07 KB（gzip: 21.44 KB）
+- **i18n チャンク**: 60.47 KB（gzip: 19.42 KB）
+- **メインバンドル**: 115.82 KB（gzip: 33.94 KB）
+
+各チャンクは独立してブラウザキャッシュされるため、ライブラリ更新時も最小限の再ダウンロードで済みます。
+
+#### PWA（Progressive Web App）対応
+
+Service Workerによる静的アセットとAPIレスポンスのキャッシュ：
+
+- **プリキャッシュ**: HTML、CSS、JS、アイコン、フォントファイル
+- **ランタイムキャッシュ**: GitHub API（5分間、NetworkFirstストラテジー）
+- **オフライン基本動作**: キャッシュされたアセットで起動可能
+
+#### 最適化効果
+
+| 画面           | 最適化前（gzip） | 最適化後（gzip）          | 削減率 |
+| -------------- | ---------------- | ------------------------- | ------ |
+| ホーム画面     | 278.78 KB        | 33.94 KB                  | 87.8%  |
+| エディタ画面   | 278.78 KB        | 242.97 KB                 | 12.9%  |
+| プレビュー画面 | 278.78 KB        | 55.38 KB                  | 80.1%  |
+| 2回目以降      | -                | ほぼ瞬時（PWAキャッシュ） | -      |
+
+**体感速度の改善:**
+
+- 初回表示: 1-2秒程度の大幅改善
+- エディタ初回起動: 約0.5秒（CodeMirrorローディング）
+- プレビュー初回起動: 約0.2秒（marked/DOMPurifyローディング）
+- 2回目以降: Service Workerによりほぼ瞬時に起動
+
 ---
 
 ## まとめ
@@ -502,12 +625,20 @@ SimplestNote.mdは、Svelteのリアクティブシステムとコンポーネ�
 - 国際化対応（日本語・英語）
 - 徹底的なコード重複削減（DRY原則）
 
-**Version 6.0での主な改善:**
+**2025-11-24 - 大規模リファクタリング:**
 
 - 約372行のコード削減
 - コンポーネント分割（15個→22個）
 - モジュール化（7個→13個）
 - 汎用ユーティリティ関数の導入
-- 完全な左右対称設計（Version 5.0のリファクタリング成果）
+- 完全な左右対称設計
 
-詳細な実装については、各ドキュメント（data-model.md, features.md, ui-features.md等）を参照してください。
+**2025-11-24 - パフォーマンス最適化:**
+
+- CodeMirror/marked/DOMPurifyの遅延ロード
+- Viteマニュアルチャンク分割
+- PWA（Service Worker）対応
+- 初回表示速度87.8%削減（ホーム画面）
+- 2回目以降ほぼ瞬時に起動
+
+詳細な実装については、各ドキュメント（data-model.md, features.md, ui-features.md, development.md等）を参照してください。

@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { marked } from 'marked'
-  import DOMPurify from 'dompurify'
+  import { onMount } from 'svelte'
   import type { Leaf } from '../../lib/types'
 
   export let leaf: Leaf
@@ -8,9 +7,27 @@
 
   let previewSection: HTMLElement
   let isScrollingSynced = false // スクロール同期中フラグ（無限ループ防止）
+  let isLoading = true // marked/DOMPurifyローディング中フラグ
+  let marked: any
+  let DOMPurify: any
 
   // マークダウンをHTMLに変換してサニタイズ
-  $: htmlContent = DOMPurify.sanitize(marked(leaf.content) as string)
+  $: htmlContent = isLoading ? '' : DOMPurify.sanitize(marked(leaf.content) as string)
+
+  // marked/DOMPurifyを動的ロード
+  async function loadMarkdownTools() {
+    const [{ marked: m }, DOMPurifyModule] = await Promise.all([
+      import('marked'),
+      import('dompurify'),
+    ])
+    marked = m
+    DOMPurify = DOMPurifyModule.default
+    isLoading = false
+  }
+
+  onMount(async () => {
+    await loadMarkdownTools()
+  })
 
   // 外部からスクロール位置を設定する関数
   export function scrollTo(scrollTop: number) {
@@ -34,9 +51,19 @@
 </script>
 
 <section class="preview-section" bind:this={previewSection} on:scroll={handleScroll}>
-  <div class="preview-content">
-    {@html htmlContent}
-  </div>
+  {#if isLoading}
+    <div class="loading-container">
+      <div class="loading-dots">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  {:else}
+    <div class="preview-content">
+      {@html htmlContent}
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -44,6 +71,53 @@
     padding: 1rem;
     height: 100%;
     overflow: auto;
+    position: relative;
+  }
+
+  .loading-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--bg-primary);
+  }
+
+  .loading-dots {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .loading-dots span {
+    width: 12px;
+    height: 12px;
+    background-color: var(--accent-color);
+    border-radius: 50%;
+    animation: pulse 1.4s infinite ease-in-out both;
+  }
+
+  .loading-dots span:nth-child(1) {
+    animation-delay: -0.32s;
+  }
+
+  .loading-dots span:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+
+  @keyframes pulse {
+    0%,
+    80%,
+    100% {
+      transform: scale(0);
+      opacity: 0.5;
+    }
+    40% {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
 
   .preview-content {

@@ -1,10 +1,5 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { EditorState } from '@codemirror/state'
-  import { EditorView, keymap } from '@codemirror/view'
-  import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-  import { markdown } from '@codemirror/lang-markdown'
-  import { basicSetup } from 'codemirror'
   import type { ThemeType } from '../../lib/types'
   import { isDirty } from '../../lib/stores'
 
@@ -14,9 +9,20 @@
   export let onScroll: ((scrollTop: number, scrollHeight: number) => void) | null = null
 
   let editorContainer: HTMLDivElement
-  let editorView: EditorView | null = null
+  let editorView: any = null
   let currentExtensions: any[] = []
   let isScrollingSynced = false // スクロール同期中フラグ（無限ループ防止）
+  let isLoading = true // CodeMirrorローディング中フラグ
+
+  // 動的インポート用の変数
+  let EditorState: any
+  let EditorView: any
+  let keymap: any
+  let defaultKeymap: any
+  let history: any
+  let historyKeymap: any
+  let markdown: any
+  let basicSetup: any
 
   // 外部からスクロール位置を設定する関数
   export function scrollTo(scrollTop: number) {
@@ -35,38 +41,36 @@
 
   const darkThemes: ThemeType[] = ['greenboard', 'dotsD', 'dotsF']
 
-  // CodeMirrorライトテーマ（テーマのCSS変数に追従）
-  const editorLightTheme = EditorView.theme({
-    '&': {
-      backgroundColor: 'var(--bg-primary)',
-      color: 'var(--text-primary)',
-      border: 'none',
-    },
-    '.cm-content': {
-      caretColor: 'var(--accent-color)',
-    },
-    '.cm-cursor, .cm-dropCursor': {
-      borderLeftColor: 'var(--accent-color)',
-    },
-    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-      backgroundColor: 'color-mix(in srgb, var(--accent-color) 35%, transparent)',
-    },
-    '.cm-activeLine': {
-      backgroundColor: 'var(--bg-secondary)',
-    },
-    '.cm-gutters': {
-      backgroundColor: 'var(--bg-primary)',
-      color: 'var(--text-secondary)',
-      border: 'none',
-    },
-    '.cm-activeLineGutter': {
-      backgroundColor: 'var(--bg-secondary)',
-    },
-  })
+  // CodeMirrorモジュールを動的ロード
+  async function loadCodeMirror() {
+    const [
+      { EditorState: ES },
+      { EditorView: EV, keymap: km },
+      { defaultKeymap: dk, history: h, historyKeymap: hk },
+      { markdown: md },
+      { basicSetup: bs },
+    ] = await Promise.all([
+      import('@codemirror/state'),
+      import('@codemirror/view'),
+      import('@codemirror/commands'),
+      import('@codemirror/lang-markdown'),
+      import('codemirror'),
+    ])
 
-  // CodeMirrorダークテーマ（テーマのCSS変数に追従）
-  const editorDarkTheme = EditorView.theme(
-    {
+    EditorState = ES
+    EditorView = EV
+    keymap = km
+    defaultKeymap = dk
+    history = h
+    historyKeymap = hk
+    markdown = md
+    basicSetup = bs
+    isLoading = false
+  }
+
+  // CodeMirrorライトテーマ（テーマのCSS変数に追従）
+  function createEditorLightTheme() {
+    return EditorView.theme({
       '&': {
         backgroundColor: 'var(--bg-primary)',
         color: 'var(--text-primary)',
@@ -92,12 +96,45 @@
       '.cm-activeLineGutter': {
         backgroundColor: 'var(--bg-secondary)',
       },
-    },
-    { dark: true }
-  )
+    })
+  }
+
+  // CodeMirrorダークテーマ（テーマのCSS変数に追従）
+  function createEditorDarkTheme() {
+    return EditorView.theme(
+      {
+        '&': {
+          backgroundColor: 'var(--bg-primary)',
+          color: 'var(--text-primary)',
+          border: 'none',
+        },
+        '.cm-content': {
+          caretColor: 'var(--accent-color)',
+        },
+        '.cm-cursor, .cm-dropCursor': {
+          borderLeftColor: 'var(--accent-color)',
+        },
+        '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
+          backgroundColor: 'color-mix(in srgb, var(--accent-color) 35%, transparent)',
+        },
+        '.cm-activeLine': {
+          backgroundColor: 'var(--bg-secondary)',
+        },
+        '.cm-gutters': {
+          backgroundColor: 'var(--bg-primary)',
+          color: 'var(--text-secondary)',
+          border: 'none',
+        },
+        '.cm-activeLineGutter': {
+          backgroundColor: 'var(--bg-secondary)',
+        },
+      },
+      { dark: true }
+    )
+  }
 
   function initializeEditor() {
-    if (!editorContainer || editorView) return
+    if (!editorContainer || editorView || isLoading) return
 
     const extensions = [
       basicSetup,
@@ -125,9 +162,9 @@
 
     // ダーク系テーマの場合はエディタの配色も揃える
     if (darkThemes.includes(theme)) {
-      extensions.push(editorDarkTheme)
+      extensions.push(createEditorDarkTheme())
     } else {
-      extensions.push(editorLightTheme)
+      extensions.push(createEditorLightTheme())
     }
 
     currentExtensions = extensions
@@ -170,7 +207,8 @@
     updateEditorContent(content)
   }
 
-  onMount(() => {
+  onMount(async () => {
+    await loadCodeMirror()
     initializeEditor()
   })
 
@@ -181,9 +219,61 @@
   })
 </script>
 
-<div bind:this={editorContainer} class="editor-container"></div>
+{#if isLoading}
+  <div class="loading-container">
+    <div class="loading-dots">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </div>
+{:else}
+  <div bind:this={editorContainer} class="editor-container"></div>
+{/if}
 
 <style>
+  .loading-container {
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--bg-primary);
+  }
+
+  .loading-dots {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .loading-dots span {
+    width: 12px;
+    height: 12px;
+    background-color: var(--accent-color);
+    border-radius: 50%;
+    animation: pulse 1.4s infinite ease-in-out both;
+  }
+
+  .loading-dots span:nth-child(1) {
+    animation-delay: -0.32s;
+  }
+
+  .loading-dots span:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+
+  @keyframes pulse {
+    0%,
+    80%,
+    100% {
+      transform: scale(0);
+      opacity: 0.5;
+    }
+    40% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
   .editor-container {
     height: 100%;
     overflow: hidden;

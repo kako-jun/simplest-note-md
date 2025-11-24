@@ -71,6 +71,98 @@ location.reload()
 
 ## パフォーマンス最適化
 
+### 実装済みの最適化（2025-11-24）
+
+1. **CodeMirrorの遅延ロード**
+   - エディタを開くまでCodeMirror（約600 KB）を読み込まない
+   - 動的インポートで必要な時だけロード
+
+   ```typescript
+   // MarkdownEditor.svelte
+   async function loadCodeMirror() {
+     const [
+       { EditorState: ES },
+       { EditorView: EV, keymap: km },
+       { defaultKeymap: dk, history: h, historyKeymap: hk },
+       { markdown: md },
+       { basicSetup: bs },
+     ] = await Promise.all([
+       import('@codemirror/state'),
+       import('@codemirror/view'),
+       import('@codemirror/commands'),
+       import('@codemirror/lang-markdown'),
+       import('codemirror'),
+     ])
+   }
+   ```
+
+2. **marked/DOMPurifyの遅延ロード**
+   - プレビューを開くまでmarkdown-tools（約64 KB）を読み込まない
+   - 動的インポートで必要な時だけロード
+
+   ```typescript
+   // PreviewView.svelte
+   async function loadMarkdownTools() {
+     const [{ marked: m }, DOMPurifyModule] = await Promise.all([
+       import('marked'),
+       import('dompurify'),
+     ])
+   }
+   ```
+
+3. **Viteのマニュアルチャンク設定**
+   - CodeMirror関連を独立チャンクに分離
+   - marked/DOMPurifyを独立チャンクに分離
+   - svelte-i18nを独立チャンクに分離
+   - ベンダーライブラリのキャッシュ効率を向上
+
+   ```typescript
+   // vite.config.ts
+   build: {
+     rollupOptions: {
+       output: {
+         manualChunks: {
+           'codemirror': ['codemirror', '@codemirror/view', '@codemirror/state', ...],
+           'markdown-tools': ['marked', 'dompurify'],
+           'i18n': ['svelte-i18n'],
+         },
+       },
+     },
+   }
+   ```
+
+4. **PWA対応（Service Worker）**
+   - vite-plugin-pwaによるService Worker自動生成
+   - 静的アセットのプリキャッシュ
+   - GitHub API（5分間）のランタイムキャッシュ
+   - オフライン基本動作のサポート
+
+   ```typescript
+   // vite.config.ts
+   VitePWA({
+     registerType: 'autoUpdate',
+     workbox: {
+       globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+       runtimeCaching: [
+         {
+           urlPattern: /^https:\/\/api\.github\.com\/.*/i,
+           handler: 'NetworkFirst',
+           options: {
+             cacheName: 'github-api-cache',
+             expiration: { maxAgeSeconds: 300 },
+           },
+         },
+       ],
+     },
+   })
+   ```
+
+5. **最適化効果**
+   - ホーム画面初回読み込み：278.78 KB → 33.94 KB（gzip）**87.8%削減**
+   - エディタ使用時：242.97 KB（gzip）**12.9%削減**
+   - プレビュー使用時：55.38 KB（gzip）**80.1%削減**
+   - 2回目以降：PWAキャッシュでほぼ瞬時に起動
+
 ### 現在の考慮事項
 
 1. **リアクティブ宣言の最適化**
@@ -97,13 +189,9 @@ location.reload()
    - ノートが1000件以上になった場合
    - `svelte-virtual`等のライブラリ使用
 
-2. **遅延ロード**
-   - ビューコンポーネントの動的インポート
-   - CodeMirrorの遅延初期化
-
-3. **Web Workers**
+2. **Web Workers**
    - 全文検索処理をバックグラウンド化
-   - Markdown→HTML変換の並列処理
+   - 大量ノートのインデックス作成
 
 ---
 
@@ -190,7 +278,7 @@ location.reload()
 
 ### 解決済みの問題
 
-#### GitHub APIキャッシュ問題（Version 4.3で解決）
+#### GitHub APIキャッシュ問題（2025-01-23に解決）
 
 **症状**: Push直後にPullしても変更が反映されない
 
