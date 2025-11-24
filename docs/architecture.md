@@ -41,10 +41,17 @@ SimplestNote.mdは、**コンポーネントベースアーキテクチャ**を�
          │    ├─── EditorView.svelte
          │    ├─── PreviewView.svelte
          │    └─── SettingsView.svelte
+         │         ├─── QRCodeSection.svelte
+         │         ├─── HelpLinks.svelte
+         │         ├─── GitHubSettings.svelte
+         │         ├─── LanguageSelector.svelte
          │         ├─── ThemeSelector.svelte
+         │         ├─── ToolNameInput.svelte
          │         ├─── FontCustomizer.svelte
          │         ├─── BackgroundCustomizer.svelte
-         │         └─── GitHubSettings.svelte
+         │         ├─── VimModeToggle.svelte
+         │         ├─── AboutSection.svelte
+         │         └─── VersionDisplay.svelte
          │
          ├─── Buttons
          │    ├─── IconButton.svelte
@@ -180,10 +187,17 @@ simplest-note-md/
 │   │   │       ├── NoteFooter.svelte    # ノート画面フッター
 │   │   │       └── PreviewFooter.svelte # プレビュー画面フッター
 │   │   ├── settings/
-│   │   │   ├── BackgroundCustomizer.svelte  # 背景画像カスタマイズ
-│   │   │   ├── FontCustomizer.svelte        # フォントカスタマイズ
+│   │   │   ├── QRCodeSection.svelte         # QRコード表示
+│   │   │   ├── HelpLinks.svelte             # ヘルプリンク
 │   │   │   ├── GitHubSettings.svelte        # GitHub設定
-│   │   │   └── ThemeSelector.svelte         # テーマ選択
+│   │   │   ├── LanguageSelector.svelte      # 言語選択
+│   │   │   ├── ThemeSelector.svelte         # テーマ選択
+│   │   │   ├── ToolNameInput.svelte         # ツール名入力
+│   │   │   ├── FontCustomizer.svelte        # フォントカスタマイズ
+│   │   │   ├── BackgroundCustomizer.svelte  # 背景画像カスタマイズ
+│   │   │   ├── VimModeToggle.svelte         # Vimモード切替
+│   │   │   ├── AboutSection.svelte          # アプリ情報
+│   │   │   └── VersionDisplay.svelte        # バージョン表示
 │   │   └── views/
 │   │       ├── EditorView.svelte        # エディタ画面
 │   │       ├── HomeView.svelte          # ホーム画面
@@ -277,14 +291,21 @@ simplest-note-md/
 - `NoteView.svelte`: ノート内のサブノートとリーフ一覧
 - `EditorView.svelte`: リーフ編集画面（CodeMirrorエディタ）
 - `PreviewView.svelte`: マークダウンプレビュー画面（marked + DOMPurify）
-- `SettingsView.svelte`: 設定画面（GitHub、テーマ、フォント、背景画像、言語）
+- `SettingsView.svelte`: 設定画面（コンポーネントの羅列のみ、約100行）
 
 **設定コンポーネント:**
 
+- `QRCodeSection.svelte`: QRコード表示（デモサイトへのリンク）
+- `HelpLinks.svelte`: ヘルプリンク（README、動画）
+- `GitHubSettings.svelte`: GitHub連携設定（Token、リポジトリ名、ユーザー名、メール）
+- `LanguageSelector.svelte`: 言語選択ドロップダウン（日本語・英語）
 - `ThemeSelector.svelte`: テーマ選択（yomi, campus, greenboard, whiteboard, dotsD, dotsF）
+- `ToolNameInput.svelte`: ツール名入力フィールド
 - `FontCustomizer.svelte`: カスタムフォント機能（.ttf/.otf/.woff/.woff2）
 - `BackgroundCustomizer.svelte`: カスタム背景画像機能（.jpg/.png/.webp/.gif、透明度0.1固定）
-- `GitHubSettings.svelte`: GitHub連携設定（Token、リポジトリ名、ユーザー名、メール）
+- `VimModeToggle.svelte`: Vimモード切替チェックボックス
+- `AboutSection.svelte`: アプリ情報、作者、スポンサーリンク
+- `VersionDisplay.svelte`: バージョン表示（ビルド日付を自動表示）
 
 **共通コンポーネント:**
 

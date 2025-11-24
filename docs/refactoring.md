@@ -1480,6 +1480,277 @@ src/components/icons/
 
 ---
 
+## 12. 設定画面のコンポーネント分割（実装済み 2025-11-24）
+
+Version 6.2では、SettingsView.svelteを完全にセクションごとのコンポーネントに分割し、保守性と可読性を大幅に向上させました。
+
+### 問題点
+
+**SettingsView.svelteが大きすぎる:**
+
+- 約490行の大きなファイル
+- QRコード、ヘルプリンク、GitHub設定、言語選択、テーマ、フォント、背景、Vimモード、About情報が混在
+- 各セクションの責務が不明確
+- 設定項目の追加・修正が困難
+
+### 実施した変更
+
+#### 1. 7個の新規コンポーネントの作成
+
+**QRCodeSection.svelte:**
+
+- QRコード画像と説明の表示
+- props: なし（i18n のみ使用）
+
+**HelpLinks.svelte:**
+
+- READMEと動画へのヘルプリンク
+- props: なし（i18n のみ使用）
+
+**LanguageSelector.svelte:**
+
+- 言語選択ドロップダウン（日本語・英語）
+- props: `settings`, `onSettingsChange`
+- ロジック: `handleLocaleChange()`
+
+**ToolNameInput.svelte:**
+
+- ツール名入力フィールド
+- props: `settings`, `onSettingsChange`
+- ロジック: `handleToolNameInput()`
+
+**VimModeToggle.svelte:**
+
+- Vimモードのチェックボックス
+- props: `settings`, `onSettingsChange`
+- ロジック: `handleVimModeChange()`
+
+**AboutSection.svelte:**
+
+- アプリ情報、作者、スポンサーリンク
+- props: なし（i18n のみ使用）
+
+**VersionDisplay.svelte:**
+
+- バージョン番号の表示（ビルド日付を自動表示）
+- props: なし
+- 機能: `__BUILD_DATE__`を Vite define から取得
+
+#### 2. SettingsView.svelteのリファクタリング
+
+**修正前:**
+
+```svelte
+<!-- 約490行 -->
+<script lang="ts">
+  // 3つのハンドラー関数（33行）
+  function handleToolNameInput(event: Event) { ... }
+  function handleLocaleChange(event: Event) { ... }
+  function handleVimModeChange(event: Event) { ... }
+</script>
+
+<section class="settings-container">
+  <!-- QRコード表示（15行） -->
+  <div class="qr-code-container">...</div>
+
+  <!-- ヘルプリンク（45行） -->
+  <div class="help-links">...</div>
+
+  <!-- GitHub設定 -->
+  <GitHubSettings ... />
+
+  <!-- 言語選択（10行） -->
+  <label for="language">...</label>
+  <select id="language" ...>...</select>
+
+  <!-- テーマ選択 -->
+  <ThemeSelector ... />
+
+  <!-- ツール名入力（15行） -->
+  <div class="tool-name-field">...</div>
+
+  <!-- フォント -->
+  <FontCustomizer ... />
+
+  <!-- 背景画像 -->
+  <BackgroundCustomizer ... />
+
+  <!-- Vimモード（12行） -->
+  <div class="vim-mode-field">...</div>
+
+  <!-- Aboutセクション（65行） -->
+  <div class="about-section">...</div>
+
+  <!-- バージョン -->
+  <div class="version">v2025-11-24</div>
+</section>
+
+<style>
+  /* 約250行のスタイル定義 */
+</style>
+```
+
+**修正後:**
+
+```svelte
+<!-- 約100行 -->
+<script lang="ts">
+  import { _ } from '../../lib/i18n'
+  import type { Settings, ThemeType } from '../../lib/types'
+  import QRCodeSection from '../settings/QRCodeSection.svelte'
+  import HelpLinks from '../settings/HelpLinks.svelte'
+  import GitHubSettings from '../settings/GitHubSettings.svelte'
+  import LanguageSelector from '../settings/LanguageSelector.svelte'
+  import ThemeSelector from '../settings/ThemeSelector.svelte'
+  import ToolNameInput from '../settings/ToolNameInput.svelte'
+  import FontCustomizer from '../settings/FontCustomizer.svelte'
+  import BackgroundCustomizer from '../settings/BackgroundCustomizer.svelte'
+  import VimModeToggle from '../settings/VimModeToggle.svelte'
+  import AboutSection from '../settings/AboutSection.svelte'
+  import VersionDisplay from '../settings/VersionDisplay.svelte'
+
+  export let settings: Settings
+  export let onSettingsChange: (payload: Partial<Settings>) => void
+  export let onThemeChange: (theme: ThemeType) => void
+  export let pullRunning: boolean = false
+  export let onPull: (isInitial?: boolean) => void
+</script>
+
+<section class="settings-container">
+  <div class="settings-content">
+    <h2>{$_('settings.title')}</h2>
+
+    <QRCodeSection />
+    <HelpLinks />
+
+    <div class="form-section">
+      <GitHubSettings {settings} {onSettingsChange} {pullRunning} {onPull} />
+      <hr />
+
+      <div class="form-row">
+        <div class="form-field">
+          <h3>{$_('settings.extras.title')}</h3>
+
+          <LanguageSelector {settings} {onSettingsChange} />
+          <ThemeSelector {settings} {onThemeChange} {onSettingsChange} />
+          <ToolNameInput {settings} {onSettingsChange} />
+          <FontCustomizer {settings} {onSettingsChange} />
+          <BackgroundCustomizer {settings} {onSettingsChange} />
+          <VimModeToggle {settings} {onSettingsChange} />
+        </div>
+      </div>
+    </div>
+
+    <AboutSection />
+  </div>
+
+  <VersionDisplay />
+</section>
+
+<style>
+  /* 最小限のレイアウトスタイルのみ（約48行） */
+</style>
+```
+
+#### 3. ビルド日付の自動生成（関連機能）
+
+**Vite設定にdefineを追加:**
+
+```typescript
+// vite.config.ts
+export default defineConfig({
+  define: {
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0]),
+  },
+  ...
+})
+```
+
+**TypeScript型定義を追加:**
+
+```typescript
+// src/vite-env.d.ts（新規作成）
+declare global {
+  const __BUILD_DATE__: string
+}
+export {}
+```
+
+**VersionDisplay.svelteで使用:**
+
+```svelte
+<script lang="ts">
+  // __BUILD_DATE__ is injected at build time by Vite
+</script>
+
+<div class="version">v{__BUILD_DATE__}</div>
+```
+
+### 成果
+
+**コード削減:**
+
+- SettingsView.svelte: 約490行 → 約100行（**約390行削減**、80%削減）
+- ハンドラー関数を各コンポーネントに移動（33行削減）
+- HTML/CSSの重複を各コンポーネントに分離（約357行削減）
+
+**ファイル数の変化:**
+
+- コンポーネント数: 38個 → 45個（+7個）
+- settings/ディレクトリ: 4個 → 11個（+7個）
+
+**構造の改善:**
+
+```
+<!-- 設定画面の構造が一目瞭然 -->
+<QRCodeSection />           <!-- QRコード表示 -->
+<HelpLinks />               <!-- ヘルプリンク -->
+<GitHubSettings ... />      <!-- GitHub設定 -->
+<LanguageSelector ... />    <!-- 言語選択 -->
+<ThemeSelector ... />       <!-- テーマ選択 -->
+<ToolNameInput ... />       <!-- ツール名入力 -->
+<FontCustomizer ... />      <!-- フォント -->
+<BackgroundCustomizer ... /> <!-- 背景 -->
+<VimModeToggle ... />       <!-- Vimモード -->
+<AboutSection />            <!-- About情報 -->
+<VersionDisplay />          <!-- バージョン -->
+```
+
+**保守性の向上:**
+
+- **可読性**: 設定画面の構造が約30行で把握できる
+- **責任の分離**: 各コンポーネントが単一の設定項目を管理
+- **再利用性**: 各セクションを他の場所でも利用可能
+- **テスト容易性**: 各コンポーネントを個別にテストできる
+- **変更の局所化**: 1つの設定項目の修正が他に影響しない
+
+**自動化の導入:**
+
+- バージョン番号がビルド日付に自動更新される
+- 手動でのバージョン管理が不要
+
+### 設計原則
+
+**コンポーネントの粒度:**
+
+- 1コンポーネント = 1設定項目
+- QRコードやヘルプリンクのような表示のみのコンポーネントもOK
+- 設定変更のロジックは各コンポーネントに内包
+
+**親コンポーネントの責務:**
+
+- コンポーネントの配置のみを担当
+- ビジネスロジックは持たない
+- propsのバケツリレー（props drilling）は許容
+
+**ビルド時の自動化:**
+
+- 手動で更新すべき情報は極力減らす
+- Vite defineによるビルド時の値注入
+- 開発者の負担を軽減
+
+---
+
 ## まとめ
 
 SimplestNote.mdは、継続的なリファクタリングにより以下を達成しました：
@@ -1491,13 +1762,14 @@ SimplestNote.mdは、継続的なリファクタリングにより以下を達�
 - **Version 5.0**: 完全な左右対称設計（約100行削減）
 - **Version 6.0**: 約6,300行の38ファイル（22コンポーネント、13モジュール）
 - **Version 6.1**: 約8,100行の56ファイル（38コンポーネント、14モジュール）
+- **Version 6.2**: 約8,400行の59ファイル（45コンポーネント、14モジュール）
 
 ### リファクタリングの成果
 
-1. **コンポーネント分割**: 単一ファイルから22コンポーネントへ
+1. **コンポーネント分割**: 単一ファイルから45コンポーネントへ
 2. **状態管理改善**: Svelteストアによる一元管理
 3. **ビジネスロジック分離**: lib/層への明確な分離
-4. **モジュール化**: 13個の専門モジュール
+4. **モジュール化**: 14個の専門モジュール
 5. **Git Tree API**: GitHub API最適化とSHA比較
 6. **左右対称設計**: 完全な2ペイン対応
 7. **コード重複削減**: DRY原則の徹底適用（約840行削減）
@@ -1505,6 +1777,7 @@ SimplestNote.mdは、継続的なリファクタリングにより以下を達�
 9. **UI一貫性**: 共通コンポーネントによる統一
 10. **国際化対応**: svelte-i18nによる多言語サポート
 11. **ボタン共通化**: IconButton + 14アイコン（約53行削減、SVG重複約400行削減）
+12. **設定画面分割**: 7個のセクションコンポーネント（約390行削減、80%削減）
 
 ### 設計原則
 
