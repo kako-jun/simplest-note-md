@@ -408,6 +408,7 @@
 
   .sponsor-section {
     margin-top: 0;
+    margin-bottom: 3rem;
   }
 
   .sponsor-link {
