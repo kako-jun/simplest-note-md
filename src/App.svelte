@@ -802,8 +802,8 @@
     }
   }
 
-  // ダウンロード
-  function downloadLeaf(leafId: string) {
+  // Markdownダウンロード
+  function downloadLeafAsMarkdown(leafId: string) {
     if (isOperationsLocked) {
       showPushToast('初回Pullが完了するまでダウンロードできません', 'error')
       return
@@ -822,6 +822,35 @@
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+  }
+
+  // プレビューを画像としてダウンロード
+  async function downloadLeafAsImage(leafId: string, pane: Pane) {
+    if (isOperationsLocked) {
+      showPushToast('初回Pullが完了するまでダウンロードできません', 'error')
+      return
+    }
+
+    const allLeaves = $leaves
+    const targetLeaf = allLeaves.find((l) => l.id === leafId)
+    if (!targetLeaf) return
+
+    try {
+      const previewView = pane === 'left' ? leftPreviewView : rightPreviewView
+      if (previewView && previewView.captureAsImage) {
+        await previewView.captureAsImage(targetLeaf.title)
+        showPushToast(
+          $settings.locale === 'ja' ? '画像をダウンロードしました' : 'Image downloaded',
+          'success'
+        )
+      }
+    } catch (error) {
+      console.error('画像ダウンロードに失敗しました:', error)
+      showPushToast(
+        $settings.locale === 'ja' ? '画像ダウンロードに失敗しました' : 'Failed to download image',
+        'error'
+      )
+    }
   }
 
   // シェア機能
@@ -1034,7 +1063,7 @@
               disabled={isOperationsLocked || isPushing}
               onContentChange={updateLeafContent}
               onSave={handleSaveToGitHub}
-              onDownload={downloadLeaf}
+              onDownload={downloadLeafAsMarkdown}
               onDelete={(leafId) => deleteLeaf(leafId, 'left')}
               onScroll={handleLeftScroll}
             />
@@ -1063,7 +1092,7 @@
         {:else if leftView === 'edit' && leftLeaf}
           <EditorFooter
             onDelete={() => deleteLeaf(leftLeaf.id, 'left')}
-            onDownload={() => downloadLeaf(leftLeaf.id)}
+            onDownload={() => downloadLeafAsMarkdown(leftLeaf.id)}
             onTogglePreview={() => togglePreview('left')}
             onSave={handleSaveToGitHub}
             disabled={isOperationsLocked}
@@ -1071,7 +1100,7 @@
           />
         {:else if leftView === 'preview' && leftLeaf}
           <PreviewFooter
-            onDownload={() => downloadLeaf(leftLeaf.id)}
+            onDownload={() => downloadLeafAsImage(leftLeaf.id, 'left')}
             onToggleEdit={() => togglePreview('left')}
             onSave={handleSaveToGitHub}
             disabled={isOperationsLocked}
@@ -1146,7 +1175,7 @@
               disabled={isOperationsLocked}
               onContentChange={updateLeafContent}
               onSave={handleSaveToGitHub}
-              onDownload={downloadLeaf}
+              onDownload={downloadLeafAsMarkdown}
               onDelete={(leafId) => deleteLeaf(leafId, 'right')}
               onScroll={handleRightScroll}
             />
@@ -1179,7 +1208,7 @@
         {:else if rightView === 'edit' && rightLeaf}
           <EditorFooter
             onDelete={() => deleteLeaf(rightLeaf.id, 'right')}
-            onDownload={() => downloadLeaf(rightLeaf.id)}
+            onDownload={() => downloadLeafAsMarkdown(rightLeaf.id)}
             onTogglePreview={() => togglePreview('right')}
             onSave={handleSaveToGitHub}
             disabled={isOperationsLocked}
@@ -1187,7 +1216,7 @@
           />
         {:else if rightView === 'preview' && rightLeaf}
           <PreviewFooter
-            onDownload={() => downloadLeaf(rightLeaf.id)}
+            onDownload={() => downloadLeafAsImage(rightLeaf.id, 'right')}
             onToggleEdit={() => togglePreview('right')}
             onSave={handleSaveToGitHub}
             disabled={isOperationsLocked}

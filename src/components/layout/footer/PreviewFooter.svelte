@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { _ } from '../../../lib/i18n'
   import Footer from '../Footer.svelte'
   import SaveButton from '../../buttons/SaveButton.svelte'
 
@@ -14,8 +15,8 @@
     <button
       type="button"
       on:click={onDownload}
-      title="ダウンロード"
-      aria-label="ダウンロード"
+      title={$_('footer.downloadImage')}
+      aria-label={$_('footer.downloadImage')}
       {disabled}
     >
       <svg
@@ -37,7 +38,13 @@
     </button>
   </svelte:fragment>
   <svelte:fragment slot="right">
-    <button type="button" on:click={onToggleEdit} title="編集" aria-label="編集" {disabled}>
+    <button
+      type="button"
+      on:click={onToggleEdit}
+      title={$_('footer.edit')}
+      aria-label={$_('footer.edit')}
+      {disabled}
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="16"

@@ -41,6 +41,67 @@
     }, 0)
   }
 
+  // プレビュー内容を画像としてキャプチャ
+  export async function captureAsImage(filename: string): Promise<void> {
+    if (!previewSection || isLoading) return
+
+    try {
+      // html2canvasを動的にインポート
+      const html2canvas = (await import('html2canvas')).default
+
+      // プレビューコンテンツの要素を取得
+      const contentElement = previewSection.querySelector('.preview-content') as HTMLElement
+      if (!contentElement) return
+
+      // スクロール位置を保存
+      const originalScrollTop = previewSection.scrollTop
+
+      // 一時的にスクロールを最上部に移動して全体をキャプチャ
+      previewSection.scrollTop = 0
+
+      // 余白付きの一時要素を作成
+      const wrapper = document.createElement('div')
+      wrapper.style.padding = '20px'
+      wrapper.style.backgroundColor = '#ffffff'
+      wrapper.style.display = 'inline-block'
+
+      // コンテンツをクローンして追加
+      const clonedContent = contentElement.cloneNode(true) as HTMLElement
+      wrapper.appendChild(clonedContent)
+      document.body.appendChild(wrapper)
+
+      // html2canvasでキャプチャ（余白を含める）
+      const canvas = await html2canvas(wrapper, {
+        backgroundColor: '#ffffff', // 白背景を強制
+        scale: 1, // 等倍で出力
+        logging: false,
+        useCORS: true, // 外部画像対応
+      })
+
+      // 一時要素を削除
+      document.body.removeChild(wrapper)
+
+      // スクロール位置を元に戻す
+      previewSection.scrollTop = originalScrollTop
+
+      // Canvasを画像としてダウンロード
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${filename}.png`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      })
+    } catch (error) {
+      console.error('画像キャプチャに失敗しました:', error)
+      throw error
+    }
+  }
+
   function handleScroll(event: Event) {
     if (isScrollingSynced || !onScroll) return
     const target = event.target as HTMLElement

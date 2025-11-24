@@ -37,7 +37,9 @@
     "deleteNote": "Delete note",
     "deleteLeaf": "Delete leaf",
     "download": "Download",
-    "preview": "Preview"
+    "downloadImage": "Download as image",
+    "preview": "Preview",
+    "edit": "Edit"
   },
   "settings": {
     "title": "Settings",
@@ -117,7 +119,9 @@
     "pullFailed": "Pull failed",
     "pushSuccess": "Pushed successfully",
     "pushFailed": "Cannot save until initial pull completes",
-    "noLeaves": "No leaves to save"
+    "noLeaves": "No leaves to save",
+    "imageDownloaded": "Image downloaded",
+    "imageDownloadFailed": "Failed to download image"
   },
   "modal": {
     "unsavedChanges": "You have unsaved changes. Pull will overwrite them. Continue?",
