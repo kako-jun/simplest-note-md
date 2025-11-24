@@ -50,9 +50,9 @@
     color: var(--accent-color);
   }
 
-  :global(.footer-fixed button.primary svg) {
-    width: 20px;
-    height: 20px;
+  :global(.footer-fixed button svg) {
+    width: 18px;
+    height: 18px;
   }
 
   :global(.footer-fixed button:disabled) {

@@ -75,8 +75,8 @@
             {#if index === 0}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -101,8 +101,8 @@
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -181,7 +181,7 @@
   }
 
   .breadcrumb-button:hover {
-    background: var(--bg-primary);
+    opacity: 0.7;
   }
 
   .edit-button {
@@ -190,12 +190,11 @@
     cursor: pointer;
     padding: 0.25rem;
     font-size: 0.8rem;
-    opacity: 0.6;
     transition: opacity 0.2s;
   }
 
   .edit-button:hover {
-    opacity: 1;
+    opacity: 0.7;
   }
 
   .breadcrumb-input {
