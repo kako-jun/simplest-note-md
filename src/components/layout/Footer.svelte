@@ -28,39 +28,4 @@
   .spacer {
     flex: 1;
   }
-
-  /* グローバルスタイル：フッター内のボタン */
-  :global(.footer-fixed button) {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.25rem;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.2s;
-  }
-
-  :global(.footer-fixed button:hover) {
-    opacity: 0.7;
-  }
-
-  :global(.footer-fixed button.primary) {
-    color: var(--accent-color);
-  }
-
-  :global(.footer-fixed button svg) {
-    width: 18px;
-    height: 18px;
-  }
-
-  :global(.footer-fixed button:disabled) {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  :global(.footer-fixed .button-icon) {
-    margin: 0;
-  }
 </style>

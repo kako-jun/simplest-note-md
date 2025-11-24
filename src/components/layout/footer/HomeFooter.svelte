@@ -1,7 +1,9 @@
 <script lang="ts">
   import { _ } from '../../../lib/i18n'
   import Footer from '../Footer.svelte'
+  import IconButton from '../../buttons/IconButton.svelte'
   import SaveButton from '../../buttons/SaveButton.svelte'
+  import FolderPlusIcon from '../../icons/FolderPlusIcon.svelte'
 
   export let onCreateNote: () => void
   export let onSave: () => void
@@ -11,30 +13,14 @@
 
 <Footer>
   <svelte:fragment slot="left">
-    <button
-      type="button"
-      on:click={onCreateNote}
+    <IconButton
+      onClick={onCreateNote}
       title={$_('footer.newNote')}
-      aria-label={$_('footer.newNote')}
+      ariaLabel={$_('footer.newNote')}
       {disabled}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="button-icon"
-      >
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-        <line x1="12" y1="11" x2="12" y2="17" />
-        <line x1="9" y1="14" x2="15" y2="14" />
-      </svg>
-    </button>
+      <FolderPlusIcon />
+    </IconButton>
   </svelte:fragment>
   <svelte:fragment slot="right">
     <SaveButton {onSave} {isDirty} />

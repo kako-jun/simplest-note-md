@@ -1,7 +1,10 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import type { Breadcrumb } from '../../lib/types'
+  import IconButton from '../buttons/IconButton.svelte'
   import ShareButton from '../buttons/ShareButton.svelte'
+  import HomeIcon from '../icons/HomeIcon.svelte'
+  import EditIcon from '../icons/EditIcon.svelte'
 
   export let breadcrumbs: Breadcrumb[]
   export let editingId: string | null = null
@@ -65,54 +68,35 @@
             class="breadcrumb-input"
           />
         {:else}
-          <button
-            class="breadcrumb-button"
-            class:current={index === breadcrumbs.length - 1}
-            on:click={crumb.action}
-            title={index === 0 ? $_('breadcrumbs.goHome') : undefined}
-            aria-label={index === 0 ? $_('breadcrumbs.goHome') : crumb.label}
-          >
-            {#if index === 0}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-            {:else}
-              {crumb.label}
-            {/if}
-          </button>
-          {#if index === breadcrumbs.length - 1 && (crumb.type === 'note' || crumb.type === 'leaf')}
+          {#if index === 0}
+            <IconButton
+              onClick={crumb.action}
+              title={$_('breadcrumbs.goHome')}
+              ariaLabel={$_('breadcrumbs.goHome')}
+            >
+              <HomeIcon />
+            </IconButton>
+          {:else}
             <button
-              class="edit-button"
-              on:click={() => handleStartEdit(crumb)}
+              class="breadcrumb-button"
+              class:current={index === breadcrumbs.length - 1}
+              on:click={crumb.action}
+            >
+              {crumb.label}
+            </button>
+          {/if}
+          {#if index === breadcrumbs.length - 1 && (crumb.type === 'note' || crumb.type === 'leaf')}
+            <IconButton
+              onClick={() => handleStartEdit(crumb)}
               title={crumb.type === 'leaf'
                 ? $_('breadcrumbs.editLeafName')
                 : $_('breadcrumbs.editNoteName')}
+              ariaLabel={crumb.type === 'leaf'
+                ? $_('breadcrumbs.editLeafName')
+                : $_('breadcrumbs.editNoteName')}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-              </svg>
-            </button>
+              <EditIcon />
+            </IconButton>
           {/if}
         {/if}
       </span>
@@ -180,20 +164,7 @@
     cursor: default;
   }
 
-  .breadcrumb-button:hover {
-    opacity: 0.7;
-  }
-
-  .edit-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.25rem;
-    font-size: 0.8rem;
-    transition: opacity 0.2s;
-  }
-
-  .edit-button:hover {
+  .breadcrumb-button:hover:not(.current) {
     opacity: 0.7;
   }
 

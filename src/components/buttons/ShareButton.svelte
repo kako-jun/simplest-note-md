@@ -1,6 +1,11 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import { onMount, onDestroy } from 'svelte'
+  import IconButton from './IconButton.svelte'
+  import ShareIcon from '../icons/ShareIcon.svelte'
+  import LinkIcon from '../icons/LinkIcon.svelte'
+  import CopyIcon from '../icons/CopyIcon.svelte'
+  import UploadIcon from '../icons/UploadIcon.svelte'
 
   export let onCopyUrl: () => void
   export let onCopyMarkdown: () => void
@@ -50,81 +55,25 @@
 </script>
 
 <div class="share-container" bind:this={menuElement}>
-  <button class="share-button" on:click={toggleMenu} title={$_('share.title')}>
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-  </button>
+  <IconButton onClick={toggleMenu} title={$_('share.title')} ariaLabel={$_('share.title')}>
+    <ShareIcon />
+  </IconButton>
 
   {#if showMenu}
     <div class="share-menu">
       <button class="menu-item" on:click={handleCopyUrl}>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-        </svg>
+        <LinkIcon />
         <span>{$_('share.copyUrl')}</span>
       </button>
 
       <button class="menu-item" on:click={handleCopyMarkdown}>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
+        <CopyIcon />
         <span>{isPreview ? $_('share.copyImage') : $_('share.copyMarkdown')}</span>
       </button>
 
       {#if isPreview && supportsWebShare && onShareImage}
         <button class="menu-item" on:click={handleShareImage}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-            <polyline points="16 6 12 2 8 6" />
-            <line x1="12" y1="2" x2="12" y2="15" />
-          </svg>
+          <UploadIcon />
           <span>{$_('share.shareImage')}</span>
         </button>
       {/if}
@@ -136,23 +85,6 @@
   .share-container {
     position: relative;
     z-index: 1;
-  }
-
-  .share-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.25rem;
-    transition: opacity 0.2s;
-    color: var(--text-primary);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .share-button:hover {
-    opacity: 0.7;
   }
 
   .share-menu {
@@ -198,7 +130,9 @@
     background: var(--bg-secondary);
   }
 
-  .menu-item svg {
+  .menu-item :global(svg) {
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
     opacity: 0.8;
   }
