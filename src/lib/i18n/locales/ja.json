@@ -18,6 +18,8 @@
     "title": "シェア",
     "copyUrl": "URLをコピー",
     "copyMarkdown": "Markdownをコピー",
+    "copyImage": "画像をコピー",
+    "shareImage": "画像を共有",
     "download": "ファイルでダウンロード",
     "urlCopied": "URLをコピーしました",
     "markdownCopied": "Markdownをコピーしました"

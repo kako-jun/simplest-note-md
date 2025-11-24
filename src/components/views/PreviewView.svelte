@@ -41,9 +41,9 @@
     }, 0)
   }
 
-  // プレビュー内容を画像としてキャプチャ
-  export async function captureAsImage(filename: string): Promise<void> {
-    if (!previewSection || isLoading) return
+  // プレビュー内容を画像Blobとして取得
+  async function captureAsBlob(): Promise<Blob | null> {
+    if (!previewSection || isLoading) return null
 
     try {
       // html2canvasを動的にインポート
@@ -51,7 +51,7 @@
 
       // プレビューコンテンツの要素を取得
       const contentElement = previewSection.querySelector('.preview-content') as HTMLElement
-      if (!contentElement) return
+      if (!contentElement) return null
 
       // スクロール位置を保存
       const originalScrollTop = previewSection.scrollTop
@@ -84,20 +84,80 @@
       // スクロール位置を元に戻す
       previewSection.scrollTop = originalScrollTop
 
-      // Canvasを画像としてダウンロード
-      canvas.toBlob((blob) => {
-        if (!blob) return
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${filename}.png`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
+      // CanvasをBlobに変換（Promise版）
+      return new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+          resolve(blob)
+        })
       })
     } catch (error) {
       console.error('画像キャプチャに失敗しました:', error)
+      throw error
+    }
+  }
+
+  // プレビュー内容を画像としてダウンロード
+  export async function captureAsImage(filename: string): Promise<void> {
+    try {
+      const blob = await captureAsBlob()
+      if (!blob) return
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('画像ダウンロードに失敗しました:', error)
+      throw error
+    }
+  }
+
+  // プレビュー内容をクリップボードにコピー
+  export async function copyImageToClipboard(): Promise<void> {
+    try {
+      const blob = await captureAsBlob()
+      if (!blob) return
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': blob,
+        }),
+      ])
+    } catch (error) {
+      console.error('クリップボードへのコピーに失敗しました:', error)
+      throw error
+    }
+  }
+
+  // プレビュー内容をWeb Share APIで共有
+  export async function shareImage(filename: string): Promise<void> {
+    try {
+      const blob = await captureAsBlob()
+      if (!blob) return
+
+      // Web Share API がサポートされているか確認
+      if (!navigator.share || !navigator.canShare) {
+        throw new Error('Web Share API is not supported')
+      }
+
+      const file = new File([blob], `${filename}.png`, { type: 'image/png' })
+      const shareData = {
+        files: [file],
+        title: filename,
+      }
+
+      // 共有可能か確認
+      if (navigator.canShare(shareData)) {
+        await navigator.share(shareData)
+      } else {
+        throw new Error('Cannot share this content')
+      }
+    } catch (error) {
+      console.error('共有に失敗しました:', error)
       throw error
     }
   }

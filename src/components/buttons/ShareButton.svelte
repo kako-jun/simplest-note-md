@@ -4,9 +4,12 @@
 
   export let onCopyUrl: () => void
   export let onCopyMarkdown: () => void
+  export let onShareImage: (() => void) | null = null
+  export let isPreview: boolean = false
 
   let showMenu = false
   let menuElement: HTMLDivElement
+  let supportsWebShare = false
 
   function toggleMenu() {
     showMenu = !showMenu
@@ -28,8 +31,17 @@
     showMenu = false
   }
 
+  function handleShareImage() {
+    if (onShareImage) {
+      onShareImage()
+      showMenu = false
+    }
+  }
+
   onMount(() => {
     document.addEventListener('click', handleClickOutside)
+    // Web Share APIのサポートチェック
+    supportsWebShare = !!navigator.share && !!navigator.canShare
   })
 
   onDestroy(() => {
@@ -93,8 +105,29 @@
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
-        <span>{$_('share.copyMarkdown')}</span>
+        <span>{isPreview ? $_('share.copyImage') : $_('share.copyMarkdown')}</span>
       </button>
+
+      {#if isPreview && supportsWebShare && onShareImage}
+        <button class="menu-item" on:click={handleShareImage}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <polyline points="16 6 12 2 8 6" />
+            <line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+          <span>{$_('share.shareImage')}</span>
+        </button>
+      {/if}
     </div>
   {/if}
 </div>

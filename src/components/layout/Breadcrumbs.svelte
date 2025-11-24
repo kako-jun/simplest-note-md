@@ -10,6 +10,8 @@
   export let onCancelEdit: () => void
   export let onCopyUrl: (() => void) | null = null
   export let onCopyMarkdown: (() => void) | null = null
+  export let onShareImage: (() => void) | null = null
+  export let isPreview: boolean = false
 
   let inputValue = ''
   let inputElement: HTMLInputElement | null = null
@@ -118,7 +120,7 @@
   </div>
 
   {#if isLeafView && onCopyUrl && onCopyMarkdown}
-    <ShareButton {onCopyUrl} {onCopyMarkdown} />
+    <ShareButton {onCopyUrl} {onCopyMarkdown} {onShareImage} {isPreview} />
   {/if}
 </div>
 

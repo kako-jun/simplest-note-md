@@ -18,6 +18,8 @@
     "title": "Share",
     "copyUrl": "Copy URL",
     "copyMarkdown": "Copy Markdown",
+    "copyImage": "Copy as Image",
+    "shareImage": "Share Image",
     "download": "Download as File",
     "urlCopied": "URL copied",
     "markdownCopied": "Markdown copied"

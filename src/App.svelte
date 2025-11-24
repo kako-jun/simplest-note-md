@@ -869,8 +869,17 @@
 
   function handleCopyMarkdown(pane: Pane) {
     const leaf = pane === 'left' ? leftLeaf : rightLeaf
+    const view = pane === 'left' ? leftView : rightView
+
     if (!leaf) return
 
+    // プレビューモード時は画像をコピー
+    if (view === 'preview') {
+      handleCopyImageToClipboard(pane)
+      return
+    }
+
+    // 編集モード時はMarkdownをコピー
     navigator.clipboard
       .writeText(leaf.content)
       .then(() => {
@@ -883,6 +892,47 @@
         console.error('Markdownのコピーに失敗しました:', err)
         showPushToast('Markdownのコピーに失敗しました', 'error')
       })
+  }
+
+  // 画像をクリップボードにコピー
+  async function handleCopyImageToClipboard(pane: Pane) {
+    const previewView = pane === 'left' ? leftPreviewView : rightPreviewView
+
+    if (!previewView || !previewView.copyImageToClipboard) return
+
+    try {
+      await previewView.copyImageToClipboard()
+      showPushToast($settings.locale === 'ja' ? '画像をコピーしました' : 'Image copied', 'success')
+    } catch (error) {
+      console.error('画像のコピーに失敗しました:', error)
+      showPushToast(
+        $settings.locale === 'ja' ? '画像のコピーに失敗しました' : 'Failed to copy image',
+        'error'
+      )
+    }
+  }
+
+  // Web Share APIで画像を共有
+  async function handleShareImage(pane: Pane) {
+    const leaf = pane === 'left' ? leftLeaf : rightLeaf
+    const previewView = pane === 'left' ? leftPreviewView : rightPreviewView
+
+    if (!leaf || !previewView || !previewView.shareImage) return
+
+    try {
+      await previewView.shareImage(leaf.title)
+      // 成功時はトーストを表示しない（共有ダイアログで完結するため）
+    } catch (error: any) {
+      // Web Share APIがサポートされていない場合はクリップボードにコピー
+      if (error.message === 'Web Share API is not supported') {
+        await handleCopyImageToClipboard(pane)
+      } else if (error.name === 'AbortError') {
+        // ユーザーが共有をキャンセルした場合は何もしない
+      } else {
+        console.error('共有に失敗しました:', error)
+        showPushToast($settings.locale === 'ja' ? '共有に失敗しました' : 'Failed to share', 'error')
+      }
+    }
   }
 
   // 設定
@@ -1010,6 +1060,8 @@
           onCancelEdit={cancelEditBreadcrumb}
           onCopyUrl={() => handleCopyUrl('left')}
           onCopyMarkdown={() => handleCopyMarkdown('left')}
+          onShareImage={() => handleShareImage('left')}
+          isPreview={leftView === 'preview'}
         />
 
         <main class="main-pane">
@@ -1122,6 +1174,8 @@
           onCancelEdit={cancelEditBreadcrumb}
           onCopyUrl={() => handleCopyUrl('right')}
           onCopyMarkdown={() => handleCopyMarkdown('right')}
+          onShareImage={() => handleShareImage('right')}
+          isPreview={rightView === 'preview'}
         />
 
         <main class="main-pane">
