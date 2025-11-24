@@ -27,6 +27,7 @@
   export let disabled: boolean = false
   export let selectedIndex: number = 0
   export let isActive: boolean = true
+  export let vimMode: boolean = false
 
   // リアクティブ宣言: ノートが変わるたびに再計算
   $: canHaveSubNote = !currentNote.parentId
@@ -62,6 +63,7 @@
           onDrop={() => onDropNote(subNote)}
           items={getNoteItems(subNote.id)}
           isGroup={true}
+          {vimMode}
         />
       {/each}
       {#each leaves as leaf, leafIndex (leaf.id)}
@@ -70,7 +72,7 @@
         <div
           class="note-card"
           class:drag-over={dragOverLeafId === leaf.id}
-          class:selected={isActive && subNotes.length + leafIndex === selectedIndex}
+          class:selected={vimMode && isActive && subNotes.length + leafIndex === selectedIndex}
           draggable="true"
           role="button"
           tabindex="0"

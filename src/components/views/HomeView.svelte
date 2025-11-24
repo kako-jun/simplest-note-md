@@ -17,6 +17,7 @@
   export let disabled: boolean = false
   export let selectedIndex: number = 0
   export let isActive: boolean = true
+  export let vimMode: boolean = false
 </script>
 
 <section class="view-container">
@@ -45,6 +46,7 @@
           onDrop={() => onDrop(note)}
           items={getNoteItems(note.id)}
           isGroup={true}
+          {vimMode}
         />
       {/each}
     {/if}

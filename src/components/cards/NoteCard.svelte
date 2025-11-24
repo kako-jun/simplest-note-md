@@ -11,6 +11,7 @@
   export let onDrop: () => void
   export let items: string[] = []
   export let isGroup: boolean = false
+  export let vimMode: boolean = false
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -19,7 +20,7 @@
   class="note-card"
   class:note-group-card={isGroup}
   class:drag-over={dragOver}
-  class:selected={isSelected}
+  class:selected={vimMode && isSelected}
   draggable="true"
   role="button"
   tabindex="0"

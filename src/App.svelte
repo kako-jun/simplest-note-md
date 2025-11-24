@@ -1126,6 +1126,7 @@
       title={$settings.toolName}
       onTitleClick={() => {
         goHome('left')
+        goHome('right')
       }}
       onSettingsClick={() => {
         goSettings()
@@ -1154,6 +1155,7 @@
               disabled={isOperationsLocked}
               selectedIndex={selectedIndexLeft}
               isActive={focusedPane === 'left'}
+              vimMode={$settings.vimMode ?? false}
               onSelectNote={(note) => selectNote(note, 'left')}
               onCreateNote={() => createNote(undefined, 'left')}
               onDragStart={handleDragStartNote}
@@ -1176,6 +1178,7 @@
               disabled={isOperationsLocked}
               selectedIndex={selectedIndexLeft}
               isActive={focusedPane === 'left'}
+              vimMode={$settings.vimMode ?? false}
               onSelectNote={(note) => selectNote(note, 'left')}
               onSelectLeaf={(leaf) => selectLeaf(leaf, 'left')}
               onCreateNote={() => createNote(leftNote.id, 'left')}
@@ -1276,6 +1279,7 @@
               disabled={isOperationsLocked}
               selectedIndex={selectedIndexRight}
               isActive={focusedPane === 'right'}
+              vimMode={$settings.vimMode ?? false}
               onSelectNote={(note) => selectNote(note, 'right')}
               onCreateNote={() => createNote(undefined, 'right')}
               onDragStart={handleDragStartNote}
@@ -1298,6 +1302,7 @@
               disabled={isOperationsLocked}
               selectedIndex={selectedIndexRight}
               isActive={focusedPane === 'right'}
+              vimMode={$settings.vimMode ?? false}
               onSelectNote={(note) => selectNote(note, 'right')}
               onSelectLeaf={(leaf) => selectLeaf(leaf, 'right')}
               onCreateNote={() => createNote(rightNote.id, 'right')}
