@@ -42,8 +42,16 @@
       "title": "GitHub連携",
       "repoName": "リポジトリ名（owner/repo）",
       "repoPlaceholder": "owner/repo",
+      "repoHelp": {
+        "title": "リポジトリ名の確認方法",
+        "description": "GitHubでリポジトリを開き、URLから「ユーザー名/リポジトリ名」の形式で入力してください。"
+      },
       "token": "GitHubトークン",
       "tokenPlaceholder": "ghp_...",
+      "tokenHelp": {
+        "title": "GitHub Personal Access Tokenの取得方法",
+        "description": "上記の手順でGitHub Personal Access Tokenを取得できます。取得したトークンは大切に保管してください。"
+      },
       "username": "コミットユーザー名",
       "usernamePlaceholder": "your-name",
       "email": "コミットメールアドレス",

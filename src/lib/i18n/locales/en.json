@@ -42,8 +42,16 @@
       "title": "GitHub Integration",
       "repoName": "Repository (owner/repo)",
       "repoPlaceholder": "owner/repo",
+      "repoHelp": {
+        "title": "How to Find Repository Name",
+        "description": "Open your repository on GitHub and use the format 'username/repository-name' from the URL."
+      },
       "token": "GitHub Token",
       "tokenPlaceholder": "ghp_...",
+      "tokenHelp": {
+        "title": "How to Get GitHub Personal Access Token",
+        "description": "Follow the steps shown above to obtain your GitHub Personal Access Token. Please keep your token secure."
+      },
       "username": "Commit Username",
       "usernamePlaceholder": "your-name",
       "email": "Commit Email",
