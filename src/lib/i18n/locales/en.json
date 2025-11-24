@@ -15,10 +15,13 @@
     "editLeafName": "Edit leaf name"
   },
   "home": {
-    "pushCount": "Push Count"
+    "pushCount": "Push Count",
+    "noNotes": "No notes yet.\nYou can create a new note using the button at the bottom left."
   },
   "note": {
-    "updated": "Updated"
+    "updated": "Updated",
+    "noItems": "No sub-notes or leaves yet.\nYou can add them using the button at the bottom left.",
+    "noLeaves": "No leaves yet.\nYou can add them using the button at the bottom left."
   },
   "footer": {
     "newNote": "New note",

@@ -184,11 +184,15 @@
       </div>
     </div>
   </div>
+
+  <div class="version">v2025-11-24</div>
 </section>
 
 <style>
   .settings-container {
     padding: 2rem;
+    position: relative;
+    min-height: 100vh;
   }
 
   .settings-content {
@@ -368,6 +372,15 @@
     object-fit: contain;
     margin: 0 auto 1rem;
     display: block;
+  }
+
+  .version {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 1rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
   }
 
   .about-section p {

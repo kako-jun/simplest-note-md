@@ -50,7 +50,9 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     font-size: 0.9rem;
     min-width: 140px;
+    max-width: calc(100vw - 24px);
     text-align: center;
+    white-space: nowrap;
   }
 
   .toast.success {

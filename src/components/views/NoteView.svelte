@@ -43,41 +43,47 @@
 
 <section class="view-container">
   <div class="card-grid">
-    {#each subNotes as subNote (subNote.id)}
-      <NoteCard
-        note={subNote}
-        dragOver={dragOverNoteId === subNote.id}
-        onSelect={() => onSelectNote(subNote)}
-        onDragStart={() => onDragStartNote(subNote)}
-        onDragEnd={() => onDragEndNote()}
-        onDragOver={(e) => onDragOverNote(e, subNote)}
-        onDrop={() => onDropNote(subNote)}
-        items={getNoteItems(subNote.id)}
-        isGroup={true}
-      />
-    {/each}
-    {#each leaves as leaf (leaf.id)}
-      <!-- svelte-ignore a11y-click-events-have-key-events -->
-      <!-- svelte-ignore a11y-no-static-element-interactions -->
-      <div
-        class="note-card"
-        class:drag-over={dragOverLeafId === leaf.id}
-        draggable="true"
-        role="button"
-        tabindex="0"
-        on:dragstart={() => onDragStartLeaf(leaf)}
-        on:dragend={onDragEndLeaf}
-        on:dragover={(e) => onDragOverLeaf(e, leaf)}
-        on:drop|preventDefault={() => onDropLeaf(leaf)}
-        on:click={() => onSelectLeaf(leaf)}
-        animate:flip={{ duration: 300 }}
-      >
-        <strong>{leaf.title}</strong>
-        <div class="card-meta">
-          <small>{$_('note.updated')}: {formatDateTime(leaf.updatedAt)}</small>
-        </div>
+    {#if subNotes.length === 0 && leaves.length === 0}
+      <div class="empty-state">
+        <p>{currentNote.parentId ? $_('note.noLeaves') : $_('note.noItems')}</p>
       </div>
-    {/each}
+    {:else}
+      {#each subNotes as subNote (subNote.id)}
+        <NoteCard
+          note={subNote}
+          dragOver={dragOverNoteId === subNote.id}
+          onSelect={() => onSelectNote(subNote)}
+          onDragStart={() => onDragStartNote(subNote)}
+          onDragEnd={() => onDragEndNote()}
+          onDragOver={(e) => onDragOverNote(e, subNote)}
+          onDrop={() => onDropNote(subNote)}
+          items={getNoteItems(subNote.id)}
+          isGroup={true}
+        />
+      {/each}
+      {#each leaves as leaf (leaf.id)}
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <div
+          class="note-card"
+          class:drag-over={dragOverLeafId === leaf.id}
+          draggable="true"
+          role="button"
+          tabindex="0"
+          on:dragstart={() => onDragStartLeaf(leaf)}
+          on:dragend={onDragEndLeaf}
+          on:dragover={(e) => onDragOverLeaf(e, leaf)}
+          on:drop|preventDefault={() => onDropLeaf(leaf)}
+          on:click={() => onSelectLeaf(leaf)}
+          animate:flip={{ duration: 300 }}
+        >
+          <strong>{leaf.title}</strong>
+          <div class="card-meta">
+            <small>{$_('note.updated')}: {formatDateTime(leaf.updatedAt)}</small>
+          </div>
+        </div>
+      {/each}
+    {/if}
   </div>
 </section>
 
@@ -86,6 +92,7 @@
     padding: 1rem;
     height: 100%;
     overflow-y: auto;
+    position: relative;
   }
 
   .card-grid {
@@ -120,5 +127,25 @@
     border-color: var(--accent-color);
     background: var(--bg-tertiary);
     box-shadow: 0 0 0 2px var(--accent-color);
+  }
+
+  .empty-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .empty-state p {
+    margin: 0;
+    opacity: 0.8;
+    white-space: pre-line;
   }
 </style>

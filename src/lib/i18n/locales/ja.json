@@ -15,10 +15,13 @@
     "editLeafName": "リーフ名を編集"
   },
   "home": {
-    "pushCount": "Push回数"
+    "pushCount": "Push回数",
+    "noNotes": "ノートがまだありません。\n左下のボタンから新規ノートを作成できます。"
   },
   "note": {
-    "updated": "更新"
+    "updated": "更新",
+    "noItems": "サブノートやリーフがまだありません。\n左下のボタンから追加できます。",
+    "noLeaves": "リーフがまだありません。\n左下のボタンから追加できます。"
   },
   "footer": {
     "newNote": "新規ノート",

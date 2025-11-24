@@ -26,19 +26,25 @@
   </div>
 
   <div class="card-grid">
-    {#each notes as note (note.id)}
-      <NoteCard
-        {note}
-        dragOver={dragOverNoteId === note.id}
-        onSelect={() => onSelectNote(note)}
-        onDragStart={() => onDragStart(note)}
-        onDragEnd={() => onDragEnd()}
-        onDragOver={(e) => onDragOver(e, note)}
-        onDrop={() => onDrop(note)}
-        items={getNoteItems(note.id)}
-        isGroup={true}
-      />
-    {/each}
+    {#if notes.length === 0}
+      <div class="empty-state">
+        <p>{$_('home.noNotes')}</p>
+      </div>
+    {:else}
+      {#each notes as note (note.id)}
+        <NoteCard
+          {note}
+          dragOver={dragOverNoteId === note.id}
+          onSelect={() => onSelectNote(note)}
+          onDragStart={() => onDragStart(note)}
+          onDragEnd={() => onDragEnd()}
+          onDragOver={(e) => onDragOver(e, note)}
+          onDrop={() => onDrop(note)}
+          items={getNoteItems(note.id)}
+          isGroup={true}
+        />
+      {/each}
+    {/if}
   </div>
 </section>
 
@@ -81,5 +87,25 @@
     gap: 1rem;
     position: relative;
     z-index: 1;
+  }
+
+  .empty-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .empty-state p {
+    margin: 0;
+    opacity: 0.8;
+    white-space: pre-line;
   }
 </style>
