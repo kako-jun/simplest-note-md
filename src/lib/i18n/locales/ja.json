@@ -139,7 +139,7 @@
     "pushing": "Push中..."
   },
   "welcome": {
-    "title": "SimplestNote.mdに興味をもってくれてありがとう！",
+    "title": "SimplestNote.mdに\n興味をもってくれてありがとう！",
     "message1": "ノートを保存するために、GitHubの設定が必要です。",
     "message2": "設定画面でリポジトリとトークンを設定してください。",
     "openSettings": "設定を開く",

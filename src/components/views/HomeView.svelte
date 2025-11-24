@@ -65,7 +65,7 @@
     position: absolute;
     bottom: 1rem;
     right: 1rem;
-    z-index: 0;
+    z-index: -1;
     opacity: 0.5;
     pointer-events: none;
   }
@@ -90,8 +90,6 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 240px));
     gap: 1rem;
-    position: relative;
-    z-index: 1;
   }
 
   .empty-state {

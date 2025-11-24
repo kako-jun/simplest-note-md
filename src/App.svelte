@@ -314,7 +314,7 @@
       } else {
         // 未設定の場合はウェルカムモーダルを表示
         showWelcome = true
-        isOperationsLocked = false // ウェルカムモーダルを閉じられるようにロック解除
+        // GitHub設定が未完了の間は操作をロックしたまま
       }
     })()
 
@@ -1262,6 +1262,9 @@
           />
         {/if}
 
+        {#if !isGitHubConfigured && !showWelcome}
+          <div class="config-required-overlay"></div>
+        {/if}
         {#if pullRunning || isPushing}
           <Loading />
         {/if}
@@ -1390,6 +1393,9 @@
           />
         {/if}
 
+        {#if !isGitHubConfigured && !showWelcome}
+          <div class="config-required-overlay"></div>
+        {/if}
         {#if pullRunning || isPushing}
           <Loading />
         {/if}
@@ -1697,6 +1703,7 @@
     color: var(--text-primary);
     margin-bottom: 1.5rem;
     line-height: 1.4;
+    white-space: pre-line;
   }
 
   .welcome-message {
@@ -1751,5 +1758,17 @@
 
   .welcome-button.secondary:hover {
     background: var(--bg-tertiary);
+  }
+
+  .config-required-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 200;
   }
 </style>
