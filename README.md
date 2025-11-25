@@ -1,7 +1,10 @@
 # SimplestNote.md
 
 <p align="center">
-  <img src="./public/assets/app-icon.svg" alt="SimplestNote.md" width="128">
+  <picture>
+    <source srcset="./public/assets/app-icon.webp" type="image/webp">
+    <img src="./public/assets/app-icon.png" alt="Agasteer" width="128">
+  </picture>
 </p>
 
 <p align="center">

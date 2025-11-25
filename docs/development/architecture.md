@@ -92,7 +92,10 @@ simplest-note-md/
 │   └── pre-commit                       # npm run lintを実行
 ├── public/
 │   └── assets/
-│       └── app-icon.svg                 # アプリアイコン
+│       ├── app-icon.png                 # PWA/ファビコン用アイコン（互換用PNG）
+│       └── app-icon.webp                # PWA/ファビコン用アイコン（WebP）
+│       ├── agasteer-icon.png            # 設定画面アイコン（About、互換用PNG）
+│       └── agasteer-icon.webp           # 設定画面アイコン（About、WebP）
 ├── src/
 │   ├── components/
 │   │   ├── buttons/

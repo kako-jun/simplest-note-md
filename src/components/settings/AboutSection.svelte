@@ -3,7 +3,7 @@
 </script>
 
 <div class="about-section">
-  <img src="/assets/app-icon.svg" alt="SimplestNote.md" class="about-icon" />
+  <div class="about-icon" role="img" aria-label="Agasteer"></div>
   <p>{$_('settings.about.description')}</p>
   <p class="author">
     {$_('settings.about.author')}: <strong>kako-jun</strong>
@@ -77,9 +77,23 @@
   .about-icon {
     width: 100px;
     height: 100px;
-    object-fit: contain;
     margin: 0 auto 1rem;
     display: block;
+    background-color: var(--accent-color);
+    mask-image: url('/assets/agasteer-icon.webp');
+    -webkit-mask-image: url('/assets/agasteer-icon.webp');
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-size: contain;
+    -webkit-mask-size: contain;
+    mask-position: center;
+    -webkit-mask-position: center;
+  }
+
+  @supports not (mask-image: url('')) {
+    .about-icon {
+      background: url('/assets/agasteer-icon.png') center/contain no-repeat;
+    }
   }
 
   .about-section p {
