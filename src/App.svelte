@@ -690,6 +690,11 @@
     updateNotes(updatedNotes)
   }
 
+  function updateNoteBadge(noteId: string, badgeIcon: string, badgeColor: string) {
+    const updated = $notes.map((n) => (n.id === noteId ? { ...n, badgeIcon, badgeColor } : n))
+    updateNotes(updated)
+  }
+
   // ドラッグ&ドロップ（汎用ヘルパー関数）- drag-drop.tsに移動
 
   // ドラッグ&ドロップ（ノート）
@@ -841,6 +846,21 @@
     // タイトルが変更された場合、パンくずリストも更新
     if (h1Title) {
       refreshBreadcrumbs()
+    }
+  }
+
+  function updateLeafBadge(leafId: string, badgeIcon: string, badgeColor: string) {
+    const allLeaves = $leaves
+    const updatedLeaves = allLeaves.map((n) =>
+      n.id === leafId ? { ...n, badgeIcon, badgeColor, updatedAt: Date.now() } : n
+    )
+    updateLeaves(updatedLeaves)
+
+    if (leftLeaf?.id === leafId) {
+      leftLeaf = { ...leftLeaf, badgeIcon, badgeColor, updatedAt: Date.now() }
+    }
+    if (rightLeaf?.id === leafId) {
+      rightLeaf = { ...rightLeaf, badgeIcon, badgeColor, updatedAt: Date.now() }
     }
   }
 
@@ -1241,6 +1261,7 @@
               leafCount={totalLeafCount}
               leafCharCount={totalLeafChars}
               pushCount={$metadata.pushCount}
+              onUpdateNoteBadge={updateNoteBadge}
             />
           {:else if leftView === 'note' && leftNote}
             <NoteView
@@ -1272,6 +1293,8 @@
               {dragOverNoteId}
               {dragOverLeafId}
               {getNoteItems}
+              onUpdateNoteBadge={updateNoteBadge}
+              onUpdateLeafBadge={updateLeafBadge}
             />
           {:else if leftView === 'edit' && leftLeaf}
             <EditorView
@@ -1372,6 +1395,7 @@
               leafCount={totalLeafCount}
               leafCharCount={totalLeafChars}
               pushCount={$metadata.pushCount}
+              onUpdateNoteBadge={updateNoteBadge}
             />
           {:else if rightView === 'note' && rightNote}
             <NoteView
@@ -1403,6 +1427,8 @@
               {dragOverNoteId}
               {dragOverLeafId}
               {getNoteItems}
+              onUpdateNoteBadge={updateNoteBadge}
+              onUpdateLeafBadge={updateLeafBadge}
             />
           {:else if rightView === 'edit' && rightLeaf}
             <EditorView

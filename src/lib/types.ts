@@ -50,6 +50,8 @@ export interface Note {
   name: string
   parentId?: UUID
   order: number
+  badgeIcon?: string
+  badgeColor?: string
 }
 
 export interface Leaf {
@@ -59,6 +61,8 @@ export interface Leaf {
   content: string
   updatedAt: number
   order: number
+  badgeIcon?: string
+  badgeColor?: string
 }
 
 export interface Breadcrumb {

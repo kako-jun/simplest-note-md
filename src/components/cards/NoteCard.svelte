@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Note } from '../../lib/types'
+  import IconBadgePicker from '../badges/IconBadgePicker.svelte'
 
   export let note: Note
   export let dragOver: boolean = false
@@ -12,6 +13,9 @@
   export let items: string[] = []
   export let isGroup: boolean = false
   export let vimMode: boolean = false
+  export let badgeIcon: string = ''
+  export let badgeColor: string = ''
+  export let onBadgeChange: (icon: string, color: string) => void
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -30,6 +34,7 @@
   on:drop|preventDefault={onDrop}
   on:click={onSelect}
 >
+  <IconBadgePicker icon={badgeIcon} color={badgeColor} onChange={onBadgeChange} />
   <strong class="text-ellipsis">{note.name}</strong>
   <div class="card-meta">
     {#each items as item}
@@ -40,13 +45,14 @@
 
 <style>
   .note-card {
+    position: relative;
     padding: 1rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface-1);
     cursor: pointer;
     transition: all 0.2s;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .note-card strong {

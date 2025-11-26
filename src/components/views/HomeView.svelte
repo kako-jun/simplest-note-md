@@ -21,6 +21,7 @@
   export let leafCount: number = 0
   export let leafCharCount: number = 0
   export let pushCount: number = 0
+  export let onUpdateNoteBadge: (noteId: string, icon: string, color: string) => void
 </script>
 
 <section class="view-container">
@@ -45,6 +46,9 @@
           items={getNoteItems(note.id)}
           isGroup={true}
           {vimMode}
+          badgeIcon={note.badgeIcon || ''}
+          badgeColor={note.badgeColor || ''}
+          onBadgeChange={(icon, color) => onUpdateNoteBadge(note.id, icon, color)}
         />
       {/each}
     {/if}

@@ -3,6 +3,7 @@
   import { _ } from '../../lib/i18n'
   import type { Note, Leaf } from '../../lib/types'
   import NoteCard from '../cards/NoteCard.svelte'
+  import IconBadgePicker from '../badges/IconBadgePicker.svelte'
 
   export let currentNote: Note
   export let subNotes: Note[]
@@ -28,6 +29,8 @@
   export let selectedIndex: number = 0
   export let isActive: boolean = true
   export let vimMode: boolean = false
+  export let onUpdateNoteBadge: (noteId: string, icon: string, color: string) => void
+  export let onUpdateLeafBadge: (leafId: string, icon: string, color: string) => void
 
   // リアクティブ宣言: ノートが変わるたびに再計算
   $: canHaveSubNote = !currentNote.parentId
@@ -85,6 +88,9 @@
           items={getNoteItems(subNote.id)}
           isGroup={true}
           {vimMode}
+          badgeIcon={subNote.badgeIcon || ''}
+          badgeColor={subNote.badgeColor || ''}
+          onBadgeChange={(icon, color) => onUpdateNoteBadge(subNote.id, icon, color)}
         />
       {/each}
       {#each leaves as leaf, leafIndex (leaf.id)}
@@ -104,6 +110,11 @@
           on:click={() => onSelectLeaf(leaf)}
           animate:flip={{ duration: 300 }}
         >
+          <IconBadgePicker
+            icon={leaf.badgeIcon || ''}
+            color={leaf.badgeColor || ''}
+            onChange={(icon, color) => onUpdateLeafBadge(leaf.id, icon, color)}
+          />
           <strong class="text-ellipsis">{leaf.title}</strong>
           <div class="card-meta">
             {#if leaf.content}
@@ -142,12 +153,13 @@
   .note-card {
     display: flex;
     flex-direction: column;
+    position: relative;
     padding: 1rem;
     border: 1px solid var(--border);
     background: var(--surface-1);
     cursor: pointer;
     transition: all 0.2s;
-    overflow: hidden;
+    overflow: visible;
     height: 100%;
   }
 
