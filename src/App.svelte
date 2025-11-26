@@ -1200,11 +1200,16 @@
           noteId,
           content: reportLines.join('\n'),
           updatedAt: Date.now(),
-          order: baseLeafOrder + importedLeaves.length,
+          order: baseLeafOrder,
         }
 
+        const shiftedImportedLeaves = importedLeaves.map((leaf, idx) => ({
+          ...leaf,
+          order: baseLeafOrder + 1 + idx,
+        }))
+
         updateNotes([...allNotes, newNote])
-        updateLeaves([...allLeaves, ...importedLeaves, reportLeaf])
+        updateLeaves([...allLeaves, reportLeaf, ...shiftedImportedLeaves])
 
         if (parsed.errors?.length) {
           console.warn('Import skipped items:', parsed.errors)
