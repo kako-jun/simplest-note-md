@@ -4,7 +4,9 @@
 </script>
 
 <div class="about-section">
-  <AppIcon class="about-icon" size={100} animate ariaLabel="Agasteer" />
+  <div class="about-icon-wrap">
+    <AppIcon size={100} animate ariaLabel="Agasteer" />
+  </div>
   <p>{$_('settings.about.description')}</p>
   <p class="author">
     {$_('settings.about.author')}: <strong>kako-jun</strong>
@@ -75,7 +77,8 @@
     font-size: 0.9rem;
   }
 
-  .about-icon {
+  .about-icon-wrap {
+    width: 100px;
     margin: 0 auto 1rem;
   }
 

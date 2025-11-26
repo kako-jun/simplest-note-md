@@ -20,7 +20,9 @@
 <header>
   <div class="title-group" class:no-title={!hasTitle}>
     {#if showAppIcon}
-      <AppIcon class="header-app-icon" size={28} ariaLabel="Agasteer icon" />
+      <span class="header-app-icon-wrap">
+        <AppIcon size={28} ariaLabel="Agasteer icon" />
+      </span>
     {/if}
     <a
       class="title-button"
@@ -100,7 +102,9 @@
     gap: 0;
   }
 
-  .header-app-icon {
+  .header-app-icon-wrap {
+    display: inline-flex;
+    align-items: center;
     flex-shrink: 0;
   }
 
