@@ -33,7 +33,6 @@
   let vim: any
   let Vim: any
   let lineNumbers: any
-  let foldGutter: any
   let HighlightStyle: any
   let syntaxHighlighting: any
   let tags: any
@@ -71,7 +70,7 @@
       { markdown: md },
       { basicSetup: bs },
       { vim: v, Vim: V },
-      { HighlightStyle: HS, syntaxHighlighting: sh, foldGutter: fg },
+      { HighlightStyle: HS, syntaxHighlighting: sh },
     ] = await Promise.all([
       import('@codemirror/state'),
       import('@codemirror/view'),
@@ -93,7 +92,6 @@
     vim = v
     Vim = V
     lineNumbers = ln
-    foldGutter = fg
     HighlightStyle = HS
     syntaxHighlighting = sh
     tags = (await import('@lezer/highlight')).tags
@@ -189,12 +187,8 @@
           lineHeight: '1.6',
           padding: '6px 0',
         },
-        '.cm-foldGutter .cm-gutterElement': {
-          justifyContent: 'center',
-          color: 'var(--text-muted)',
-        },
         '.cm-activeLineGutter': {
-          backgroundColor: 'color-mix(in srgb, var(--surface-1) 60%, transparent 40%)',
+          backgroundColor: 'var(--surface-1)',
         },
       },
       { dark: true }
@@ -212,13 +206,6 @@
         },
         '.cm-gutters': {
           borderRight: `1px solid ${borderColor}`,
-        },
-        '.cm-foldGutter .cm-gutterElement': {
-          justifyContent: 'center',
-          color: 'var(--text-muted)',
-        },
-        '.cm-activeLineGutter': {
-          backgroundColor: 'color-mix(in srgb, var(--surface-1) 60%, transparent 40%)',
         },
       },
       isDark ? { dark: true } : {}
@@ -249,7 +236,6 @@
     const extensions = [
       basicSetup,
       markdown(),
-      foldGutter ? foldGutter() : [],
       keymap.of([...defaultKeymap, ...historyKeymap]),
       history(),
       EditorView.updateListener.of((update) => {
