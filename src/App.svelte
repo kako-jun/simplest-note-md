@@ -80,6 +80,8 @@
   let showWelcome = false // ウェルカムモーダル表示フラグ
   let isExportingZip = false
   let isImporting = false
+  let importOccurredInSettings = false
+  let isClosingSettingsPull = false
   let totalLeafCount = 0 // ホーム統計用: リーフ総数
   let totalLeafChars = 0 // ホーム統計用: リーフ総文字数（空白除く）
   const leafCharCounts = new Map<string, number>() // リーフごとの文字数キャッシュ
@@ -1215,6 +1217,7 @@
         if (parsed.errors?.length) {
           console.warn('Import skipped items:', parsed.errors)
         }
+        importOccurredInSettings = true
         showPushToast($_('settings.importExport.importDone'), 'success')
       } catch (error) {
         console.error('Import failed:', error)
@@ -1366,16 +1369,21 @@
     }
   }
   async function handleCloseSettings() {
-    // 設定画面を閉じるときにPullを1回実行
+    isClosingSettingsPull = true
     await handlePull(false)
+    importOccurredInSettings = false
+    isClosingSettingsPull = false
   }
 
   async function handlePull(isInitial = false) {
     // 初回Pull以外で未保存の変更がある場合は確認
     if (!isInitial && get(isDirty)) {
-      showConfirm('未保存の変更があります。Pullを実行しますか？', () =>
-        executePullInternal(isInitial)
-      )
+      let message = $_('modal.unsavedChanges')
+      if (isClosingSettingsPull && importOccurredInSettings) {
+        message += `\n\n${$_('settings.importExport.importCloseHint')}`
+        importOccurredInSettings = false
+      }
+      showConfirm(message, () => executePullInternal(isInitial))
       return
     }
 

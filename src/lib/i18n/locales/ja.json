@@ -160,7 +160,8 @@
       "importReportErrorsHeader": "エラー/スキップ:",
       "importReportErrorLine": "- {message}",
       "importStarting": "SimpleNote のエクスポートをインポート中...",
-      "importDone": "インポート完了。サマリーリーフを追加しました。"
+      "importDone": "インポート完了。サマリーリーフを追加しました。",
+      "importCloseHint": "インポート直後の場合は、結果を確認するためにPullをキャンセルしてください。"
     }
   },
   "toast": {

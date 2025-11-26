@@ -140,6 +140,7 @@
       "supported": "Supported: SimpleNote (.json; .zip containing SimpleNote export)",
       "importStarting": "Importing SimpleNote export...",
       "importDone": "Import completed. Summary leaf added.",
+      "importCloseHint": "Import just ran. If you need to review the results, cancel this Pull and check the imported note first.",
       "importFailed": "Import failed.",
       "unsupportedFile": "Unsupported file. Please select a SimpleNote export (.json or .zip containing it).",
       "needInitialPullImport": "Finish the first pull before importing.",
