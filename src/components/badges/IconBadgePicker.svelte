@@ -165,10 +165,10 @@
   }
 
   .badge {
-    background: color-mix(in srgb, var(--text) 25%, var(--bg) 75%);
-    border: 1px solid color-mix(in srgb, var(--text) 35%, var(--bg) 65%);
+    background: transparent;
+    border: none;
     border-radius: 999px;
-    padding: 0.2rem 0.4rem;
+    padding: 0;
     min-width: 1.5rem;
     height: 1.5rem;
     display: inline-flex;
@@ -177,32 +177,26 @@
     cursor: pointer;
     font-size: 0.9rem;
     line-height: 1;
-    opacity: 0;
-    transition:
-      opacity 0.2s,
-      background-color 0.2s,
-      border-color 0.2s;
+    opacity: 0.4;
+    transition: opacity 0.2s;
   }
 
   .badge:hover {
     opacity: 1;
-    background: color-mix(in srgb, var(--text) 40%, var(--bg) 60%);
-    border-color: var(--accent);
   }
 
   :global(.note-card:hover) .badge-container .badge,
   :global(.leaf-card:hover) .badge-container .badge {
-    opacity: 0.8;
+    opacity: 0.7;
   }
 
   .badge-container.has-icon .badge {
     opacity: 1;
     background: transparent;
-    border-color: transparent;
+    border: none;
     padding: 0;
-    min-width: auto;
-    height: auto;
-    box-shadow: none;
+    min-width: 1.5rem;
+    height: 1.5rem;
   }
 
   .badge-container.has-icon .badge:hover {
@@ -226,29 +220,33 @@
   .icons {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 0.25rem;
+    gap: 1px;
     margin-bottom: 0.5rem;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
   }
 
   .icons button {
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: none;
     background: var(--surface-1, #fff);
     cursor: pointer;
-    padding: 0.35rem;
+    padding: 0.45rem 0.35rem;
     font-size: 0.95rem;
     line-height: 1;
+    border-radius: 0;
   }
 
   .icons button.active {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent) inset;
+    background: color-mix(in srgb, var(--accent) 15%, var(--surface-1) 85%);
   }
 
   .colors {
     display: flex;
     gap: 0.4rem;
-    justify-content: center;
+    justify-content: space-between;
+    padding: 0 0.2rem;
   }
 
   .color {
