@@ -681,36 +681,53 @@
     const hasSubNotes = allNotes.some((f) => f.parentId === targetNote.id)
     const hasLeaves = allLeaves.some((n) => n.noteId === targetNote.id)
 
+    const deleteNoteAndDescendants = () => {
+      const targetId = targetNote.id
+
+      const descendantIds = new Set<string>()
+      const collectDescendants = (id: string) => {
+        descendantIds.add(id)
+        allNotes.filter((n) => n.parentId === id).forEach((n) => collectDescendants(n.id))
+      }
+      collectDescendants(targetId)
+
+      const remainingNotes = allNotes.filter((n) => !descendantIds.has(n.id))
+      const remainingLeaves = allLeaves.filter((l) => !descendantIds.has(l.noteId))
+
+      updateNotes(remainingNotes)
+      updateLeaves(remainingLeaves)
+      rebuildLeafStats(remainingLeaves)
+
+      const parentId = targetNote.parentId
+      const parentNote = parentId ? remainingNotes.find((f) => f.id === parentId) : null
+
+      const navigateAfterDelete = (paneToCheck: Pane) => {
+        const currentNote = paneToCheck === 'left' ? leftNote : rightNote
+        const currentLeaf = paneToCheck === 'left' ? leftLeaf : rightLeaf
+
+        const isNoteDeleted = currentNote ? descendantIds.has(currentNote.id) : false
+        const isLeafDeleted = currentLeaf ? descendantIds.has(currentLeaf.noteId) : false
+
+        if (isNoteDeleted || isLeafDeleted) {
+          if (parentNote) {
+            selectNote(parentNote, paneToCheck)
+          } else {
+            goHome(paneToCheck)
+          }
+        }
+      }
+
+      navigateAfterDelete(pane)
+      const otherPane = pane === 'left' ? 'right' : 'left'
+      navigateAfterDelete(otherPane)
+    }
+
     if (hasSubNotes || hasLeaves) {
-      showAlert('サブノートやリーフが含まれているため削除できません。')
+      showConfirm($_('modal.deleteNoteWithChildren'), deleteNoteAndDescendants)
       return
     }
 
-    showConfirm('このノートを削除しますか？', () => {
-      const noteId = targetNote.id
-      const parentId = targetNote.parentId
-      updateNotes(allNotes.filter((f) => f.id !== noteId))
-
-      const parentNote = allNotes.find((f) => f.id === parentId)
-
-      // 現在のペインをナビゲート
-      if (parentNote) {
-        selectNote(parentNote, pane)
-      } else {
-        goHome(pane)
-      }
-
-      // 他方のペインも同じノートを表示している場合はナビゲート
-      const otherPane = pane === 'left' ? 'right' : 'left'
-      const otherNote = otherPane === 'left' ? leftNote : rightNote
-      if (otherNote && otherNote.id === noteId) {
-        if (parentNote) {
-          selectNote(parentNote, otherPane)
-        } else {
-          goHome(otherPane)
-        }
-      }
-    })
+    showConfirm($_('modal.deleteNote'), deleteNoteAndDescendants)
   }
 
   function updateNoteName(noteId: string, newName: string) {

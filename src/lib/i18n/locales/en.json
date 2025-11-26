@@ -175,7 +175,8 @@
   "modal": {
     "unsavedChanges": "You have unsaved changes. Pull will overwrite them. Continue?",
     "deleteNote": "Delete this note?",
-    "deleteLeaf": "Delete this leaf?"
+    "deleteLeaf": "Delete this leaf?",
+    "deleteNoteWithChildren": "Delete this note and all sub-notes/leaves?"
   },
   "loading": {
     "pulling": "Pulling...",
