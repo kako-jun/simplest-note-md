@@ -175,11 +175,9 @@
   },
   "modal": {
     "unsavedChanges": "未保存の変更があります。Pullすると上書きされます。続行しますか？",
-    "deleteNote": "このノートを削除しますか？直下のサブノートとリーフもまとめて削除されます。",
     "deleteLeaf": "このリーフを削除しますか？",
-    "deleteNoteWithChildren": "このノートと直下のサブノート・リーフをすべて削除しますか？",
-    "deleteRootNoteWithChildren": "このノートを削除しますか？直下のサブノートとリーフもまとめて削除されます。",
-    "deleteSubNoteWithChildren": "このサブノートを削除しますか？直下のリーフもまとめて削除されます。"
+    "deleteRootNote": "このノートを削除しますか？直下のサブノートとリーフもまとめて削除されます。",
+    "deleteSubNote": "このサブノートを削除しますか？直下のリーフもまとめて削除されます。"
   },
   "loading": {
     "pulling": "Pull中...",

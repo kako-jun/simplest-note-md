@@ -174,10 +174,9 @@
   },
   "modal": {
     "unsavedChanges": "You have unsaved changes. Pull will overwrite them. Continue?",
-    "deleteNote": "Delete this note? Its direct sub-notes and leaves will also be deleted.",
-    "deleteLeaf": "Delete this leaf?",
-    "deleteRootNoteWithChildren": "Delete this note? Its direct sub-notes and leaves will also be deleted.",
-    "deleteSubNoteWithChildren": "Delete this sub-note? Its leaves will also be deleted."
+    "deleteRootNote": "Delete this note? Its direct sub-notes and leaves will also be deleted.",
+    "deleteSubNote": "Delete this sub-note? Its leaves will also be deleted.",
+    "deleteLeaf": "Delete this leaf?"
   },
   "loading": {
     "pulling": "Pulling...",

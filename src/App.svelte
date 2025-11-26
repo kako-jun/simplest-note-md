@@ -723,8 +723,8 @@
     }
 
     const confirmMessage = targetNote.parentId
-      ? $_('modal.deleteSubNoteWithChildren')
-      : $_('modal.deleteRootNoteWithChildren')
+      ? $_('modal.deleteSubNote')
+      : $_('modal.deleteRootNote')
 
     showConfirm(confirmMessage, deleteNoteAndDescendants)
   }
