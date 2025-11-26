@@ -11,6 +11,8 @@
   import BackgroundCustomizer from '../settings/BackgroundCustomizer.svelte'
   import LinedModeToggle from '../settings/LinedModeToggle.svelte'
   import VimModeToggle from '../settings/VimModeToggle.svelte'
+  import ExportSection from '../settings/ExportSection.svelte'
+  import ImportSection from '../settings/ImportSection.svelte'
   import AboutSection from '../settings/AboutSection.svelte'
   import VersionDisplay from '../settings/VersionDisplay.svelte'
 
@@ -19,6 +21,10 @@
   export let onThemeChange: (theme: ThemeType) => void
   export let pullRunning: boolean = false
   export let onPull: (isInitial?: boolean) => void
+  export let onExportZip: () => void
+  export let onImport: () => void
+  export let exporting: boolean = false
+  export let importing: boolean = false
 </script>
 
 <section class="settings-container">
@@ -43,6 +49,12 @@
           <BackgroundCustomizer {settings} {onSettingsChange} />
           <LinedModeToggle {settings} {onSettingsChange} />
           <VimModeToggle {settings} {onSettingsChange} />
+          <ExportSection {onExportZip} {exporting} />
+          <ImportSection
+            {onImport}
+            {importing}
+            supportedLabel={$_('settings.importExport.supported')}
+          />
         </div>
       </div>
     </div>

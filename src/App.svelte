@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { get } from 'svelte/store'
-  import type { Note, Leaf, Breadcrumb, View } from './lib/types'
+  import type { Note, Leaf, Breadcrumb, View, Metadata } from './lib/types'
   import * as nav from './lib/navigation'
   import type { Pane } from './lib/navigation'
 
@@ -23,6 +23,7 @@
   import { loadAndApplyCustomBackgrounds } from './lib/background'
   import { executePush, executePull } from './lib/sync'
   import { initI18n, _ } from './lib/i18n'
+  import { parseSimpleNoteFile } from './lib/importers'
   import {
     pushToastState,
     pullToastState,
@@ -34,6 +35,7 @@
     closeModal,
   } from './lib/ui'
   import { resolvePath, buildPath } from './lib/routing'
+  import { buildNotesZip } from './lib/export'
   import {
     getBreadcrumbs as buildBreadcrumbs,
     extractH1Title,
@@ -76,6 +78,8 @@
   let isPulling = false // Pull処理中はURL更新をスキップ
   let i18nReady = false // i18n初期化完了フラグ
   let showWelcome = false // ウェルカムモーダル表示フラグ
+  let isExportingZip = false
+  let isImporting = false
   let totalLeafCount = 0 // ホーム統計用: リーフ総数
   let totalLeafChars = 0 // ホーム統計用: リーフ総文字数（空白除く）
   const leafCharCounts = new Map<string, number>() // リーフごとの文字数キャッシュ
@@ -1046,6 +1050,176 @@
     }
   }
 
+  // Git clone相当のZIPエクスポート
+  async function exportNotesAsZip() {
+    if (isOperationsLocked) {
+      showPushToast($_('settings.importExport.needInitialPull'), 'error')
+      return
+    }
+    if (isExportingZip) return
+
+    isExportingZip = true
+    try {
+      const allNotes = get(notes)
+      const allLeaves = get(leaves)
+      const currentMetadata = get(metadata) as Metadata
+
+      const result = await buildNotesZip(allNotes, allLeaves, currentMetadata, {
+        gitPolicyLine: $_('settings.importExport.gitPolicy'),
+        infoFooterLine: $_('settings.importExport.infoFileFooter'),
+      })
+
+      if (!result.success || !result.blob) {
+        if (result.reason === 'empty') {
+          showPushToast($_('settings.importExport.nothingToExport'), 'error')
+        } else {
+          console.error('ZIP export failed:', result.error)
+          showPushToast($_('settings.importExport.exportFailed'), 'error')
+        }
+        return
+      }
+
+      const url = URL.createObjectURL(result.blob)
+      const safeName =
+        ($settings.toolName || 'notes')
+          .replace(/[^a-z0-9_-]/gi, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '')
+          .toLowerCase() || 'notes'
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${safeName}-export.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      showPushToast($_('settings.importExport.exportSuccess'), 'success')
+    } catch (error) {
+      console.error('ZIP export failed:', error)
+      showPushToast($_('settings.importExport.exportFailed'), 'error')
+    } finally {
+      isExportingZip = false
+    }
+  }
+
+  async function handleImportFromOtherApps() {
+    if (isImporting) return
+    if (isOperationsLocked) {
+      showPushToast($_('settings.importExport.needInitialPullImport'), 'error')
+      return
+    }
+
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,.zip,.txt'
+    input.multiple = false
+
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+
+      isImporting = true
+      try {
+        const parsed = await parseSimpleNoteFile(file)
+        if (!parsed || parsed.leaves.length === 0) {
+          showPushToast($_('settings.importExport.unsupportedFile'), 'error')
+          return
+        }
+
+        const allNotes = get(notes)
+        const allLeaves = get(leaves)
+
+        const baseName = 'SimpleNote'
+        const existingNames = new Set(allNotes.map((n) => n.name))
+        let noteName = `${baseName}1`
+        let suffix = 1
+        while (existingNames.has(noteName)) {
+          suffix += 1
+          noteName = `${baseName}${suffix}`
+        }
+
+        const noteId = crypto.randomUUID()
+        const noteOrder = allNotes.length ? Math.max(...allNotes.map((n) => n.order)) + 1 : 0
+
+        const newNote: Note = {
+          id: noteId,
+          name: noteName,
+          order: noteOrder,
+        }
+
+        const baseLeafOrder = allLeaves.length ? Math.max(...allLeaves.map((l) => l.order)) + 1 : 0
+
+        const importedLeaves: Leaf[] = parsed.leaves.map((leaf, idx) => ({
+          id: crypto.randomUUID(),
+          title: leaf.title,
+          noteId,
+          content: leaf.content,
+          updatedAt: leaf.updatedAt ?? Date.now(),
+          order: baseLeafOrder + idx,
+        }))
+
+        const skipped = parsed.skipped || 0
+        const reportTitle = $_('settings.importExport.importReportTitle')
+        const perItemLines = importedLeaves.map((leaf) =>
+          $_('settings.importExport.importReportPerItemLine', { values: { title: leaf.title } })
+        )
+
+        const errorLines =
+          parsed.errors?.length && parsed.errors.length > 0
+            ? [
+                $_('settings.importExport.importReportErrorsHeader'),
+                ...parsed.errors.map((msg) =>
+                  $_('settings.importExport.importReportErrorLine', { values: { message: msg } })
+                ),
+              ]
+            : []
+
+        const reportLines = [
+          $_('settings.importExport.importReportHeader'),
+          $_('settings.importExport.importReportSource'),
+          $_('settings.importExport.importReportCount', {
+            values: { count: importedLeaves.length },
+          }),
+          $_('settings.importExport.importReportSkipped', {
+            values: { skipped },
+          }),
+          $_('settings.importExport.importReportPlacement', {
+            values: { noteName },
+          }),
+          $_('settings.importExport.importReportUnsupported'),
+          $_('settings.importExport.importReportPerItemHeader'),
+          ...perItemLines,
+          parsed.errors?.length ? $_('settings.importExport.importReportHasErrors') : '',
+          $_('settings.importExport.importReportConsole'),
+          ...errorLines,
+        ].filter(Boolean)
+
+        const reportLeaf: Leaf = {
+          id: crypto.randomUUID(),
+          title: reportTitle,
+          noteId,
+          content: reportLines.join('\n'),
+          updatedAt: Date.now(),
+          order: baseLeafOrder + importedLeaves.length,
+        }
+
+        updateNotes([...allNotes, newNote])
+        updateLeaves([...allLeaves, ...importedLeaves, reportLeaf])
+
+        if (parsed.errors?.length) {
+          console.warn('Import skipped items:', parsed.errors)
+        }
+      } catch (error) {
+        console.error('Import failed:', error)
+        showPushToast($_('settings.importExport.importFailed'), 'error')
+      } finally {
+        isImporting = false
+      }
+    }
+
+    input.click()
+  }
+
   // Markdownダウンロード
   function downloadLeafAsMarkdown(leafId: string) {
     if (isOperationsLocked) {
@@ -1611,6 +1785,10 @@
             onSettingsChange={handleSettingsChange}
             {pullRunning}
             onPull={handlePull}
+            onExportZip={exportNotesAsZip}
+            onImport={handleImportFromOtherApps}
+            exporting={isExportingZip}
+            importing={isImporting}
           />
         </div>
       </div>
