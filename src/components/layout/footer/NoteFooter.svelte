@@ -5,8 +5,10 @@
   import DeleteIcon from '../../icons/DeleteIcon.svelte'
   import FolderPlusIcon from '../../icons/FolderPlusIcon.svelte'
   import FilePlusIcon from '../../icons/FilePlusIcon.svelte'
+  import MoveIcon from '../../icons/MoveIcon.svelte'
 
   export let onDeleteNote: () => void
+  export let onMove: () => void
   export let onCreateSubNote: () => void
   export let onCreateLeaf: () => void
   export let onSave: () => void
@@ -19,6 +21,10 @@
   <svelte:fragment slot="left">
     <IconButton onClick={onDeleteNote} title="ノートを削除" ariaLabel="ノートを削除" {disabled}>
       <DeleteIcon />
+    </IconButton>
+
+    <IconButton onClick={onMove} title="移動" ariaLabel="移動" {disabled}>
+      <MoveIcon />
     </IconButton>
 
     {#if canHaveSubNote}

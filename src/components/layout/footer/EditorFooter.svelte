@@ -6,8 +6,10 @@
   import DeleteIcon from '../../icons/DeleteIcon.svelte'
   import DownloadIcon from '../../icons/DownloadIcon.svelte'
   import EyeIcon from '../../icons/EyeIcon.svelte'
+  import MoveIcon from '../../icons/MoveIcon.svelte'
 
   export let onDelete: () => void
+  export let onMove: () => void
   export let onDownload: () => void
   export let onTogglePreview: () => void
   export let onSave: () => void
@@ -24,6 +26,10 @@
       {disabled}
     >
       <DeleteIcon />
+    </IconButton>
+
+    <IconButton onClick={onMove} title="移動" ariaLabel="移動" {disabled}>
+      <MoveIcon />
     </IconButton>
 
     <IconButton

@@ -5,7 +5,9 @@
   import SaveButton from '../../buttons/SaveButton.svelte'
   import DownloadIcon from '../../icons/DownloadIcon.svelte'
   import FileEditIcon from '../../icons/FileEditIcon.svelte'
+  import MoveIcon from '../../icons/MoveIcon.svelte'
 
+  export let onMove: () => void
   export let onDownload: () => void
   export let onToggleEdit: () => void
   export let onSave: () => void
@@ -15,6 +17,10 @@
 
 <Footer>
   <svelte:fragment slot="left">
+    <IconButton onClick={onMove} title="移動" ariaLabel="移動" {disabled}>
+      <MoveIcon />
+    </IconButton>
+
     <IconButton
       onClick={onDownload}
       title={$_('footer.downloadImage')}

@@ -53,6 +53,7 @@
   import Loading from './components/layout/Loading.svelte'
   import Modal from './components/layout/Modal.svelte'
   import Toast from './components/layout/Toast.svelte'
+  import MoveModal from './components/layout/MoveModal.svelte'
   import HomeFooter from './components/layout/footer/HomeFooter.svelte'
   import NoteFooter from './components/layout/footer/NoteFooter.svelte'
   import EditorFooter from './components/layout/footer/EditorFooter.svelte'
@@ -86,6 +87,10 @@
   let totalLeafChars = 0 // ホーム統計用: リーフ総文字数（空白除く）
   const leafCharCounts = new Map<string, number>() // リーフごとの文字数キャッシュ
   let settingsPointerFromContent = false // 設定モーダル内でドラッグ開始したかを判定
+  let moveModalOpen = false
+  let moveTargetLeaf: Leaf | null = null
+  let moveTargetNote: Note | null = null
+  let moveTargetPane: Pane = 'left'
 
   // 左右ペイン用の状態（対等なローカル変数）
   let isDualPane = false // 画面幅で切り替え
@@ -987,6 +992,136 @@
     draggedLeaf = null
   }
 
+  // 移動モーダル
+  function openMoveModalForLeaf(pane: Pane) {
+    if (isOperationsLocked) return
+    const leaf = pane === 'left' ? leftLeaf : rightLeaf
+    if (!leaf) return
+    moveTargetLeaf = leaf
+    moveTargetNote = null
+    moveTargetPane = pane
+    moveModalOpen = true
+  }
+
+  function openMoveModalForNote(pane: Pane) {
+    if (isOperationsLocked) return
+    const note = pane === 'left' ? leftNote : rightNote
+    if (!note) return
+    moveTargetNote = note
+    moveTargetLeaf = null
+    moveTargetPane = pane
+    moveModalOpen = true
+  }
+
+  function closeMoveModal() {
+    moveModalOpen = false
+    moveTargetLeaf = null
+    moveTargetNote = null
+  }
+
+  function normalizeNoteOrders(list: Note[], parentId: string | undefined | null): Note[] {
+    const sorted = list
+      .filter((n) => (n.parentId || null) === (parentId || null))
+      .sort((a, b) => a.order - b.order)
+    return list.map((n) =>
+      (n.parentId || null) === (parentId || null)
+        ? { ...n, order: sorted.findIndex((s) => s.id === n.id) }
+        : n
+    )
+  }
+
+  function normalizeLeafOrders(list: Leaf[], noteId: string): Leaf[] {
+    const sorted = list.filter((l) => l.noteId === noteId).sort((a, b) => a.order - b.order)
+    return list.map((l) =>
+      l.noteId === noteId ? { ...l, order: sorted.findIndex((s) => s.id === l.id) } : l
+    )
+  }
+
+  function handleMoveConfirm(destNoteId: string | null) {
+    if (moveTargetLeaf) {
+      moveLeafTo(destNoteId)
+    } else if (moveTargetNote) {
+      moveNoteTo(destNoteId)
+    }
+  }
+
+  function moveLeafTo(destNoteId: string | null) {
+    const leaf = moveTargetLeaf
+    if (!leaf) return
+    if (!destNoteId) return
+    if (leaf.noteId === destNoteId) {
+      closeMoveModal()
+      return
+    }
+
+    const allLeaves = $leaves
+    const destinationNote = $notes.find((n) => n.id === destNoteId)
+    if (!destinationNote) return
+
+    const remaining = allLeaves.filter((l) => l.id !== leaf.id)
+    let updatedLeaves = normalizeLeafOrders(remaining, leaf.noteId)
+    updatedLeaves = normalizeLeafOrders(updatedLeaves, destNoteId)
+
+    const movedLeaf: Leaf = {
+      ...leaf,
+      noteId: destNoteId,
+      order: updatedLeaves.filter((l) => l.noteId === destNoteId).length,
+      updatedAt: Date.now(),
+    }
+    updatedLeaves = [...updatedLeaves, movedLeaf]
+
+    updateLeaves(updatedLeaves)
+
+    if (leftLeaf?.id === leaf.id) {
+      leftLeaf = movedLeaf
+      leftNote = destinationNote
+    }
+    if (rightLeaf?.id === leaf.id) {
+      rightLeaf = movedLeaf
+      rightNote = destinationNote
+    }
+
+    closeMoveModal()
+    showPushToast('移動しました', 'success')
+  }
+
+  function moveNoteTo(destNoteId: string | null) {
+    const note = moveTargetNote
+    if (!note) return
+    const currentParent = note.parentId || null
+    const nextParent = destNoteId
+    if (currentParent === nextParent) {
+      closeMoveModal()
+      return
+    }
+    if (nextParent) {
+      const dest = $notes.find((n) => n.id === nextParent)
+      if (!dest || dest.parentId) {
+        closeMoveModal()
+        return
+      }
+    }
+
+    let updated = $notes.map((n) =>
+      n.id === note.id ? { ...n, parentId: nextParent || undefined, order: n.order } : n
+    )
+    updated = normalizeNoteOrders(updated, currentParent)
+    updated = normalizeNoteOrders(updated, nextParent)
+
+    updateNotes(updated)
+
+    const updatedNote = updated.find((n) => n.id === note.id) || note
+    if (leftNote?.id === note.id) {
+      leftNote = updatedNote
+    }
+    if (rightNote?.id === note.id) {
+      rightNote = updatedNote
+    }
+
+    closeMoveModal()
+    showPushToast('移動しました', 'success')
+  }
+
   // ヘルパー関数
   function getItemCount(noteId: string): number {
     const allNotes = $notes
@@ -1603,6 +1738,7 @@
         {:else if leftView === 'note' && leftNote}
           <NoteFooter
             onDeleteNote={() => deleteNote('left')}
+            onMove={() => openMoveModalForNote('left')}
             onCreateSubNote={() => createNote(leftNote.id, 'left')}
             onCreateLeaf={() => createLeaf('left')}
             onSave={handleSaveToGitHub}
@@ -1613,6 +1749,7 @@
         {:else if leftView === 'edit' && leftLeaf}
           <EditorFooter
             onDelete={() => deleteLeaf(leftLeaf.id, 'left')}
+            onMove={() => openMoveModalForLeaf('left')}
             onDownload={() => downloadLeafAsMarkdown(leftLeaf.id)}
             onTogglePreview={() => togglePreview('left')}
             onSave={handleSaveToGitHub}
@@ -1621,6 +1758,7 @@
           />
         {:else if leftView === 'preview' && leftLeaf}
           <PreviewFooter
+            onMove={() => openMoveModalForLeaf('left')}
             onDownload={() => downloadLeafAsImage(leftLeaf.id, 'left')}
             onToggleEdit={() => togglePreview('left')}
             onSave={handleSaveToGitHub}
@@ -1741,6 +1879,7 @@
         {:else if rightView === 'note' && rightNote}
           <NoteFooter
             onDeleteNote={() => deleteNote('right')}
+            onMove={() => openMoveModalForNote('right')}
             onCreateSubNote={() => createNote(rightNote.id, 'right')}
             onCreateLeaf={() => createLeaf('right')}
             onSave={handleSaveToGitHub}
@@ -1751,6 +1890,7 @@
         {:else if rightView === 'edit' && rightLeaf}
           <EditorFooter
             onDelete={() => deleteLeaf(rightLeaf.id, 'right')}
+            onMove={() => openMoveModalForLeaf('right')}
             onDownload={() => downloadLeafAsMarkdown(rightLeaf.id)}
             onTogglePreview={() => togglePreview('right')}
             onSave={handleSaveToGitHub}
@@ -1759,6 +1899,7 @@
           />
         {:else if rightView === 'preview' && rightLeaf}
           <PreviewFooter
+            onMove={() => openMoveModalForLeaf('right')}
             onDownload={() => downloadLeafAsImage(rightLeaf.id, 'right')}
             onToggleEdit={() => togglePreview('right')}
             onSave={handleSaveToGitHub}
@@ -1775,6 +1916,15 @@
         {/if}
       </div>
     </div>
+
+    <MoveModal
+      show={moveModalOpen}
+      notes={$notes}
+      targetNote={moveTargetNote}
+      targetLeaf={moveTargetLeaf}
+      onConfirm={handleMoveConfirm}
+      onClose={closeMoveModal}
+    />
 
     <Modal
       show={$modalState.show}
