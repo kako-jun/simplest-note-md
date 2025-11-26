@@ -722,12 +722,9 @@
       navigateAfterDelete(otherPane)
     }
 
-    const confirmMessage =
-      hasSubNotes || hasLeaves
-        ? targetNote.parentId
-          ? $_('modal.deleteSubNoteWithChildren')
-          : $_('modal.deleteRootNoteWithChildren')
-        : $_('modal.deleteNote')
+    const confirmMessage = targetNote.parentId
+      ? $_('modal.deleteSubNoteWithChildren')
+      : $_('modal.deleteRootNoteWithChildren')
 
     showConfirm(confirmMessage, deleteNoteAndDescendants)
   }
