@@ -161,7 +161,9 @@
       "importReportErrorLine": "- {message}",
       "importStarting": "SimpleNote のエクスポートをインポート中...",
       "importDone": "インポート完了。サマリーリーフを追加しました。",
-      "importCloseHint": "インポート直後の場合は、結果を確認するためにPullをキャンセルしてください。"
+      "importCloseHint": "インポート直後の場合は、結果を確認するためにPullをキャンセルしてください。",
+      "importReportSanitizedHeader": "サニタイズしたタイトル（パス風の文字を置換）:",
+      "importReportSanitizedLine": "- {entry}"
     }
   },
   "toast": {

@@ -11,18 +11,29 @@ export interface ImportParseResult {
   leaves: ImportedLeafData[]
   skipped: number
   errors: string[]
+  sanitizedTitles: string[]
 }
 
-function sanitizeTitle(raw: string): string {
+function sanitizeTitle(raw: string, sanitizedList: string[]): string {
   const trimmed = raw.trim()
   if (trimmed.length === 0) return 'Untitled'
-  return trimmed
+  // Replace path separators and problematic chars to avoid unintended folders
+  const cleaned = trimmed.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ')
+  const limited = cleaned.slice(0, 80)
+  if (cleaned !== trimmed) {
+    sanitizedList.push(`${trimmed} -> ${limited || 'Untitled'}`)
+  }
+  return limited.length === 0 ? 'Untitled' : limited
 }
 
-function deriveTitleFromContent(content: string, fallback: string): string {
+function deriveTitleFromContent(
+  content: string,
+  fallback: string,
+  sanitizedList: string[]
+): string {
   const lines = content.split(/\r?\n/).map((l) => l.trim())
   const nonEmpty = lines.find((l) => l.length > 0)
-  const base = sanitizeTitle(nonEmpty || fallback)
+  const base = sanitizeTitle(nonEmpty || fallback, sanitizedList)
   return base.length > 80 ? `${base.slice(0, 80)}…` : base
 }
 
@@ -35,13 +46,14 @@ async function parseSimpleNoteJson(buffer: ArrayBuffer): Promise<ImportParseResu
 
     const leaves: ImportedLeafData[] = []
     const errors: string[] = []
+    const sanitizedTitles: string[] = []
 
     notes.forEach((n: any, idx: number) => {
       if (!n || typeof n.content !== 'string') {
         errors.push(`note_${idx}: missing content`)
         return
       }
-      const title = deriveTitleFromContent(n.content, n.id || `Note ${idx + 1}`)
+      const title = deriveTitleFromContent(n.content, n.id || `Note ${idx + 1}`, sanitizedTitles)
       const updatedAt = n.lastModified ? Date.parse(n.lastModified) : undefined
       leaves.push({
         title,
@@ -50,7 +62,7 @@ async function parseSimpleNoteJson(buffer: ArrayBuffer): Promise<ImportParseResu
       })
     })
 
-    return { source: 'simplenote', leaves, skipped: errors.length, errors }
+    return { source: 'simplenote', leaves, skipped: errors.length, errors, sanitizedTitles }
   } catch (e) {
     return null
   }
@@ -67,6 +79,7 @@ async function parseSimpleNoteZip(buffer: ArrayBuffer): Promise<ImportParseResul
 
   const leaves: ImportedLeafData[] = []
   const errors: string[] = []
+  const sanitizedTitles: string[] = []
 
   for (const file of files) {
     try {
@@ -76,11 +89,12 @@ async function parseSimpleNoteZip(buffer: ArrayBuffer): Promise<ImportParseResul
         if (sub) {
           leaves.push(...sub.leaves)
           errors.push(...sub.errors)
+          sanitizedTitles.push(...(sub.sanitizedTitles || []))
         }
         continue
       }
       const namePart = file.name.split('/').pop() || 'Untitled'
-      const title = sanitizeTitle(namePart.replace(/\.txt$/i, ''))
+      const title = sanitizeTitle(namePart.replace(/\.txt$/i, ''), sanitizedTitles)
       leaves.push({ title, content })
     } catch (e: any) {
       errors.push(`${file.name}: ${e?.message || 'parse error'}`)
@@ -92,6 +106,7 @@ async function parseSimpleNoteZip(buffer: ArrayBuffer): Promise<ImportParseResul
     leaves,
     skipped: errors.length,
     errors,
+    sanitizedTitles,
   }
 }
 
@@ -101,12 +116,14 @@ async function parseSimpleNoteTxt(
 ): Promise<ImportParseResult> {
   const decoder = new TextDecoder()
   const content = decoder.decode(buffer)
-  const title = sanitizeTitle(fileName.replace(/\.txt$/i, ''))
+  const sanitizedTitles: string[] = []
+  const title = sanitizeTitle(fileName.replace(/\.txt$/i, ''), sanitizedTitles)
   return {
     source: 'simplenote',
     leaves: [{ title, content }],
     skipped: 0,
     errors: [],
+    sanitizedTitles,
   }
 }
 

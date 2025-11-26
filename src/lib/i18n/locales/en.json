@@ -155,6 +155,8 @@
       "importReportPerItemLine": "- {title}: imported as plain text; skipped metadata: pinned, tags, creation time, attachments/media, rich formatting.",
       "importReportHasErrors": "Some entries were skipped.",
       "importReportConsole": "Details (if any) are logged to the console.",
+      "importReportSanitizedHeader": "Sanitized titles (path-like chars replaced):",
+      "importReportSanitizedLine": "- {entry}",
       "importReportErrorsHeader": "Errors/Skipped:",
       "importReportErrorLine": "- {message}"
     },

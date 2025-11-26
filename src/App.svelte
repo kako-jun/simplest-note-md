@@ -1183,6 +1183,16 @@
           $_('settings.importExport.importReportPerItemLine', { values: { title: leaf.title } })
         )
 
+        const sanitizedLines =
+          parsed.sanitizedTitles && parsed.sanitizedTitles.length > 0
+            ? [
+                $_('settings.importExport.importReportSanitizedHeader'),
+                ...parsed.sanitizedTitles.map((entry) =>
+                  $_('settings.importExport.importReportSanitizedLine', { values: { entry } })
+                ),
+              ]
+            : []
+
         const errorLines =
           parsed.errors?.length && parsed.errors.length > 0
             ? [
@@ -1206,6 +1216,7 @@
             values: { noteName },
           }),
           $_('settings.importExport.importReportUnsupported'),
+          ...sanitizedLines,
           $_('settings.importExport.importReportPerItemHeader'),
           ...perItemLines,
           parsed.errors?.length ? $_('settings.importExport.importReportHasErrors') : '',
