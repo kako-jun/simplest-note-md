@@ -359,6 +359,8 @@ export async function pushAllWithTreeAPI(
       metadata.notes[folderPath] = {
         id: note.id,
         order: note.order,
+        badgeIcon: note.badgeIcon,
+        badgeColor: note.badgeColor,
       }
     }
 
@@ -369,6 +371,8 @@ export async function pushAllWithTreeAPI(
         id: leaf.id,
         updatedAt: leaf.updatedAt,
         order: leaf.order,
+        badgeIcon: leaf.badgeIcon,
+        badgeColor: leaf.badgeColor,
       }
     }
 
@@ -426,13 +430,6 @@ export async function pushAllWithTreeAPI(
       })
     }
 
-    // 変更があるか確認（contentを使っているアイテムがあるか）
-    const hasChanges = treeItems.some((item) => 'content' in item)
-    if (!hasChanges) {
-      // 変更がない場合は何もせずに成功を返す
-      return { success: true, message: '✅ 変更なし（Pushスキップ）' }
-    }
-
     // 変更がある場合のみpushCountをインクリメント
     metadata.pushCount = currentPushCount + 1
     const metadataContent = JSON.stringify(metadata, null, 2)
@@ -444,6 +441,13 @@ export async function pushAllWithTreeAPI(
       type: 'blob',
       content: metadataContent,
     })
+
+    // 変更があるか確認（contentを使っているアイテムがあるか）
+    const hasChanges = treeItems.some((item) => 'content' in item)
+    if (!hasChanges) {
+      // 変更がない場合は何もせずに成功を返す
+      return { success: true, message: '✅ 変更なし（Pushスキップ）' }
+    }
 
     // 6. 新しいTreeを作成（base_treeなし、全ファイルを明示的に指定）
     const newTreeRes = await fetch(`https://api.github.com/repos/${settings.repoName}/git/trees`, {
@@ -632,12 +636,16 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
         const meta = metadata.notes[partial] || {
           id: crypto.randomUUID(),
           order: noteMap.size,
+          badgeIcon: undefined,
+          badgeColor: undefined,
         }
         const note: Note = {
           id: meta.id,
           name: pathParts[i],
           parentId,
           order: meta.order,
+          badgeIcon: meta.badgeIcon,
+          badgeColor: meta.badgeColor,
         }
         noteMap.set(partial, note)
         parentId = note.id
@@ -684,6 +692,8 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
         id: crypto.randomUUID(),
         updatedAt: Date.now(),
         order: idx,
+        badgeIcon: undefined,
+        badgeColor: undefined,
       }
       return { entry, title, noteId, leafMeta }
     })
@@ -708,6 +718,8 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
           content,
           updatedAt: target.leafMeta.updatedAt,
           order: target.leafMeta.order,
+          badgeIcon: target.leafMeta.badgeIcon,
+          badgeColor: target.leafMeta.badgeColor,
         }
       }
     )

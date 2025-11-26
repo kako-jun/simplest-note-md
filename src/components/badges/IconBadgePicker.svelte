@@ -232,8 +232,10 @@
     border: none;
     background: var(--surface-1, #fff);
     cursor: pointer;
-    padding: 0.45rem 0.35rem;
-    font-size: 0.95rem;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    font-size: 1rem;
     line-height: 1;
     border-radius: 0;
   }

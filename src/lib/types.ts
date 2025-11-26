@@ -40,8 +40,11 @@ export interface CustomBackground {
 
 export interface Metadata {
   version: number
-  notes: Record<string, { id: string; order: number }>
-  leaves: Record<string, { id: string; updatedAt: number; order: number }>
+  notes: Record<string, { id: string; order: number; badgeIcon?: string; badgeColor?: string }>
+  leaves: Record<
+    string,
+    { id: string; updatedAt: number; order: number; badgeIcon?: string; badgeColor?: string }
+  >
   pushCount: number
 }
 
