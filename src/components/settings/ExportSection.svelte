@@ -58,13 +58,14 @@
   }
 
   .primary {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
+    background: var(--surface-2);
+    color: var(--text);
+    border-color: var(--border);
   }
 
   .primary:hover:not(:disabled) {
-    filter: brightness(0.95);
+    border-color: var(--accent);
+    color: var(--text);
   }
 
   .note {
