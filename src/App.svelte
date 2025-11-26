@@ -446,6 +446,11 @@
 
   // キーボードナビゲーション
   function handleGlobalKeyDown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault()
+      handleSaveToGitHub()
+      return
+    }
     const state = getNavState()
     nav.handleGlobalKeyDown(state, getNavDeps(), e, {
       onSwitchPane: (pane) => switchPane(pane),
