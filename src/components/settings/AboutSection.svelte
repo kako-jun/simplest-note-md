@@ -164,7 +164,7 @@
     }
     20%,
     40% {
-    transform: scale(1);
+      transform: scale(1);
     }
   }
 
