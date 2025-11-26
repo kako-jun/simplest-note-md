@@ -65,6 +65,19 @@
       wrapper.style.backgroundColor = '#ffffff'
       wrapper.style.display = 'inline-block'
 
+      // 画像化用の固定スタイル（テーマ非依存）: 既存のCSS変数をダークトーンに上書き
+      const exportVars: Record<string, string> = {
+        '--bg': '#ffffff',
+        '--text': '#111111',
+        '--text-muted': '#444444',
+        '--accent': '#111111',
+        '--surface-1': '#f5f5f5',
+        '--border': '#666666',
+      }
+      Object.entries(exportVars).forEach(([key, value]) => {
+        wrapper.style.setProperty(key, value)
+      })
+
       // コンテンツをクローンして追加
       const clonedContent = contentElement.cloneNode(true) as HTMLElement
       wrapper.appendChild(clonedContent)
