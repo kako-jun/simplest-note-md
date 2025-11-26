@@ -7,6 +7,7 @@
   export let content: string
   export let theme: ThemeType
   export let vimMode: boolean = false
+  export let linedMode: boolean = false
   export let pane: Pane
   export let onChange: (newContent: string) => void
   export let onSave: (() => void) | null = null
@@ -31,6 +32,7 @@
   let basicSetup: any
   let vim: any
   let Vim: any
+  let lineNumbers: any
 
   // 外部からスクロール位置を設定する関数
   export function scrollTo(scrollTop: number) {
@@ -60,7 +62,7 @@
   async function loadCodeMirror() {
     const [
       { EditorState: ES },
-      { EditorView: EV, keymap: km },
+      { EditorView: EV, keymap: km, lineNumbers: ln },
       { defaultKeymap: dk, history: h, historyKeymap: hk },
       { markdown: md },
       { basicSetup: bs },
@@ -84,6 +86,7 @@
     basicSetup = bs
     vim = v
     Vim = V
+    lineNumbers = ln
     isLoading = false
   }
 
@@ -111,6 +114,13 @@
         backgroundColor: 'var(--bg-primary)',
         color: 'var(--text-secondary)',
         border: 'none',
+        padding: '0 8px 0 0',
+      },
+      '.cm-gutterElement': {
+        display: 'flex',
+        alignItems: 'center',
+        lineHeight: '1.6',
+        padding: '6px 0',
       },
       '.cm-activeLineGutter': {
         backgroundColor: 'var(--bg-secondary)',
@@ -143,12 +153,36 @@
           backgroundColor: 'var(--bg-primary)',
           color: 'var(--text-secondary)',
           border: 'none',
+          padding: '0 8px 0 0',
+        },
+        '.cm-gutterElement': {
+          display: 'flex',
+          alignItems: 'center',
+          lineHeight: '1.6',
+          padding: '6px 0',
         },
         '.cm-activeLineGutter': {
           backgroundColor: 'var(--bg-secondary)',
         },
       },
       { dark: true }
+    )
+  }
+
+  function createLinedTheme(isDark: boolean) {
+    const borderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'
+    return EditorView.theme(
+      {
+        '.cm-line': {
+          lineHeight: '1.6',
+          padding: '6px 0 6px 0',
+          borderBottom: `1px solid ${borderColor}`,
+        },
+        '.cm-gutters': {
+          borderRight: `1px solid ${borderColor}`,
+        },
+      },
+      isDark ? { dark: true } : {}
     )
   }
 
@@ -259,8 +293,16 @@
     // ダーク系テーマの場合はエディタの配色も揃える
     if (darkThemes.includes(theme)) {
       extensions.push(createEditorDarkTheme())
+      if (linedMode) {
+        if (lineNumbers) extensions.push(lineNumbers())
+        extensions.push(createLinedTheme(true))
+      }
     } else {
       extensions.push(createEditorLightTheme())
+      if (linedMode) {
+        if (lineNumbers) extensions.push(lineNumbers())
+        extensions.push(createLinedTheme(false))
+      }
     }
 
     currentExtensions = extensions
@@ -298,7 +340,7 @@
   }
 
   // テーマまたはVimモード変更時にエディタを再初期化
-  $: if (editorView && (theme || vimMode !== undefined)) {
+  $: if (editorView && (theme || vimMode !== undefined || linedMode !== undefined)) {
     editorView.destroy()
     editorView = null
     initializeEditor()

@@ -9,6 +9,7 @@
   import ToolNameInput from '../settings/ToolNameInput.svelte'
   import FontCustomizer from '../settings/FontCustomizer.svelte'
   import BackgroundCustomizer from '../settings/BackgroundCustomizer.svelte'
+  import LinedModeToggle from '../settings/LinedModeToggle.svelte'
   import VimModeToggle from '../settings/VimModeToggle.svelte'
   import AboutSection from '../settings/AboutSection.svelte'
   import VersionDisplay from '../settings/VersionDisplay.svelte'
@@ -40,6 +41,7 @@
           <ToolNameInput {settings} {onSettingsChange} />
           <FontCustomizer {settings} {onSettingsChange} />
           <BackgroundCustomizer {settings} {onSettingsChange} />
+          <LinedModeToggle {settings} {onSettingsChange} />
           <VimModeToggle {settings} {onSettingsChange} />
         </div>
       </div>
