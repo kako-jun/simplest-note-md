@@ -1224,6 +1224,7 @@
               leaf={leftLeaf}
               theme={$settings.theme}
               vimMode={$settings.vimMode ?? false}
+              linedMode={$settings.linedMode ?? false}
               pane="left"
               disabled={isOperationsLocked || isPushing}
               onContentChange={updateLeafContent}
@@ -1351,6 +1352,7 @@
               leaf={rightLeaf}
               theme={$settings.theme}
               vimMode={$settings.vimMode ?? false}
+              linedMode={$settings.linedMode ?? false}
               pane="right"
               disabled={isOperationsLocked}
               onContentChange={updateLeafContent}

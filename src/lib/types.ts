@@ -18,6 +18,7 @@ export interface Settings {
   toolName: string
   locale: Locale
   vimMode?: boolean
+  linedMode?: boolean
   hasCustomFont?: boolean
   hasCustomBackgroundLeft?: boolean
   hasCustomBackgroundRight?: boolean
