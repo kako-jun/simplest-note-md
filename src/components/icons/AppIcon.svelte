@@ -3,11 +3,14 @@
   export let animate = false
   export let ariaLabel = 'Agasteer'
   export let className = ''
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { class: restClass = '', ...restProps }: any = $$restProps
 </script>
 
 <div
-  class={`app-icon ${className}`}
-  class:animate={animate}
+  {...restProps}
+  class={`app-icon ${restClass} ${className}`.trim()}
+  class:animate
   style={`width:${size}px;height:${size}px`}
   role="img"
   aria-label={ariaLabel}

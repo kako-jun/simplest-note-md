@@ -20,7 +20,7 @@
 <header>
   <div class="title-group" class:no-title={!hasTitle}>
     {#if showAppIcon}
-      <AppIcon className="header-app-icon" size={28} ariaLabel="Agasteer icon" />
+      <AppIcon class="header-app-icon" size={28} ariaLabel="Agasteer icon" />
     {/if}
     <a
       class="title-button"

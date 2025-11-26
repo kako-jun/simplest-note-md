@@ -4,7 +4,7 @@
 </script>
 
 <div class="about-section">
-  <AppIcon className="about-icon" size={100} animate ariaLabel="Agasteer" />
+  <AppIcon class="about-icon" size={100} animate ariaLabel="Agasteer" />
   <p>{$_('settings.about.description')}</p>
   <p class="author">
     {$_('settings.about.author')}: <strong>kako-jun</strong>
