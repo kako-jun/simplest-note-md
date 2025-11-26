@@ -330,6 +330,13 @@
     font-size: 1rem;
     line-height: 1;
     border-radius: 0;
+    display: grid;
+    place-items: center;
+  }
+
+  .icons button :global(svg) {
+    width: 22px;
+    height: 22px;
   }
 
   .icons button.active {

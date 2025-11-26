@@ -4,11 +4,9 @@
 </script>
 
 <BaseIcon {color}>
-  <path
-    d="M12 6c5.5 0 9.5 6 9.5 6s-4 6-9.5 6S2.5 12 2.5 12 6.5 6 12 6Z"
-    fill="none"
-    stroke={color}
-    stroke-width="2"
-  />
-  <path d="M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z" fill={color} />
+  <circle cx="12" cy="6.5" r="3.1" fill={color} />
+  <circle cx="8.7" cy="11" r="3.1" fill={color} />
+  <circle cx="15.3" cy="11" r="3.1" fill={color} />
+  <rect x="11" y="11" width="2" height="7" rx="1" fill={color} />
+  <path d="M9.4 18.5h5.2L12 22Z" fill={color} />
 </BaseIcon>
