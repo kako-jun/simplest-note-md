@@ -4,6 +4,7 @@ export interface ImportedLeafData {
   title: string
   content: string
   updatedAt?: number
+  sanitized?: string
 }
 
 export interface ImportParseResult {
@@ -59,6 +60,10 @@ async function parseSimpleNoteJson(buffer: ArrayBuffer): Promise<ImportParseResu
         title,
         content: n.content,
         updatedAt: Number.isFinite(updatedAt) ? updatedAt : undefined,
+        sanitized:
+          sanitizedTitles.length && sanitizedTitles[sanitizedTitles.length - 1] !== title
+            ? sanitizedTitles[sanitizedTitles.length - 1]
+            : undefined,
       })
     })
 

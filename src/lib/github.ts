@@ -686,10 +686,16 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
 
     const noteMap = new Map<string, Note>()
 
+    const collapseToTwoLevels = (parts: string[]): string[] => {
+      if (parts.length <= 2) return parts.map((p) => sanitizePathPart(p))
+      return [sanitizePathPart(parts[0]), sanitizePathPart(parts.slice(1).join('/'))]
+    }
+
     const ensureNotePath = (pathParts: string[]): string => {
+      const collapsed = collapseToTwoLevels(pathParts)
       let parentId: string | undefined
-      for (let i = 0; i < pathParts.length; i++) {
-        const partial = pathParts.slice(0, i + 1).join('/')
+      for (let i = 0; i < collapsed.length; i++) {
+        const partial = collapsed.slice(0, i + 1).join('/')
         if (noteMap.has(partial)) {
           parentId = noteMap.get(partial)!.id
           continue
@@ -703,7 +709,7 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
         }
         const note: Note = {
           id: meta.id,
-          name: pathParts[i],
+          name: collapsed[i],
           parentId,
           order: meta.order,
           badgeIcon: meta.badgeIcon,
@@ -726,7 +732,7 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
 
     for (const entry of gitkeepPaths) {
       const relativePath = entry.path.replace(/^notes\//, '').replace(/\/\.gitkeep$/, '')
-      const parts = relativePath.split('/').filter(Boolean)
+      const parts = collapseToTwoLevels(relativePath.split('/').filter(Boolean))
       if (parts.length === 0) continue
 
       // .gitkeepがあるディレクトリのノートを復元
@@ -745,18 +751,20 @@ export async function pullFromGitHub(settings: Settings): Promise<PullResult> {
     // コンテンツ取得用のターゲットを事前に作成（メタデータ取得はここで済ませる）
     const leafTargets = notePaths.map((entry, idx) => {
       const relativePath = entry.path.replace(/^notes\//, '')
-      const parts = relativePath.split('/').filter(Boolean)
+      const parts = collapseToTwoLevels(relativePath.split('/').filter(Boolean))
       const fileName = parts.pop() || ''
       const title = fileName.replace(/\.md$/i, '') || 'Untitled'
       const noteId = ensureNotePath(parts)
-      const leafPath = entry.path.replace(/^notes\//, '')
-      const leafMeta = metadata.leaves[leafPath] || {
-        id: crypto.randomUUID(),
-        updatedAt: Date.now(),
-        order: idx,
-        badgeIcon: undefined,
-        badgeColor: undefined,
-      }
+      const leafPathOriginal = entry.path.replace(/^notes\//, '')
+      const leafPathCollapsed = [...parts, fileName].join('/')
+      const leafMeta = metadata.leaves[leafPathCollapsed] ||
+        metadata.leaves[leafPathOriginal] || {
+          id: crypto.randomUUID(),
+          updatedAt: Date.now(),
+          order: idx,
+          badgeIcon: undefined,
+          badgeColor: undefined,
+        }
       return { entry, title, noteId, leafMeta }
     })
 
@@ -849,4 +857,16 @@ export async function testGitHubConnection(settings: Settings): Promise<TestResu
     console.error('GitHub test error:', error)
     return { success: false, message: '❌ ネットワークエラー' }
   }
+}
+const sanitizePathPart = (raw: string): string => {
+  const cleaned = raw.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ')
+  const limited = cleaned.slice(0, 80)
+  return limited.length === 0 ? 'Untitled' : limited
+}
+
+const collapseToTwoLevels = (parts: string[]): string[] => {
+  if (parts.length <= 2) return parts
+  const first = sanitizePathPart(parts[0])
+  const second = sanitizePathPart(parts.slice(1).join('/'))
+  return [first, second]
 }

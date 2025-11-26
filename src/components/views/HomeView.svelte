@@ -22,6 +22,10 @@
   export let leafCharCount: number = 0
   export let pushCount: number = 0
   export let onUpdateNoteBadge: (noteId: string, icon: string, color: string) => void
+
+  // suppress unused export warnings
+  void onCreateNote
+  void onSave
 </script>
 
 <section class="view-container">
