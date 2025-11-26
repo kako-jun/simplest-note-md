@@ -171,6 +171,7 @@
     "pushSuccess": "Pushed successfully",
     "pushFailed": "Cannot save until initial pull completes",
     "noLeaves": "No leaves to save",
+    "needInitialPullDownload": "Cannot download until the initial pull completes",
     "imageDownloaded": "Image downloaded",
     "imageDownloadFailed": "Failed to download image"
   },
@@ -183,7 +184,9 @@
     "duplicateNoteDestination": "A note with the same name already exists in the destination. Rename before moving.",
     "duplicateNoteSameLevel": "A note with the same name exists in this level. Please choose a different name.",
     "duplicateLeafSameNote": "A leaf with the same name exists in this note. Please choose a different name.",
-    "duplicateLeafHeading": "A leaf with the same name exists in this note. Use a different heading."
+    "duplicateLeafHeading": "A leaf with the same name exists in this note. Use a different heading.",
+    "noNestedSubNote": "Cannot create a sub-note under another sub-note.",
+    "needInitialPull": "Operations are locked until the initial Pull completes. Please Pull from settings."
   },
   "loading": {
     "pulling": "Pulling...",

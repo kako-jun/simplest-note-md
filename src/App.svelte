@@ -668,7 +668,7 @@
     if (parentId) {
       const parentNote = allNotes.find((n) => n.id === parentId)
       if (parentNote && parentNote.parentId) {
-        showAlert('サブノートの下にはサブノートを作成できません。')
+        showAlert($_('modal.noNestedSubNote'))
         return
       }
     }
@@ -852,7 +852,7 @@
 
   function deleteLeaf(leafId: string, pane: Pane) {
     if (isOperationsLocked) {
-      showAlert('初回Pullが完了するまで操作できません。設定からPullしてください。')
+      showAlert($_('modal.needInitialPull'))
       return
     }
 
@@ -1442,7 +1442,7 @@
   // Markdownダウンロード
   function downloadLeafAsMarkdown(leafId: string) {
     if (isOperationsLocked) {
-      showPushToast('初回Pullが完了するまでダウンロードできません', 'error')
+      showPushToast($_('toast.needInitialPullDownload'), 'error')
       return
     }
 
