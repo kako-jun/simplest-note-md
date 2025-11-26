@@ -233,6 +233,16 @@ export async function pushAllWithTreeAPI(
   notes: Note[],
   settings: Settings
 ): Promise<SaveResult> {
+  const decodeBase64ToString = (base64: string): string => {
+    const clean = base64.replace(/\n/g, '')
+    const binary = atob(clean)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return new TextDecoder().decode(bytes)
+  }
+
   const stableStringify = (value: any): string => {
     if (value === null || typeof value !== 'object') {
       return JSON.stringify(value)
@@ -244,6 +254,35 @@ export async function pushAllWithTreeAPI(
       .filter((k) => value[k] !== undefined)
       .sort()
     return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`
+  }
+
+  const normalizeMetadata = (meta: Metadata, pushCountOverride?: number): Metadata => {
+    const normalized: Metadata = {
+      version: meta.version ?? 1,
+      pushCount: pushCountOverride ?? meta.pushCount ?? 0,
+      notes: {},
+      leaves: {},
+    }
+
+    const noteKeys = Object.keys(meta.notes || {}).sort()
+    for (const key of noteKeys) {
+      const n = meta.notes[key]
+      const entry: any = { id: n.id, order: n.order }
+      if (n.badgeIcon) entry.badgeIcon = n.badgeIcon
+      if (n.badgeColor) entry.badgeColor = n.badgeColor
+      normalized.notes[key] = entry
+    }
+
+    const leafKeys = Object.keys(meta.leaves || {}).sort()
+    for (const key of leafKeys) {
+      const l = meta.leaves[key]
+      const entry: any = { id: l.id, updatedAt: l.updatedAt, order: l.order }
+      if (l.badgeIcon) entry.badgeIcon = l.badgeIcon
+      if (l.badgeColor) entry.badgeColor = l.badgeColor
+      normalized.leaves[key] = entry
+    }
+
+    return normalized
   }
 
   let hasContentChanges = false
@@ -351,8 +390,7 @@ export async function pushAllWithTreeAPI(
       if (metadataRes.ok) {
         const metadataData = await metadataRes.json()
         if (metadataData.content) {
-          const base64 = metadataData.content.replace(/\n/g, '')
-          const decoded = atob(base64)
+          const decoded = decodeBase64ToString(metadataData.content)
           existingMetadata = JSON.parse(decoded)
           currentPushCount = existingMetadata.pushCount || 0
         }
@@ -419,6 +457,8 @@ export async function pushAllWithTreeAPI(
       })
     }
 
+    const changedContentPaths: string[] = []
+
     // 全リーフをTreeに追加（変化していないファイルは既存SHAを使用）
     for (const leaf of leaves) {
       const path = buildPath(leaf, notes)
@@ -446,29 +486,27 @@ export async function pushAllWithTreeAPI(
         type: 'blob',
         content: leaf.content,
       })
+      changedContentPaths.push(path)
     }
 
     // metadata差分を含めて変更チェック（pushCountのインクリメントは除外）
-    const metadataForCompare: Metadata = { ...metadata, pushCount: currentPushCount }
-    const existingMetadataForCompare: Metadata = {
-      ...existingMetadata,
-      pushCount: currentPushCount,
-      notes: existingMetadata.notes || {},
-      leaves: existingMetadata.leaves || {},
-    }
+    const normalizedExisting = normalizeMetadata(existingMetadata, currentPushCount)
+    const normalizedCurrent = normalizeMetadata(metadata, currentPushCount)
     const metaChanged =
-      stableStringify(metadataForCompare) !== stableStringify(existingMetadataForCompare)
+      stableStringify(normalizedExisting) !== stableStringify(normalizedCurrent)
 
     const hasChanges =
-      treeItems.some((item) => 'content' in item && !item.path.endsWith('.gitkeep')) || metaChanged
+      hasContentChanges ||
+      changedContentPaths.length > 0 ||
+      metaChanged
     if (!hasChanges) {
       // 変更がない場合は何もせずに成功を返す
       return { success: true, message: '✅ 変更なし（Pushスキップ）' }
     }
 
     // 変更がある場合のみpushCountをインクリメントし、metadata.jsonを追加
-    metadata.pushCount = currentPushCount + 1
-    const metadataContent = JSON.stringify(metadata, null, 2)
+    const metadataToWrite = normalizeMetadata(metadata, currentPushCount + 1)
+    const metadataContent = JSON.stringify(metadataToWrite, null, 2)
 
     treeItems.push({
       path: 'notes/metadata.json',
