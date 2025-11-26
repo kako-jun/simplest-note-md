@@ -88,8 +88,8 @@
 
   .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 240px));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 0.75rem;
   }
 
   .empty-state {

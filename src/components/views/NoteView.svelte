@@ -32,7 +32,7 @@
   // リアクティブ宣言: ノートが変わるたびに再計算
   $: canHaveSubNote = !currentNote.parentId
 
-  function formatDateTime(timestamp: number): string {
+  function formatDateTime(timestamp: number, variant: 'short' | 'long' = 'long'): string {
     const date = new Date(timestamp)
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -40,7 +40,28 @@
     const hours = String(date.getHours()).padStart(2, '0')
     const minutes = String(date.getMinutes()).padStart(2, '0')
     const seconds = String(date.getSeconds()).padStart(2, '0')
+
+    if (variant === 'short') {
+      // ISO風にして順序を明確化（国際的に誤読されにくい）
+      return `${year}-${month}-${day} ${hours}:${minutes}`
+    }
+
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  }
+
+  function getLeafStats(content: string): { chars: number; lines: number } {
+    const lines = content.split(/\r?\n/).filter((line) => line.trim().length > 0).length
+    const chars = content.replace(/\s+/g, '').length
+    return { chars, lines }
+  }
+
+  function formatNumber(value: number): string {
+    return new Intl.NumberFormat().format(value)
+  }
+
+  function formatLeafStats(content: string): string {
+    const { chars, lines } = getLeafStats(content)
+    return `${formatNumber(chars)} chars · ${formatNumber(lines)} lines`
   }
 </script>
 
@@ -85,7 +106,18 @@
         >
           <strong class="text-ellipsis">{leaf.title}</strong>
           <div class="card-meta">
-            <small>{$_('note.updated')}: {formatDateTime(leaf.updatedAt)}</small>
+            {#if leaf.content}
+              <small class="note-stats">
+                {formatLeafStats(leaf.content)}
+              </small>
+            {/if}
+            <small
+              class="note-updated"
+              title={`${$_('note.updated')}: ${formatDateTime(leaf.updatedAt, 'long')}`}
+              aria-label={`${$_('note.updated')}: ${formatDateTime(leaf.updatedAt, 'long')}`}
+            >
+              {formatDateTime(leaf.updatedAt, 'short')}
+            </small>
           </div>
         </div>
       {/each}
@@ -103,17 +135,26 @@
 
   .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 240px));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 0.75rem;
   }
 
   .note-card {
+    display: flex;
+    flex-direction: column;
     padding: 1rem;
     border: 1px solid var(--border);
     background: var(--surface-1);
     cursor: pointer;
     transition: all 0.2s;
     overflow: hidden;
+    height: 100%;
+  }
+
+  .note-card strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    max-width: 100%;
   }
 
   /* リーフは角丸を外してノートと区別する */
@@ -133,7 +174,7 @@
   }
 
   .card-meta {
-    margin-top: 0.5rem;
+    margin-top: auto;
     color: var(--text-muted);
     display: flex;
     flex-direction: column;
@@ -142,6 +183,16 @@
     text-align: right;
     max-width: 100%;
     overflow: hidden;
+  }
+
+  .note-updated {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .note-stats {
+    display: inline-block;
+    white-space: nowrap;
   }
 
   .drag-over {

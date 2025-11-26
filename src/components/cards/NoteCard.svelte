@@ -52,6 +52,7 @@
   .note-card strong {
     display: block;
     max-width: 100%;
+    margin-bottom: 0.5rem;
   }
 
   .note-group-card {
