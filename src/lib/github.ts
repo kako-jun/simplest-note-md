@@ -246,6 +246,8 @@ export async function pushAllWithTreeAPI(
     return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`
   }
 
+  let hasContentChanges = false
+
   // 設定の検証
   const validation = validateGitHubSettings(settings)
   if (!validation.valid) {
@@ -457,7 +459,8 @@ export async function pushAllWithTreeAPI(
     const metaChanged =
       stableStringify(metadataForCompare) !== stableStringify(existingMetadataForCompare)
 
-    const hasChanges = treeItems.some((item) => 'content' in item) || metaChanged
+    const hasChanges =
+      treeItems.some((item) => 'content' in item && !item.path.endsWith('.gitkeep')) || metaChanged
     if (!hasChanges) {
       // 変更がない場合は何もせずに成功を返す
       return { success: true, message: '✅ 変更なし（Pushスキップ）' }
