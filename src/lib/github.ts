@@ -177,7 +177,7 @@ export async function saveToGitHub(
   const sha = await fetchCurrentSha(path, settings)
 
   const body: any = {
-    message: 'auto-sync',
+    message: 'Agasteer push',
     content: encodedContent,
     committer: {
       name: 'simplest-note-md',
@@ -492,7 +492,7 @@ export async function pushAllWithTreeAPI(
         method: 'POST',
         headers,
         body: JSON.stringify({
-          message: 'auto-sync',
+          message: 'Agasteer pushed notes',
           tree: newTreeSha,
           parents: [currentCommitSha],
           committer: {
