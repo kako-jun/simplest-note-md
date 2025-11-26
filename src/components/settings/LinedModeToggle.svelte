@@ -5,28 +5,28 @@
   export let settings: Settings
   export let onSettingsChange: (payload: Partial<Settings>) => void
 
-  function handleVimModeChange(event: Event) {
+  function handleLinedModeChange(event: Event) {
     const value = (event.target as HTMLInputElement).checked
-    settings.vimMode = value
-    onSettingsChange({ vimMode: value })
+    settings.linedMode = value
+    onSettingsChange({ linedMode: value })
   }
 </script>
 
-<div class="vim-mode-field">
-  <label for="vim-mode" class="checkbox-label">
+<div class="lined-mode-field">
+  <label for="lined-mode" class="checkbox-label">
     <input
-      id="vim-mode"
+      id="lined-mode"
       type="checkbox"
-      checked={settings.vimMode ?? false}
-      on:change={handleVimModeChange}
+      checked={settings.linedMode ?? false}
+      on:change={handleLinedModeChange}
     />
-    <span>{$_('settings.extras.vimMode')}</span>
+    <span>{$_('settings.extras.linedMode')}</span>
   </label>
 </div>
 
 <style>
-  .vim-mode-field {
-    margin-top: 0.75rem;
+  .lined-mode-field {
+    margin-top: 1.5rem;
   }
 
   .checkbox-label {

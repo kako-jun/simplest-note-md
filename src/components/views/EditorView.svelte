@@ -6,6 +6,7 @@
   export let leaf: Leaf
   export let theme: ThemeType
   export let vimMode: boolean = false
+  export let linedMode: boolean = false
   export let pane: Pane
   export let onContentChange: (content: string, leafId: string) => void
   export let onSave: () => void
@@ -51,6 +52,7 @@
     content={leaf.content}
     {theme}
     {vimMode}
+    {linedMode}
     {pane}
     onChange={handleContentChange}
     {onSave}
