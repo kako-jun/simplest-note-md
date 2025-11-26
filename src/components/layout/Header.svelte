@@ -10,10 +10,12 @@
   export let onSettingsClick: () => void
   export let onPull: () => void
   export let pullDisabled: boolean = false
+
+  $: hasTitle = title.trim().length > 0
 </script>
 
 <header>
-  <div class="title-group">
+  <div class="title-group" class:no-title={!hasTitle}>
     <a
       class="title-button"
       href="/"
@@ -86,6 +88,10 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
+  }
+
+  .title-group.no-title {
+    gap: 0;
   }
 
   .settings-button-wrapper {
