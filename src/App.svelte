@@ -1058,6 +1058,14 @@
     const destinationNote = $notes.find((n) => n.id === destNoteId)
     if (!destinationNote) return
 
+    const hasDuplicate = allLeaves.some(
+      (l) => l.noteId === destNoteId && l.title.trim() === leaf.title.trim()
+    )
+    if (hasDuplicate) {
+      showAlert('移動先に同名のリーフがあります。名前を変更してから移動してください。')
+      return
+    }
+
     const remaining = allLeaves.filter((l) => l.id !== leaf.id)
     let updatedLeaves = normalizeLeafOrders(remaining, leaf.noteId)
     updatedLeaves = normalizeLeafOrders(updatedLeaves, destNoteId)
@@ -1100,6 +1108,17 @@
         closeMoveModal()
         return
       }
+    }
+
+    const hasDuplicate = $notes.some(
+      (n) =>
+        (n.parentId || null) === nextParent &&
+        n.id !== note.id &&
+        n.name.trim() === note.name.trim()
+    )
+    if (hasDuplicate) {
+      showAlert('移動先に同名のノートがあります。名前を変更してから移動してください。')
+      return
     }
 
     let updated = $notes.map((n) =>
