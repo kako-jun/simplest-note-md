@@ -1,5 +1,7 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
+  import AppIcon from '../icons/AppIcon.svelte'
+  import { defaultSettings } from '../../lib/storage'
   import IconButton from '../buttons/IconButton.svelte'
   import DownloadIcon from '../icons/DownloadIcon.svelte'
   import SettingsIcon from '../icons/SettingsIcon.svelte'
@@ -12,10 +14,14 @@
   export let pullDisabled: boolean = false
 
   $: hasTitle = title.trim().length > 0
+  $: showAppIcon = hasTitle && title.trim() === defaultSettings.toolName
 </script>
 
 <header>
   <div class="title-group" class:no-title={!hasTitle}>
+    {#if showAppIcon}
+      <AppIcon className="header-app-icon" size={28} ariaLabel="Agasteer icon" />
+    {/if}
     <a
       class="title-button"
       href="/"
@@ -92,6 +98,10 @@
 
   .title-group.no-title {
     gap: 0;
+  }
+
+  .header-app-icon {
+    flex-shrink: 0;
   }
 
   .settings-button-wrapper {

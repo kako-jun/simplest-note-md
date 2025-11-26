@@ -1,9 +1,10 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
+  import AppIcon from '../icons/AppIcon.svelte'
 </script>
 
 <div class="about-section">
-  <div class="about-icon" role="img" aria-label="Agasteer"></div>
+  <AppIcon className="about-icon" size={100} animate ariaLabel="Agasteer" />
   <p>{$_('settings.about.description')}</p>
   <p class="author">
     {$_('settings.about.author')}: <strong>kako-jun</strong>
@@ -75,28 +76,7 @@
   }
 
   .about-icon {
-    width: 100px;
-    height: 100px;
     margin: 0 auto 1rem;
-    display: block;
-    background-color: var(--accent);
-    mask-image: url('/assets/agasteer-icon.webp');
-    -webkit-mask-image: url('/assets/agasteer-icon.webp');
-    mask-repeat: no-repeat;
-    -webkit-mask-repeat: no-repeat;
-    mask-size: contain;
-    -webkit-mask-size: contain;
-    mask-position: center;
-    -webkit-mask-position: center;
-    animation: leaf-drift 10s ease-in-out infinite;
-    transform-origin: 50% 60%;
-    will-change: transform;
-  }
-
-  @supports not (mask-image: url('')) {
-    .about-icon {
-      background: url('/assets/agasteer-icon.png') center/contain no-repeat;
-    }
   }
 
   .about-section p {
@@ -168,28 +148,7 @@
     }
   }
 
-  @keyframes leaf-drift {
-    0% {
-      transform: translateY(0) rotate(0deg) scale(1, 1);
-    }
-    20% {
-      transform: translateY(-4px) rotate(-4deg) scale(0.97, 1.03);
-    }
-    45% {
-      transform: translateY(5px) rotate(6deg) scale(1.03, 0.96);
-    }
-    70% {
-      transform: translateY(-3px) rotate(-3deg) scale(0.98, 1.02);
-    }
-    100% {
-      transform: translateY(0) rotate(0deg) scale(1, 1);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .about-icon {
-      animation: none;
-    }
     .heart-icon {
       animation: none;
     }
