@@ -70,7 +70,7 @@
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div
-          class="note-card"
+          class="note-card leaf-card"
           class:drag-over={dragOverLeafId === leaf.id}
           class:selected={vimMode && isActive && subNotes.length + leafIndex === selectedIndex}
           draggable="true"
@@ -110,10 +110,14 @@
   .note-card {
     padding: 1rem;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
     background: var(--bg-secondary);
     cursor: pointer;
     transition: all 0.2s;
+  }
+
+  /* リーフは角丸を外してノートと区別する */
+  .leaf-card {
+    border-radius: 0;
   }
 
   .note-card:hover {
@@ -133,6 +137,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    align-items: flex-end;
+    text-align: right;
   }
 
   .drag-over {

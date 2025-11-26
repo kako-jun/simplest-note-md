@@ -864,7 +864,7 @@
     const subNotesNames = allNotes
       .filter((f) => f.parentId === noteId)
       .sort((a, b) => a.order - b.order)
-      .map((f) => f.name)
+      .map((f) => `${f.name}/`) // サブノートは末尾にスラッシュで区別
     const leafNames = allLeaves
       .filter((n) => n.noteId === noteId)
       .sort((a, b) => a.order - b.order)

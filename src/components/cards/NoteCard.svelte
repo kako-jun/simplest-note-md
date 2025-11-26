@@ -69,6 +69,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    padding-left: 0.5rem; /* 抜粋は少しインデントして本文と区別 */
   }
 
   .note-item {
