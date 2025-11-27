@@ -16,3 +16,4 @@ export {
   type PullOptions,
 } from './github'
 export * from './sync'
+export * from './sync-handlers'
