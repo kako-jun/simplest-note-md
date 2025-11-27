@@ -1,8 +1,8 @@
 import type { Note, Leaf, Settings, Metadata } from './types'
 import { pushAllWithTreeAPI, pullFromGitHub, fetchRemotePushCount } from './github'
-import type { PullOptions } from './github'
+import type { PullOptions, RateLimitInfo } from './github'
 
-export type { PullOptions, PullPriority, LeafSkeleton } from './github'
+export type { PullOptions, PullPriority, LeafSkeleton, RateLimitInfo } from './github'
 
 /**
  * Push操作の結果
@@ -11,6 +11,7 @@ export interface PushResult {
   success: boolean
   message: string
   variant: 'success' | 'error'
+  rateLimitInfo?: RateLimitInfo
 }
 
 /**
@@ -23,6 +24,7 @@ export interface PullResult {
   notes: Note[]
   leaves: Leaf[]
   metadata: Metadata
+  rateLimitInfo?: RateLimitInfo
 }
 
 /**
@@ -49,7 +51,7 @@ export async function executePush(
   if (isOperationsLocked) {
     return {
       success: false,
-      message: '初回Pullが完了するまで保存できません',
+      message: 'toast.pushFailed',
       variant: 'error',
     }
   }
@@ -58,7 +60,7 @@ export async function executePush(
   if (leaves.length === 0) {
     return {
       success: false,
-      message: '保存するリーフがありません',
+      message: 'toast.noLeaves',
       variant: 'error',
     }
   }
@@ -70,6 +72,7 @@ export async function executePush(
     success: result.success,
     message: result.message,
     variant: result.success ? 'success' : 'error',
+    rateLimitInfo: result.rateLimitInfo,
   }
 }
 
@@ -89,7 +92,7 @@ export async function executePull(settings: Settings, options?: PullOptions): Pr
   if (result.success) {
     return {
       success: true,
-      message: 'Pullしました',
+      message: result.message,
       variant: 'success',
       notes: result.notes,
       leaves: result.leaves,
@@ -98,11 +101,12 @@ export async function executePull(settings: Settings, options?: PullOptions): Pr
   } else {
     return {
       success: false,
-      message: 'Pullに失敗しました',
+      message: result.message,
       variant: 'error',
       notes: [],
       leaves: [],
       metadata: result.metadata,
+      rateLimitInfo: result.rateLimitInfo,
     }
   }
 }

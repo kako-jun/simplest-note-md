@@ -23,7 +23,7 @@
   import { loadAndApplyCustomFont } from './lib/font'
   import { loadAndApplyCustomBackgrounds } from './lib/background'
   import { executePush, executePull, checkIfStaleEdit } from './lib/sync'
-  import type { PullOptions, PullPriority, LeafSkeleton } from './lib/sync'
+  import type { PullOptions, PullPriority, LeafSkeleton, RateLimitInfo } from './lib/sync'
   import { initI18n, _ } from './lib/i18n'
   import { parseSimpleNoteFile } from './lib/importers'
   import {
@@ -1363,6 +1363,29 @@
     return { canPull: true, canPush: true }
   }
 
+  /**
+   * GitHub APIのメッセージキーを翻訳してトースト用テキストに変換
+   * rateLimitInfoがある場合は残り時間を含める
+   */
+  function translateGitHubMessage(messageKey: string, rateLimitInfo?: RateLimitInfo): string {
+    // i18nキーでなければそのまま返す（後方互換性のため）
+    if (!messageKey.startsWith('github.') && !messageKey.startsWith('toast.')) {
+      return messageKey
+    }
+
+    // レート制限メッセージの場合、残り時間を含める
+    if (messageKey === 'github.rateLimited' && rateLimitInfo?.remainingSeconds !== undefined) {
+      const minutes = Math.floor(rateLimitInfo.remainingSeconds / 60)
+      const seconds = rateLimitInfo.remainingSeconds % 60
+      return $_('github.rateLimited', { values: { minutes, seconds } })
+    } else if (messageKey === 'github.rateLimited') {
+      return $_('github.rateLimitedNoTime')
+    }
+
+    // 通常のi18n翻訳
+    return $_(messageKey)
+  }
+
   async function handleSaveToGitHub() {
     // 交通整理: Push不可なら何もしない
     if (!canSync().canPush) return
@@ -1393,15 +1416,16 @@
     isPushing = true
     try {
       // Push開始を通知
-      showPushToast('Pushします')
+      showPushToast($_('loading.pushing'))
 
       // ホーム直下のリーフ・仮想ノートを除外してからPush
       const saveableNotes = $notes.filter((n) => isNoteSaveable(n))
       const saveableLeaves = $leaves.filter((l) => isLeafSaveable(l, saveableNotes))
       const result = await executePush(saveableLeaves, saveableNotes, $settings, isOperationsLocked)
 
-      // 結果を通知
-      showPushToast(result.message, result.variant)
+      // 結果を通知（GitHub APIのメッセージキーを翻訳）
+      const translatedMessage = translateGitHubMessage(result.message, result.rateLimitInfo)
+      showPushToast(translatedMessage, result.variant)
 
       // Push成功時にダーティフラグをクリアし、pushCountを更新
       if (result.variant === 'success') {
@@ -1852,8 +1876,9 @@
       // 2回目以降のPull失敗はトーストで通知される
     }
 
-    // 結果を通知
-    showPullToast(result.message, result.variant)
+    // 結果を通知（GitHub APIのメッセージキーを翻訳）
+    const translatedMessage = translateGitHubMessage(result.message, result.rateLimitInfo)
+    showPullToast(translatedMessage, result.variant)
     isLoadingUI = false
     isPulling = false // Pull処理完了
   }
