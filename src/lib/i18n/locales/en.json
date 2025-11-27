@@ -199,6 +199,26 @@
     "pulling": "Pulling...",
     "pushing": "Pushing..."
   },
+  "github": {
+    "rateLimited": "GitHub API rate limit exceeded. Please retry in {minutes}m {seconds}s.",
+    "rateLimitedNoTime": "GitHub API rate limit exceeded. Please wait and try again later.",
+    "invalidToken": "Invalid token",
+    "userFetchFailed": "Failed to fetch user info",
+    "repoNotFound": "Repository not found",
+    "noPermission": "No permission to access repository",
+    "repoFetchFailed": "Failed to fetch repository",
+    "treeFetchFailed": "Failed to fetch tree",
+    "branchFetchFailed": "Failed to fetch branch",
+    "commitFetchFailed": "Failed to fetch commit",
+    "treeCreateFailed": "Failed to create tree",
+    "commitCreateFailed": "Failed to create commit",
+    "branchUpdateFailed": "Failed to update branch",
+    "networkError": "Network error",
+    "connectionOk": "Connection OK (auth and repo access successful)",
+    "pullOk": "Pull OK",
+    "pushOk": "Push OK",
+    "noChanges": "No changes (Push skipped)"
+  },
   "welcome": {
     "title": "Thank you for your interest in Agasteer!",
     "message1": "To save your notes, GitHub configuration is required.",

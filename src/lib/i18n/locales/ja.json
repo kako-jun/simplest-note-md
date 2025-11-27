@@ -200,6 +200,26 @@
     "pulling": "Pull中...",
     "pushing": "Push中..."
   },
+  "github": {
+    "rateLimited": "GitHubのAPI制限に達しました。{minutes}分{seconds}秒後に再試行してください。",
+    "rateLimitedNoTime": "GitHubのAPI制限に達しました。しばらく待ってから再試行してください。",
+    "invalidToken": "トークンが無効です",
+    "userFetchFailed": "ユーザー情報取得に失敗しました",
+    "repoNotFound": "リポジトリが見つかりません",
+    "noPermission": "リポジトリへの権限がありません",
+    "repoFetchFailed": "リポジトリ確認に失敗しました",
+    "treeFetchFailed": "ツリー取得に失敗しました",
+    "branchFetchFailed": "ブランチ取得に失敗しました",
+    "commitFetchFailed": "コミット取得に失敗しました",
+    "treeCreateFailed": "Tree作成に失敗しました",
+    "commitCreateFailed": "コミット作成に失敗しました",
+    "branchUpdateFailed": "ブランチ更新に失敗しました",
+    "networkError": "ネットワークエラー",
+    "connectionOk": "接続OK（認証・リポジトリ参照に成功）",
+    "pullOk": "Pull OK",
+    "pushOk": "Push OK",
+    "noChanges": "変更なし（Pushスキップ）"
+  },
   "welcome": {
     "title": "Agasteerに\n興味をもってくれてありがとう！",
     "message1": "ノートを保存するために、GitHubの設定が必要です。",

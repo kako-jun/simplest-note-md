@@ -6,6 +6,39 @@
 import type { Leaf, Note, Settings, Metadata } from './types'
 
 /**
+ * レート制限エラー情報
+ */
+export interface RateLimitInfo {
+  isRateLimited: boolean
+  resetTime?: Date
+  remainingSeconds?: number
+}
+
+/**
+ * レスポンスからレート制限情報を抽出
+ */
+export function parseRateLimitResponse(response: Response): RateLimitInfo {
+  if (response.status !== 403) {
+    return { isRateLimited: false }
+  }
+
+  const resetHeader = response.headers.get('X-RateLimit-Reset')
+  if (resetHeader) {
+    const resetTimestamp = parseInt(resetHeader, 10) * 1000 // 秒→ミリ秒
+    const resetTime = new Date(resetTimestamp)
+    const remainingSeconds = Math.max(0, Math.ceil((resetTimestamp - Date.now()) / 1000))
+    return {
+      isRateLimited: true,
+      resetTime,
+      remainingSeconds,
+    }
+  }
+
+  // ヘッダーがない場合でも403はレート制限の可能性あり
+  return { isRateLimited: true }
+}
+
+/**
  * Git blob形式のSHA-1を計算
  * Git仕様: sha1("blob " + UTF-8バイト数 + "\0" + content)
  */
@@ -28,11 +61,13 @@ async function calculateGitBlobSha(content: string): Promise<string> {
 export interface SaveResult {
   success: boolean
   message: string
+  rateLimitInfo?: RateLimitInfo
 }
 
 export interface TestResult {
   success: boolean
   message: string
+  rateLimitInfo?: RateLimitInfo
 }
 
 export interface PullResult {
@@ -41,6 +76,7 @@ export interface PullResult {
   notes: Note[]
   leaves: Leaf[]
   metadata: Metadata
+  rateLimitInfo?: RateLimitInfo
 }
 
 /**
@@ -342,8 +378,13 @@ export async function pushAllWithTreeAPI(
   try {
     // 1. デフォルトブランチを取得
     const repoRes = await fetch(`https://api.github.com/repos/${settings.repoName}`, { headers })
+    // レート制限チェック
+    const repoRateLimit = parseRateLimitResponse(repoRes)
+    if (repoRateLimit.isRateLimited) {
+      return { success: false, message: 'github.rateLimited', rateLimitInfo: repoRateLimit }
+    }
     if (!repoRes.ok) {
-      return { success: false, message: `❌ リポジトリ取得失敗 (${repoRes.status})` }
+      return { success: false, message: 'github.repoFetchFailed' }
     }
     const repoData = await repoRes.json()
     const branch = repoData.default_branch || 'main'
@@ -353,8 +394,13 @@ export async function pushAllWithTreeAPI(
       `https://api.github.com/repos/${settings.repoName}/git/ref/heads/${branch}`,
       { headers }
     )
+    // レート制限チェック
+    const refRateLimit = parseRateLimitResponse(refRes)
+    if (refRateLimit.isRateLimited) {
+      return { success: false, message: 'github.rateLimited', rateLimitInfo: refRateLimit }
+    }
     if (!refRes.ok) {
-      return { success: false, message: `❌ ブランチ取得失敗 (${refRes.status})` }
+      return { success: false, message: 'github.branchFetchFailed' }
     }
     const refData = await refRes.json()
     const currentCommitSha = refData.object.sha
@@ -364,8 +410,13 @@ export async function pushAllWithTreeAPI(
       `https://api.github.com/repos/${settings.repoName}/git/commits/${currentCommitSha}`,
       { headers }
     )
+    // レート制限チェック
+    const commitRateLimit = parseRateLimitResponse(commitRes)
+    if (commitRateLimit.isRateLimited) {
+      return { success: false, message: 'github.rateLimited', rateLimitInfo: commitRateLimit }
+    }
     if (!commitRes.ok) {
-      return { success: false, message: `❌ コミット取得失敗 (${commitRes.status})` }
+      return { success: false, message: 'github.commitFetchFailed' }
     }
     const commitData = await commitRes.json()
     const baseTreeSha = commitData.tree.sha
@@ -375,6 +426,11 @@ export async function pushAllWithTreeAPI(
       `https://api.github.com/repos/${settings.repoName}/git/trees/${baseTreeSha}?recursive=1`,
       { headers }
     )
+    // レート制限チェック
+    const existingTreeRateLimit = parseRateLimitResponse(existingTreeRes)
+    if (existingTreeRateLimit.isRateLimited) {
+      return { success: false, message: 'github.rateLimited', rateLimitInfo: existingTreeRateLimit }
+    }
     const preserveItems: Array<{ path: string; mode: string; type: string; sha: string }> = []
     const existingNotesFiles = new Map<string, string>() // path -> sha
     if (existingTreeRes.ok) {
@@ -535,7 +591,7 @@ export async function pushAllWithTreeAPI(
     const hasChanges = hasContentChanges || changedContentPaths.length > 0 || metaChanged
     if (!hasChanges) {
       // 変更がない場合は何もせずに成功を返す
-      return { success: true, message: '✅ 変更なし（Pushスキップ）' }
+      return { success: true, message: 'github.noChanges' }
     }
 
     // 変更がある場合のみpushCountをインクリメントし、metadata.jsonを追加
@@ -557,9 +613,13 @@ export async function pushAllWithTreeAPI(
         tree: treeItems,
       }),
     })
+    // レート制限チェック
+    const newTreeRateLimit = parseRateLimitResponse(newTreeRes)
+    if (newTreeRateLimit.isRateLimited) {
+      return { success: false, message: 'github.rateLimited', rateLimitInfo: newTreeRateLimit }
+    }
     if (!newTreeRes.ok) {
-      const error = await newTreeRes.json()
-      return { success: false, message: `❌ Tree作成失敗: ${error.message}` }
+      return { success: false, message: 'github.treeCreateFailed' }
     }
     const newTreeData = await newTreeRes.json()
     const newTreeSha = newTreeData.sha
@@ -585,9 +645,13 @@ export async function pushAllWithTreeAPI(
         }),
       }
     )
+    // レート制限チェック
+    const newCommitRateLimit = parseRateLimitResponse(newCommitRes)
+    if (newCommitRateLimit.isRateLimited) {
+      return { success: false, message: 'github.rateLimited', rateLimitInfo: newCommitRateLimit }
+    }
     if (!newCommitRes.ok) {
-      const error = await newCommitRes.json()
-      return { success: false, message: `❌ コミット作成失敗: ${error.message}` }
+      return { success: false, message: 'github.commitCreateFailed' }
     }
     const newCommitData = await newCommitRes.json()
     const newCommitSha = newCommitData.sha
@@ -605,20 +669,24 @@ export async function pushAllWithTreeAPI(
         }),
       }
     )
+    // レート制限チェック
+    const updateRefRateLimit = parseRateLimitResponse(updateRefRes)
+    if (updateRefRateLimit.isRateLimited) {
+      return { success: false, message: 'github.rateLimited', rateLimitInfo: updateRefRateLimit }
+    }
     if (!updateRefRes.ok) {
-      const error = await updateRefRes.json()
-      return { success: false, message: `❌ ブランチ更新失敗: ${JSON.stringify(error)}` }
+      return { success: false, message: 'github.branchUpdateFailed' }
     }
 
     return {
       success: true,
-      message: `✅ ${leaves.length}件のリーフを保存しました`,
+      message: 'github.pushOk',
     }
   } catch (error) {
     console.error('GitHub Tree API error:', error)
     return {
       success: false,
-      message: '❌ ネットワークエラー',
+      message: 'github.networkError',
     }
   }
 }
@@ -657,16 +725,28 @@ export async function pullFromGitHub(
     if (repoRes.status === 404) {
       return {
         success: false,
-        message: '❌ リポジトリが見つかりません',
+        message: 'github.repoNotFound',
         notes: [],
         leaves: [],
         metadata: defaultMetadata,
       }
     }
-    if (repoRes.status === 401 || repoRes.status === 403) {
+    // レート制限チェック
+    const repoRateLimit = parseRateLimitResponse(repoRes)
+    if (repoRateLimit.isRateLimited) {
       return {
         success: false,
-        message: '❌ リポジトリへの権限がありません',
+        message: 'github.rateLimited',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+        rateLimitInfo: repoRateLimit,
+      }
+    }
+    if (repoRes.status === 401) {
+      return {
+        success: false,
+        message: 'github.noPermission',
         notes: [],
         leaves: [],
         metadata: defaultMetadata,
@@ -675,7 +755,7 @@ export async function pullFromGitHub(
     if (!repoRes.ok) {
       return {
         success: false,
-        message: `❌ リポジトリ確認に失敗 (${repoRes.status})`,
+        message: 'github.repoFetchFailed',
         notes: [],
         leaves: [],
         metadata: defaultMetadata,
@@ -694,10 +774,22 @@ export async function pullFromGitHub(
       fetchGitHubContents('notes/metadata.json', settings.repoName, settings.token),
     ])
 
+    // レート制限チェック（tree）
+    const treeRateLimit = parseRateLimitResponse(treeRes)
+    if (treeRateLimit.isRateLimited) {
+      return {
+        success: false,
+        message: 'github.rateLimited',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+        rateLimitInfo: treeRateLimit,
+      }
+    }
     if (!treeRes.ok) {
       return {
         success: false,
-        message: `❌ ツリー取得に失敗 (${treeRes.status})`,
+        message: 'github.treeFetchFailed',
         notes: [],
         leaves: [],
         metadata: defaultMetadata,
@@ -909,7 +1001,7 @@ export async function pullFromGitHub(
 
     return {
       success: true,
-      message: '✅ Pull OK',
+      message: 'github.pullOk',
       notes: sortedNotes,
       leaves: sortedLeaves,
       metadata,
@@ -918,7 +1010,7 @@ export async function pullFromGitHub(
     console.error('GitHub pull error:', error)
     return {
       success: false,
-      message: '❌ ネットワークエラー',
+      message: 'github.networkError',
       notes: [],
       leaves: [],
       metadata: defaultMetadata,
@@ -975,28 +1067,38 @@ export async function testGitHubConnection(settings: Settings): Promise<TestResu
     // 認証確認
     const userRes = await fetch('https://api.github.com/user', { headers })
     if (userRes.status === 401) {
-      return { success: false, message: '❌ トークンが無効です' }
+      return { success: false, message: 'github.invalidToken' }
+    }
+    // レート制限チェック
+    const userRateLimit = parseRateLimitResponse(userRes)
+    if (userRateLimit.isRateLimited) {
+      return { success: false, message: 'github.rateLimited', rateLimitInfo: userRateLimit }
     }
     if (!userRes.ok) {
-      return { success: false, message: `❌ ユーザー情報取得に失敗 (${userRes.status})` }
+      return { success: false, message: 'github.userFetchFailed' }
     }
 
     // リポジトリ参照確認
     const repoRes = await fetch(`https://api.github.com/repos/${settings.repoName}`, { headers })
     if (repoRes.status === 404) {
-      return { success: false, message: '❌ リポジトリが見つかりません' }
+      return { success: false, message: 'github.repoNotFound' }
     }
-    if (repoRes.status === 401 || repoRes.status === 403) {
-      return { success: false, message: '❌ リポジトリへの権限がありません' }
+    // レート制限チェック
+    const repoRateLimit = parseRateLimitResponse(repoRes)
+    if (repoRateLimit.isRateLimited) {
+      return { success: false, message: 'github.rateLimited', rateLimitInfo: repoRateLimit }
+    }
+    if (repoRes.status === 401) {
+      return { success: false, message: 'github.noPermission' }
     }
     if (!repoRes.ok) {
-      return { success: false, message: `❌ リポジトリ確認に失敗 (${repoRes.status})` }
+      return { success: false, message: 'github.repoFetchFailed' }
     }
 
-    return { success: true, message: '✅ 接続OK（認証・リポジトリ参照に成功）' }
+    return { success: true, message: 'github.connectionOk' }
   } catch (error) {
     console.error('GitHub test error:', error)
-    return { success: false, message: '❌ ネットワークエラー' }
+    return { success: false, message: 'github.networkError' }
   }
 }
 const sanitizePathPart = (raw: string): string => {
