@@ -38,6 +38,7 @@
   // その他
   import Breadcrumbs from './Breadcrumbs.svelte'
   import Loading from './Loading.svelte'
+  import StatsPanel from './StatsPanel.svelte'
 
   // Props
   export let pane: Pane
@@ -95,9 +96,6 @@
       onDrop={actions.handleDropNote}
       dragOverNoteId={$state.dragOverNoteId}
       getNoteItems={actions.getNoteItems}
-      leafCount={$state.totalLeafCount}
-      leafCharCount={$state.totalLeafChars}
-      pushCount={$metadata.pushCount}
       onUpdateNoteBadge={actions.updateNoteBadge}
       priorityLeaf={$state.currentPriorityLeaf}
       onSelectPriority={() => actions.openPriorityView(pane)}
@@ -149,6 +147,14 @@
     <PreviewView bind:this={previewViewRef} leaf={currentLeaf} onScroll={handleScroll} />
   {/if}
 </main>
+
+{#if currentView === 'home'}
+  <StatsPanel
+    leafCount={$state.totalLeafCount}
+    leafCharCount={$state.totalLeafChars}
+    pushCount={$metadata.pushCount}
+  />
+{/if}
 
 {#if currentView === 'home'}
   <HomeFooter

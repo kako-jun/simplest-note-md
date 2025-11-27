@@ -4,7 +4,6 @@
   import type { Note, Leaf } from '../../lib/types'
   import NoteCard from '../cards/NoteCard.svelte'
   import BadgeButton from '../badges/BadgeButton.svelte'
-  import StatsPanel from '../layout/StatsPanel.svelte'
 
   export let notes: Note[]
   export let onSelectNote: (note: Note) => void
@@ -18,9 +17,6 @@
   export let selectedIndex: number = 0
   export let isActive: boolean = true
   export let vimMode: boolean = false
-  export let leafCount: number = 0
-  export let leafCharCount: number = 0
-  export let pushCount: number = 0
   export let onUpdateNoteBadge: (noteId: string, icon: string, color: string) => void
   export let priorityLeaf: Leaf | null = null
   export let onSelectPriority: () => void
@@ -71,8 +67,6 @@
 </script>
 
 <section class="view-container">
-  <StatsPanel {leafCount} {leafCharCount} {pushCount} />
-
   <div class="card-grid">
     <!-- Priority リーフ: 常に先頭に表示 -->
     {#if priorityLeaf}
