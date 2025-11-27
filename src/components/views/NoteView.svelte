@@ -80,6 +80,13 @@
     const { chars, lines } = getLeafStats(content)
     return `${formatNumber(chars)} chars · ${formatNumber(lines)} lines`
   }
+
+  function handleLeafKeydown(e: KeyboardEvent, leaf: Leaf) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onSelectLeaf(leaf)
+    }
+  }
 </script>
 
 <section class="view-container">
@@ -108,8 +115,8 @@
         />
       {/each}
       {#each displayItems as item, itemIndex (item.type === 'leaf' ? item.leaf.id : item.skeleton.id)}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <!-- tabindexは条件付きrole="button"と連動、スケルトン時は-1 -->
+        <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
         <div
           class="note-card leaf-card"
           class:loading={item.type === 'skeleton'}
@@ -127,6 +134,7 @@
           on:dragover={(e) => item.type === 'leaf' && onDragOverLeaf(e, item.leaf)}
           on:drop|preventDefault={() => item.type === 'leaf' && onDropLeaf(item.leaf)}
           on:click={() => item.type === 'leaf' && onSelectLeaf(item.leaf)}
+          on:keydown={(e) => item.type === 'leaf' && handleLeafKeydown(e, item.leaf)}
           animate:flip={{ duration: 300 }}
         >
           {#if item.type === 'skeleton'}
@@ -203,6 +211,7 @@
   .leaf-card strong {
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;

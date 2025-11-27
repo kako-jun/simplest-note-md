@@ -86,6 +86,19 @@
     selected = destId
   }
 
+  function handleKeydown(e: KeyboardEvent, destId: string | null, selectable: boolean) {
+    if ((e.key === 'Enter' || e.key === ' ') && selectable) {
+      e.preventDefault()
+      handleSelect(destId)
+    }
+  }
+
+  function handleOverlayKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      close()
+    }
+  }
+
   function confirm() {
     if (selected === null && isLeafMode()) return
     onConfirm(selected)
@@ -96,15 +109,31 @@
 </script>
 
 {#if show}
-  <div class="move-overlay" on:click={close} role="presentation">
-    <div class="move-modal" on:click|stopPropagation role="dialog" aria-modal="true">
+  <div
+    class="move-overlay"
+    on:click={close}
+    on:keydown={handleOverlayKeydown}
+    role="button"
+    tabindex="-1"
+    aria-label="モーダルを閉じる"
+  >
+    <!-- イベント伝播停止はオーバーレイクリック時にモーダルが閉じないようにするため -->
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+    <section
+      class="move-modal"
+      on:click|stopPropagation
+      on:keydown|stopPropagation
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="move-modal-title"
+    >
       <header>
         <div class="titles">
-          <h2>移動先を選択</h2>
+          <h2 id="move-modal-title">移動先を選択</h2>
         </div>
       </header>
 
-      <div class="list" tabindex="0">
+      <div class="list" role="listbox" tabindex="-1">
         {#if sortedRoots().length === 0}
           <div class="empty">ノートがありません。先にノートを作成してください。</div>
         {/if}
@@ -112,66 +141,65 @@
         <div class="tree">
           {#if !isLeafMode()}
             {#if canSelect(null).selectable}
-              <div
+              <button
+                type="button"
                 class="row"
-                role="button"
-                tabindex="0"
-                aria-disabled="false"
+                aria-pressed={selected === null}
                 on:click={() => handleSelect(null)}
               >
                 <span class="bullet" class:checked={selected === null}></span>
-                <div class="row-body">
-                  <div class="row-title">ホーム直下</div>
-                </div>
-              </div>
+                <span class="row-body">
+                  <span class="row-title">ホーム直下</span>
+                </span>
+              </button>
             {:else}
-              <div class="row disabled" aria-disabled="true">
+              <button type="button" class="row disabled" disabled aria-disabled="true">
                 <span class="bullet"></span>
-                <div class="row-body">
-                  <div class="row-title muted">ホーム直下</div>
+                <span class="row-body">
+                  <span class="row-title muted">ホーム直下</span>
                   <small>{canSelect(null).reason}</small>
-                </div>
-              </div>
+                </span>
+              </button>
             {/if}
           {/if}
 
           {#each sortedRoots().filter((r) => shouldShow(r)) as root}
-            <div
+            <button
+              type="button"
               class="row"
-              role="button"
-              tabindex="0"
-              aria-disabled={!canSelect(root).selectable}
               class:disabled={!canSelect(root).selectable}
+              disabled={!canSelect(root).selectable}
+              aria-pressed={selected === root.id}
               on:click={() => canSelect(root).selectable && handleSelect(root.id)}
             >
               <span class="bullet" class:checked={selected === root.id}></span>
-              <div class="row-body">
-                <div class="row-title">{root.name}</div>
+              <span class="row-body">
+                <span class="row-title">{root.name}</span>
                 {#if canSelect(root).reason}
                   <small>{canSelect(root).reason}</small>
                 {/if}
-              </div>
-            </div>
+              </span>
+            </button>
 
             {#if getChildren(root.id).filter((c) => shouldShow(c)).length > 0}
               <div class="children">
                 {#each getChildren(root.id).filter((c) => shouldShow(c)) as child}
-                  <div
+                  <button
+                    type="button"
                     class="row"
-                    role="button"
-                    tabindex="0"
-                    aria-disabled={!canSelect(child).selectable}
                     class:disabled={!canSelect(child).selectable}
+                    disabled={!canSelect(child).selectable}
+                    aria-pressed={selected === child.id}
                     on:click={() => canSelect(child).selectable && handleSelect(child.id)}
                   >
                     <span class="bullet" class:checked={selected === child.id}></span>
-                    <div class="row-body">
-                      <div class="row-title">{child.name}</div>
+                    <span class="row-body">
+                      <span class="row-title">{child.name}</span>
                       {#if canSelect(child).reason}
                         <small>{canSelect(child).reason}</small>
                       {/if}
-                    </div>
-                  </div>
+                    </span>
+                  </button>
                 {/each}
               </div>
             {/if}
@@ -186,7 +214,7 @@
           移動
         </button>
       </div>
-    </div>
+    </section>
   </div>
 {/if}
 
@@ -265,6 +293,7 @@
     gap: 0.6rem;
     padding: 0.55rem 0.6rem;
     border-radius: 6px;
+    border: none;
     align-items: center;
     cursor: pointer;
     transition: background 0.12s ease;
@@ -275,15 +304,23 @@
     direction: ltr;
     color: var(--text);
     background: transparent;
+    font-size: inherit;
+    font-family: inherit;
+    font-weight: normal;
   }
 
   .row:hover {
     background: var(--surface-2);
   }
 
-  .row.disabled {
+  .row.disabled,
+  .row:disabled {
     cursor: not-allowed;
     opacity: 0.5;
+    background: transparent;
+  }
+
+  .row:disabled:hover {
     background: transparent;
   }
 
@@ -371,9 +408,5 @@
   .empty {
     padding: 1rem;
     color: var(--text-muted);
-  }
-
-  input[type='radio'] {
-    display: none;
   }
 </style>
