@@ -153,3 +153,143 @@ export async function parseSimpleNoteFile(file: File): Promise<ImportParseResult
 
   return null
 }
+
+export interface ImportResult {
+  newNote: {
+    id: string
+    name: string
+    order: number
+  }
+  reportLeaf: {
+    id: string
+    title: string
+    noteId: string
+    content: string
+    updatedAt: number
+    order: number
+  }
+  importedLeaves: Array<{
+    id: string
+    title: string
+    noteId: string
+    content: string
+    updatedAt: number
+    order: number
+  }>
+  errors?: string[]
+}
+
+export interface ImportOptions {
+  existingNoteNames: string[]
+  existingNotesCount: number
+  existingLeavesMaxOrder: number
+  translate: (key: string, options?: { values?: Record<string, any> }) => string
+}
+
+/**
+ * SimpleNoteファイルをインポートし、Note/Leafデータを生成する
+ */
+export async function processImportFile(
+  file: File,
+  options: ImportOptions
+): Promise<{ success: false; error: string } | { success: true; result: ImportResult }> {
+  const parsed = await parseSimpleNoteFile(file)
+  if (!parsed || parsed.leaves.length === 0) {
+    return { success: false, error: 'unsupportedFile' }
+  }
+
+  const { existingNoteNames, existingNotesCount, existingLeavesMaxOrder, translate } = options
+
+  // ユニークなノート名を生成
+  const baseName = 'SimpleNote'
+  const existingSet = new Set(existingNoteNames)
+  let noteName = `${baseName}1`
+  let suffix = 1
+  while (existingSet.has(noteName)) {
+    suffix += 1
+    noteName = `${baseName}${suffix}`
+  }
+
+  const noteId = crypto.randomUUID()
+  const noteOrder = existingNotesCount
+
+  const newNote = {
+    id: noteId,
+    name: noteName,
+    order: noteOrder,
+  }
+
+  const baseLeafOrder = existingLeavesMaxOrder + 1
+
+  const importedLeaves = parsed.leaves.map((leaf, idx) => ({
+    id: crypto.randomUUID(),
+    title: leaf.title,
+    noteId,
+    content: leaf.content,
+    updatedAt: leaf.updatedAt ?? Date.now(),
+    order: baseLeafOrder + 1 + idx,
+  }))
+
+  // レポート生成
+  const skipped = parsed.skipped || 0
+  const reportTitle = translate('settings.importExport.importReportTitle')
+  const perItemLines = importedLeaves.map((leaf) =>
+    translate('settings.importExport.importReportPerItemLine', { values: { title: leaf.title } })
+  )
+
+  const sanitizedLines =
+    parsed.sanitizedTitles && parsed.sanitizedTitles.length > 0
+      ? [
+          translate('settings.importExport.importReportSanitizedHeader'),
+          ...parsed.sanitizedTitles.map((entry) =>
+            translate('settings.importExport.importReportSanitizedLine', { values: { entry } })
+          ),
+        ]
+      : []
+
+  const errorLines =
+    parsed.errors?.length && parsed.errors.length > 0
+      ? [
+          translate('settings.importExport.importReportErrorsHeader'),
+          ...parsed.errors.map((msg) =>
+            translate('settings.importExport.importReportErrorLine', { values: { message: msg } })
+          ),
+        ]
+      : []
+
+  const reportLines = [
+    translate('settings.importExport.importReportHeader'),
+    translate('settings.importExport.importReportSource'),
+    translate('settings.importExport.importReportCount', {
+      values: { count: importedLeaves.length },
+    }),
+    translate('settings.importExport.importReportSkipped', { values: { skipped } }),
+    translate('settings.importExport.importReportPlacement', { values: { noteName } }),
+    translate('settings.importExport.importReportUnsupported'),
+    ...sanitizedLines,
+    translate('settings.importExport.importReportPerItemHeader'),
+    ...perItemLines,
+    parsed.errors?.length ? translate('settings.importExport.importReportHasErrors') : '',
+    translate('settings.importExport.importReportConsole'),
+    ...errorLines,
+  ].filter(Boolean)
+
+  const reportLeaf = {
+    id: crypto.randomUUID(),
+    title: reportTitle,
+    noteId,
+    content: reportLines.join('\n'),
+    updatedAt: Date.now(),
+    order: baseLeafOrder,
+  }
+
+  return {
+    success: true,
+    result: {
+      newNote,
+      reportLeaf,
+      importedLeaves,
+      errors: parsed.errors,
+    },
+  }
+}

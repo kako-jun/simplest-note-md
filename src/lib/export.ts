@@ -1,5 +1,36 @@
 import JSZip from 'jszip'
 import type { Leaf, Note, Metadata } from './types'
+import { get } from 'svelte/store'
+import { leaves } from './stores'
+import { showPushToast } from './ui'
+
+/**
+ * リーフをMarkdownファイルとしてダウンロード
+ */
+export function downloadLeafAsMarkdown(
+  leafId: string,
+  isOperationsLocked: boolean,
+  translate: (key: string) => string
+): void {
+  if (isOperationsLocked) {
+    showPushToast(translate('toast.needInitialPullDownload'), 'error')
+    return
+  }
+
+  const allLeaves = get(leaves)
+  const targetLeaf = allLeaves.find((l) => l.id === leafId)
+  if (!targetLeaf) return
+
+  const blob = new Blob([targetLeaf.content], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${targetLeaf.title}.md`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 
 export interface ExportNotesOptions {
   gitPolicyLine: string

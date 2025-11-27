@@ -1,4 +1,5 @@
 <script lang="ts">
+  import './App.css'
   import { onMount, tick } from 'svelte'
   import { get } from 'svelte/store'
   import type { Note, Leaf, Breadcrumb, View, Metadata } from './lib/types'
@@ -25,7 +26,7 @@
   import { executePush, executePull, checkIfStaleEdit } from './lib/sync'
   import type { PullOptions, PullPriority, LeafSkeleton, RateLimitInfo } from './lib/sync'
   import { initI18n, _ } from './lib/i18n'
-  import { parseSimpleNoteFile } from './lib/importers'
+  import { processImportFile } from './lib/importers'
   import {
     pushToastState,
     pullToastState,
@@ -37,7 +38,7 @@
     closeModal,
   } from './lib/ui'
   import { resolvePath, buildPath } from './lib/routing'
-  import { buildNotesZip } from './lib/export'
+  import { buildNotesZip, downloadLeafAsMarkdown as downloadLeafAsMarkdownLib } from './lib/export'
   import {
     getBreadcrumbs as buildBreadcrumbs,
     extractH1Title,
@@ -49,6 +50,45 @@
     handleDragOver as dragOver,
     reorderItems,
   } from './lib/drag-drop'
+  import {
+    createNote as createNoteLib,
+    deleteNote as deleteNoteLib,
+    updateNoteName as updateNoteNameLib,
+    updateNoteBadge as updateNoteBadgeLib,
+    normalizeNoteOrders,
+    moveNoteTo as moveNoteToLib,
+    getItemCount,
+    getNoteItems,
+  } from './lib/notes'
+  import {
+    createLeaf as createLeafLib,
+    deleteLeaf as deleteLeafLib,
+    updateLeafContent as updateLeafContentLib,
+    updateLeafBadge as updateLeafBadgeLib,
+    normalizeLeafOrders,
+    moveLeafTo as moveLeafToLib,
+    getLeafCount,
+  } from './lib/leaves'
+  import {
+    computeLeafCharCount,
+    rebuildLeafStats as rebuildLeafStatsLib,
+    addLeafToStats,
+    removeLeafFromStats,
+    updateLeafStats as updateLeafStatsLib,
+    type LeafStats,
+  } from './lib/stats'
+  import {
+    handleCopyUrl as handleCopyUrlLib,
+    handleCopyMarkdown as handleCopyMarkdownLib,
+    handleShareImage as handleShareImageLib,
+    handleCopyImageToClipboard as handleCopyImageToClipboardLib,
+  } from './lib/share'
+  import {
+    handlePaneScroll as handlePaneScrollLib,
+    type ScrollSyncState,
+    type ScrollSyncViews,
+  } from './lib/scroll-sync'
+  import { generateUniqueName, normalizeBadgeValue } from './lib/utils'
   import Header from './components/layout/Header.svelte'
   import Breadcrumbs from './components/layout/Breadcrumbs.svelte'
   import Footer from './components/layout/Footer.svelte'
@@ -123,28 +163,19 @@
   let rightEditorView: any = null
   let rightPreviewView: any = null
 
-  // スクロール同期関数（統一版）
-  function handlePaneScroll(pane: Pane, scrollTop: number, scrollHeight: number) {
-    // 同じリーフで、edit/previewが逆の場合のみ同期
-    if (!isDualPane || !leftLeaf || !rightLeaf || leftLeaf.id !== rightLeaf.id) return
-
-    const ownView = pane === 'left' ? leftView : rightView
-    const otherView = pane === 'left' ? rightView : leftView
-    const shouldSync =
-      (ownView === 'edit' && otherView === 'preview') ||
-      (ownView === 'preview' && otherView === 'edit')
-
-    if (shouldSync) {
-      const targetEditor = pane === 'left' ? rightEditorView : leftEditorView
-      const targetPreview = pane === 'left' ? rightPreviewView : leftPreviewView
-      const target = otherView === 'edit' ? targetEditor : targetPreview
-      if (target && target.scrollTo) {
-        target.scrollTo(scrollTop)
-      }
-    }
+  // スクロール同期関数（scroll-sync.tsに移行）
+  function getScrollSyncState(): ScrollSyncState {
+    return { isDualPane, leftLeaf, rightLeaf, leftView, rightView }
   }
 
-  // 後方互換性のためのラッパー関数
+  function getScrollSyncViews(): ScrollSyncViews {
+    return { leftEditorView, leftPreviewView, rightEditorView, rightPreviewView }
+  }
+
+  function handlePaneScroll(pane: Pane, scrollTop: number, scrollHeight: number) {
+    handlePaneScrollLib(pane, scrollTop, scrollHeight, getScrollSyncState(), getScrollSyncViews())
+  }
+
   function handleLeftScroll(scrollTop: number, scrollHeight: number) {
     handlePaneScroll('left', scrollTop, scrollHeight)
   }
@@ -708,7 +739,7 @@
         editingBreadcrumb = null
         return
       }
-      updateNoteName(actualId, trimmed)
+      updateNoteNameLib(actualId, trimmed)
       const updatedNote = $notes.find((f) => f.id === actualId)
       if (updatedNote) {
         if (leftNote?.id === actualId) {
@@ -786,138 +817,45 @@
     editingBreadcrumb = null
   }
 
-  // 名前重複チェック用ヘルパー
-  function generateUniqueName(baseName: string, existingNames: string[]): string {
-    let counter = 1
-    let name = `${baseName}${counter}`
-    while (existingNames.includes(name)) {
-      counter++
-      name = `${baseName}${counter}`
-    }
-    return name
-  }
-
-  // ノート管理（束）
+  // ノート管理（notes.tsに委譲）
   function createNote(parentId: string | undefined, pane: Pane) {
-    if (isOperationsLocked) return
-    const allNotes = $notes
-
-    // 階層制限チェック: サブノートの下にはサブノートを作成できない
-    if (parentId) {
-      const parentNote = allNotes.find((n) => n.id === parentId)
-      if (parentNote && parentNote.parentId) {
-        showAlert($_('modal.noNestedSubNote'))
-        return
-      }
-    }
-
-    const targetNotes = parentId
-      ? allNotes.filter((f) => f.parentId === parentId)
-      : allNotes.filter((f) => !f.parentId)
-
-    const existingNames = targetNotes.map((n) => n.name)
-    const uniqueName = generateUniqueName('ノート', existingNames)
-
-    const newNote: Note = {
-      id: crypto.randomUUID(),
-      name: uniqueName,
-      parentId: parentId || undefined,
-      order: targetNotes.length,
-    }
-
-    updateNotes([...allNotes, newNote])
+    createNoteLib({ parentId, pane, isOperationsLocked, translate: $_ })
   }
 
   function deleteNote(pane: Pane) {
-    if (isOperationsLocked) {
-      showAlert('初回Pullが完了するまで操作できません。設定からPullしてください。')
-      return
-    }
     const targetNote = pane === 'left' ? leftNote : rightNote
     if (!targetNote) return
 
-    const allNotes = $notes
-    const allLeaves = $leaves
-    const hasSubNotes = allNotes.some((f) => f.parentId === targetNote.id)
-    const hasLeaves = allLeaves.some((n) => n.noteId === targetNote.id)
-
-    const deleteNoteAndDescendants = () => {
-      const targetId = targetNote.id
-
-      const descendantIds = new Set<string>()
-      const collectDescendants = (id: string) => {
-        descendantIds.add(id)
-        allNotes.filter((n) => n.parentId === id).forEach((n) => collectDescendants(n.id))
-      }
-      collectDescendants(targetId)
-
-      const remainingNotes = allNotes.filter((n) => !descendantIds.has(n.id))
-      const remainingLeaves = allLeaves.filter((l) => !descendantIds.has(l.noteId))
-
-      updateNotes(remainingNotes)
-      updateLeaves(remainingLeaves)
-      rebuildLeafStats(remainingLeaves, remainingNotes)
-
-      const parentId = targetNote.parentId
-      const parentNote = parentId ? remainingNotes.find((f) => f.id === parentId) : null
-
-      const navigateAfterDelete = (paneToCheck: Pane) => {
-        const currentNote = paneToCheck === 'left' ? leftNote : rightNote
-        const currentLeaf = paneToCheck === 'left' ? leftLeaf : rightLeaf
-
-        const isNoteDeleted = currentNote ? descendantIds.has(currentNote.id) : false
-        const isLeafDeleted = currentLeaf ? descendantIds.has(currentLeaf.noteId) : false
-
-        if (isNoteDeleted || isLeafDeleted) {
-          if (parentNote) {
-            selectNote(parentNote, paneToCheck)
-          } else {
-            goHome(paneToCheck)
+    deleteNoteLib({
+      targetNote,
+      pane,
+      isOperationsLocked,
+      translate: $_,
+      onNavigate: (p, parentNote) => {
+        // 両ペインのナビゲーション処理
+        const checkPane = (paneToCheck: Pane) => {
+          const currentNote = paneToCheck === 'left' ? leftNote : rightNote
+          const currentLeaf = paneToCheck === 'left' ? leftLeaf : rightLeaf
+          if (
+            currentNote?.id === targetNote.id ||
+            (currentLeaf && currentLeaf.noteId === targetNote.id)
+          ) {
+            if (parentNote) {
+              selectNote(parentNote, paneToCheck)
+            } else {
+              goHome(paneToCheck)
+            }
           }
         }
-      }
-
-      navigateAfterDelete(pane)
-      const otherPane = pane === 'left' ? 'right' : 'left'
-      navigateAfterDelete(otherPane)
-    }
-
-    const confirmMessage = targetNote.parentId
-      ? $_('modal.deleteSubNote')
-      : $_('modal.deleteRootNote')
-
-    showConfirm(confirmMessage, deleteNoteAndDescendants)
+        checkPane('left')
+        checkPane('right')
+      },
+      rebuildLeafStats,
+    })
   }
 
-  function updateNoteName(noteId: string, newName: string) {
-    const allNotes = $notes
-    const updatedNotes = allNotes.map((f) => (f.id === noteId ? { ...f, name: newName } : f))
-    updateNotes(updatedNotes)
-  }
-
-  function normalizeBadgeValue(value: string | undefined | null): string {
-    return value || ''
-  }
-
-  function updateNoteBadge(noteId: string, badgeIcon: string, badgeColor: string) {
-    const current = $notes.find((n) => n.id === noteId)
-    if (!current) return
-    const nextIcon = normalizeBadgeValue(badgeIcon)
-    const nextColor = normalizeBadgeValue(badgeColor)
-    if (
-      normalizeBadgeValue(current.badgeIcon) === nextIcon &&
-      normalizeBadgeValue(current.badgeColor) === nextColor
-    ) {
-      return
-    }
-
-    const updated = $notes.map((n) =>
-      n.id === noteId ? { ...n, badgeIcon: nextIcon, badgeColor: nextColor } : n
-    )
-    updateNotes(updated)
-  }
-
-  // ドラッグ&ドロップ（汎用ヘルパー関数）- drag-drop.tsに移動
+  // ノートバッジ更新（notes.tsに委譲）
+  const updateNoteBadge = updateNoteBadgeLib
 
   // ドラッグ&ドロップ（ノート）
   function handleDragStartNote(note: Note) {
@@ -958,161 +896,66 @@
     draggedNote = null
   }
 
-  // リーフ管理
+  // リーフ管理（leaves.tsに委譲）
   function createLeaf(pane: Pane) {
-    if (isOperationsLocked) return
     const targetNote = pane === 'left' ? leftNote : rightNote
     if (!targetNote) return
-
-    const allLeaves = $leaves
-    const noteLeaves = allLeaves.filter((n) => n.noteId === targetNote.id)
-
-    const existingTitles = noteLeaves.map((l) => l.title)
-    const uniqueTitle = generateUniqueName('リーフ', existingTitles)
-
-    const newLeaf: Leaf = {
-      id: crypto.randomUUID(),
-      title: uniqueTitle,
-      noteId: targetNote.id,
-      content: `# ${uniqueTitle}\n\n`,
-      updatedAt: Date.now(),
-      order: noteLeaves.length,
+    const newLeaf = createLeafLib({ targetNote, pane, isOperationsLocked })
+    if (newLeaf) {
+      const chars = computeLeafCharCount(newLeaf.content)
+      leafCharCounts.set(newLeaf.id, chars)
+      totalLeafCount += 1
+      totalLeafChars += chars
+      selectLeaf(newLeaf, pane)
     }
-
-    const newLeafChars = computeLeafCharCount(newLeaf.content)
-    leafCharCounts.set(newLeaf.id, newLeafChars)
-    totalLeafCount += 1
-    totalLeafChars += newLeafChars
-
-    updateLeaves([...allLeaves, newLeaf])
-    selectLeaf(newLeaf, pane)
   }
 
   function deleteLeaf(leafId: string, pane: Pane) {
-    if (isOperationsLocked) {
-      showAlert($_('modal.needInitialPull'))
-      return
-    }
-
-    const allLeaves = $leaves
-    const targetLeaf = allLeaves.find((l) => l.id === leafId)
-    if (!targetLeaf) return
-
-    const prevChars = leafCharCounts.get(leafId) ?? computeLeafCharCount(targetLeaf.content)
-
-    showConfirm('このリーフを削除しますか？', () => {
-      updateLeaves(allLeaves.filter((n) => n.id !== leafId))
-
-      leafCharCounts.delete(leafId)
-      totalLeafCount = Math.max(0, totalLeafCount - 1)
-      totalLeafChars = Math.max(0, totalLeafChars - prevChars)
-
-      const note = $notes.find((f) => f.id === targetLeaf.noteId)
-
-      // 現在のペインをナビゲート
-      if (note) {
-        selectNote(note, pane)
-      } else {
-        goHome(pane)
-      }
-
-      // 他方のペインも同じリーフを表示している場合はナビゲート
-      const otherPane = pane === 'left' ? 'right' : 'left'
-      const otherLeaf = otherPane === 'left' ? leftLeaf : rightLeaf
-      if (otherLeaf && otherLeaf.id === leafId) {
-        if (note) {
-          selectNote(note, otherPane)
-        } else {
-          goHome(otherPane)
-        }
-      }
+    const otherLeaf = pane === 'left' ? rightLeaf : leftLeaf
+    deleteLeafLib({
+      leafId,
+      pane,
+      isOperationsLocked,
+      translate: $_,
+      onNavigate: (p, note) => {
+        if (note) selectNote(note, p)
+        else goHome(p)
+      },
+      otherPaneLeafId: otherLeaf?.id,
+      onUpdateStats: (id, content) => {
+        const chars = leafCharCounts.get(id) ?? computeLeafCharCount(content)
+        leafCharCounts.delete(id)
+        totalLeafCount = Math.max(0, totalLeafCount - 1)
+        totalLeafChars = Math.max(0, totalLeafChars - chars)
+      },
     })
   }
 
-  // リーフコンテンツから # 見出しを抽出 - breadcrumbs.tsに移動
-  // リーフコンテンツの1行目の # 見出しを更新 - breadcrumbs.tsに移動
-
   function updateLeafContent(content: string, leafId: string) {
-    if (isOperationsLocked) return
-
-    const allLeaves = $leaves
-    const targetLeaf = allLeaves.find((l) => l.id === leafId)
-    if (!targetLeaf) return
-
-    const previousChars = leafCharCounts.get(leafId) ?? computeLeafCharCount(targetLeaf.content)
-    const nextChars = computeLeafCharCount(content)
-
-    // コンテンツの1行目が # 見出しの場合、リーフのタイトルも自動更新
-    const h1Title = extractH1Title(content)
-    let newTitle = h1Title || targetLeaf.title
-
-    if (h1Title && targetLeaf) {
-      const trimmed = h1Title.trim()
-      const hasDuplicate = allLeaves.some(
-        (l) => l.id !== leafId && l.noteId === targetLeaf.noteId && l.title.trim() === trimmed
-      )
-      if (hasDuplicate) {
-        showAlert($_('modal.duplicateLeafHeading'))
-        newTitle = targetLeaf.title
-      }
-    }
-
-    // グローバルストアを更新（左右ペイン両方に反映される）
-    const updatedLeaves = allLeaves.map((n) =>
-      n.id === leafId ? { ...n, content, title: newTitle, updatedAt: Date.now() } : n
-    )
-    updateLeaves(updatedLeaves)
-
-    leafCharCounts.set(leafId, nextChars)
-    totalLeafChars += nextChars - previousChars
-
-    // 左ペインのリーフを編集している場合は leftLeaf も更新
-    if (leftLeaf?.id === leafId) {
-      leftLeaf = { ...leftLeaf, content, title: newTitle, updatedAt: Date.now() }
-    }
-
-    // 右ペインのリーフを編集している場合は rightLeaf も更新
-    if (rightLeaf?.id === leafId) {
-      rightLeaf = { ...rightLeaf, content, title: newTitle, updatedAt: Date.now() }
-    }
-
-    // タイトルが変更された場合、パンくずリストも更新
-    if (h1Title) {
-      refreshBreadcrumbs()
+    const result = updateLeafContentLib({
+      content,
+      leafId,
+      isOperationsLocked,
+      translate: $_,
+      onStatsUpdate: (id, prevContent, newContent) => {
+        const prevChars = leafCharCounts.get(id) ?? computeLeafCharCount(prevContent)
+        const nextChars = computeLeafCharCount(newContent)
+        leafCharCounts.set(id, nextChars)
+        totalLeafChars += nextChars - prevChars
+      },
+    })
+    if (result.updatedLeaf) {
+      if (leftLeaf?.id === leafId) leftLeaf = result.updatedLeaf
+      if (rightLeaf?.id === leafId) rightLeaf = result.updatedLeaf
+      if (result.titleChanged) refreshBreadcrumbs()
     }
   }
 
   function updateLeafBadge(leafId: string, badgeIcon: string, badgeColor: string) {
-    const allLeaves = $leaves
-    const current = allLeaves.find((l) => l.id === leafId)
-    if (!current) return
-
-    const nextIcon = normalizeBadgeValue(badgeIcon)
-    const nextColor = normalizeBadgeValue(badgeColor)
-    if (
-      normalizeBadgeValue(current.badgeIcon) === nextIcon &&
-      normalizeBadgeValue(current.badgeColor) === nextColor
-    ) {
-      return
-    }
-
-    const updatedLeaves = allLeaves.map((n) =>
-      n.id === leafId
-        ? { ...n, badgeIcon: nextIcon, badgeColor: nextColor, updatedAt: Date.now() }
-        : n
-    )
-    updateLeaves(updatedLeaves)
-
-    if (leftLeaf?.id === leafId) {
-      leftLeaf = { ...leftLeaf, badgeIcon: nextIcon, badgeColor: nextColor, updatedAt: Date.now() }
-    }
-    if (rightLeaf?.id === leafId) {
-      rightLeaf = {
-        ...rightLeaf,
-        badgeIcon: nextIcon,
-        badgeColor: nextColor,
-        updatedAt: Date.now(),
-      }
+    const updated = updateLeafBadgeLib(leafId, badgeIcon, badgeColor)
+    if (updated) {
+      if (leftLeaf?.id === leafId) leftLeaf = updated
+      if (rightLeaf?.id === leafId) rightLeaf = updated
     }
   }
 
@@ -1185,24 +1028,6 @@
     moveTargetNote = null
   }
 
-  function normalizeNoteOrders(list: Note[], parentId: string | undefined | null): Note[] {
-    const sorted = list
-      .filter((n) => (n.parentId || null) === (parentId || null))
-      .sort((a, b) => a.order - b.order)
-    return list.map((n) =>
-      (n.parentId || null) === (parentId || null)
-        ? { ...n, order: sorted.findIndex((s) => s.id === n.id) }
-        : n
-    )
-  }
-
-  function normalizeLeafOrders(list: Leaf[], noteId: string): Leaf[] {
-    const sorted = list.filter((l) => l.noteId === noteId).sort((a, b) => a.order - b.order)
-    return list.map((l) =>
-      l.noteId === noteId ? { ...l, order: sorted.findIndex((s) => s.id === l.id) } : l
-    )
-  }
-
   function handleMoveConfirm(destNoteId: string | null) {
     if (moveTargetLeaf) {
       moveLeafTo(destNoteId)
@@ -1212,157 +1037,46 @@
   }
 
   function moveLeafTo(destNoteId: string | null) {
-    const leaf = moveTargetLeaf
-    if (!leaf) return
-    if (!destNoteId) return
-    if (leaf.noteId === destNoteId) {
-      closeMoveModal()
-      return
+    if (!moveTargetLeaf) return
+    const result = moveLeafToLib(moveTargetLeaf, destNoteId, $_)
+    if (result.success && result.movedLeaf && result.destNote) {
+      if (leftLeaf?.id === moveTargetLeaf.id) {
+        leftLeaf = result.movedLeaf
+        leftNote = result.destNote
+      }
+      if (rightLeaf?.id === moveTargetLeaf.id) {
+        rightLeaf = result.movedLeaf
+        rightNote = result.destNote
+      }
+      showPushToast('移動しました', 'success')
     }
-
-    const allLeaves = $leaves
-    const destinationNote = $notes.find((n) => n.id === destNoteId)
-    if (!destinationNote) return
-
-    const hasDuplicate = allLeaves.some(
-      (l) => l.noteId === destNoteId && l.title.trim() === leaf.title.trim()
-    )
-    if (hasDuplicate) {
-      showAlert($_('modal.duplicateLeafDestination'))
-      return
-    }
-
-    const remaining = allLeaves.filter((l) => l.id !== leaf.id)
-    let updatedLeaves = normalizeLeafOrders(remaining, leaf.noteId)
-    updatedLeaves = normalizeLeafOrders(updatedLeaves, destNoteId)
-
-    const movedLeaf: Leaf = {
-      ...leaf,
-      noteId: destNoteId,
-      order: updatedLeaves.filter((l) => l.noteId === destNoteId).length,
-      updatedAt: Date.now(),
-    }
-    updatedLeaves = [...updatedLeaves, movedLeaf]
-
-    updateLeaves(updatedLeaves)
-
-    if (leftLeaf?.id === leaf.id) {
-      leftLeaf = movedLeaf
-      leftNote = destinationNote
-    }
-    if (rightLeaf?.id === leaf.id) {
-      rightLeaf = movedLeaf
-      rightNote = destinationNote
-    }
-
     closeMoveModal()
-    showPushToast('移動しました', 'success')
   }
 
   function moveNoteTo(destNoteId: string | null) {
-    const note = moveTargetNote
-    if (!note) return
-    const currentParent = note.parentId || null
-    const nextParent = destNoteId
-    if (currentParent === nextParent) {
-      closeMoveModal()
-      return
+    if (!moveTargetNote) return
+    const result = moveNoteToLib(moveTargetNote, destNoteId, $_)
+    if (result.success && result.updatedNote) {
+      if (leftNote?.id === moveTargetNote.id) leftNote = result.updatedNote
+      if (rightNote?.id === moveTargetNote.id) rightNote = result.updatedNote
+      showPushToast('移動しました', 'success')
     }
-    if (nextParent) {
-      const dest = $notes.find((n) => n.id === nextParent)
-      if (!dest || dest.parentId) {
-        closeMoveModal()
-        return
-      }
-    }
-
-    const hasDuplicate = $notes.some(
-      (n) =>
-        (n.parentId || null) === nextParent &&
-        n.id !== note.id &&
-        n.name.trim() === note.name.trim()
-    )
-    if (hasDuplicate) {
-      showAlert($_('modal.duplicateNoteDestination'))
-      return
-    }
-
-    let updated = $notes.map((n) =>
-      n.id === note.id ? { ...n, parentId: nextParent || undefined, order: n.order } : n
-    )
-    updated = normalizeNoteOrders(updated, currentParent)
-    updated = normalizeNoteOrders(updated, nextParent)
-
-    updateNotes(updated)
-
-    const updatedNote = updated.find((n) => n.id === note.id) || note
-    if (leftNote?.id === note.id) {
-      leftNote = updatedNote
-    }
-    if (rightNote?.id === note.id) {
-      rightNote = updatedNote
-    }
-
     closeMoveModal()
-    showPushToast('移動しました', 'success')
   }
 
-  // ヘルパー関数
-  function getItemCount(noteId: string): number {
-    const allNotes = $notes
-    const allLeaves = $leaves
-    const subNotesCount = allNotes.filter((f) => f.parentId === noteId).length
-    const leavesCount = allLeaves.filter((n) => n.noteId === noteId).length
-    return subNotesCount + leavesCount
-  }
-
-  function getLeafCount(noteId: string): number {
-    return $leaves.filter((n) => n.noteId === noteId).length
-  }
-
+  // ヘルパー関数（notes.ts, leaves.ts, stats.tsからインポート）
   function resetLeafStats() {
     leafCharCounts.clear()
     totalLeafCount = 0
     totalLeafChars = 0
   }
 
-  function computeLeafCharCount(content: string): number {
-    return content.replace(/\s+/g, '').length
-  }
-
   function rebuildLeafStats(allLeaves: Leaf[], allNotes: Note[]) {
-    resetLeafStats()
-    for (const leaf of allLeaves) {
-      // ホーム直下のリーフ（仮想リーフ）は統計から除外
-      if (!isLeafSaveable(leaf, allNotes)) continue
-      const chars = computeLeafCharCount(leaf.content)
-      leafCharCounts.set(leaf.id, chars)
-      totalLeafCount += 1
-      totalLeafChars += chars
-    }
-  }
-
-  function getNoteItems(noteId: string): string[] {
-    const allNotes = $notes
-    const allLeaves = $leaves
-    const subNotesNames = allNotes
-      .filter((f) => f.parentId === noteId)
-      .sort((a, b) => a.order - b.order)
-      .map((f) => `${f.name}/`) // サブノートは末尾にスラッシュで区別
-    const leafNames = allLeaves
-      .filter((n) => n.noteId === noteId)
-      .sort((a, b) => a.order - b.order)
-      .map((n) => n.title)
-
-    const allItems = [...subNotesNames, ...leafNames]
-    const hasMore = allItems.length > 3
-    const items = allItems.slice(0, 3)
-
-    if (hasMore) {
-      items.push('...')
-    }
-
-    return items
+    const stats = rebuildLeafStatsLib(allLeaves, allNotes)
+    leafCharCounts.clear()
+    stats.leafCharCounts.forEach((value, key) => leafCharCounts.set(key, value))
+    totalLeafCount = stats.totalLeafCount
+    totalLeafChars = stats.totalLeafChars
   }
 
   // GitHub同期
@@ -1523,111 +1237,28 @@
       isImporting = true
       try {
         showPushToast($_('settings.importExport.importStarting'), 'success')
-        const parsed = await parseSimpleNoteFile(file)
-        if (!parsed || parsed.leaves.length === 0) {
+        const allNotes = get(notes)
+        const allLeaves = get(leaves)
+
+        const result = await processImportFile(file, {
+          existingNoteNames: allNotes.map((n) => n.name),
+          existingNotesCount: allNotes.length ? Math.max(...allNotes.map((n) => n.order)) + 1 : 0,
+          existingLeavesMaxOrder: allLeaves.length
+            ? Math.max(...allLeaves.map((l) => l.order))
+            : -1,
+          translate: $_,
+        })
+
+        if (!result.success) {
           showPushToast($_('settings.importExport.unsupportedFile'), 'error')
           return
         }
 
-        const allNotes = get(notes)
-        const allLeaves = get(leaves)
-
-        const baseName = 'SimpleNote'
-        const existingNames = new Set(allNotes.map((n) => n.name))
-        let noteName = `${baseName}1`
-        let suffix = 1
-        while (existingNames.has(noteName)) {
-          suffix += 1
-          noteName = `${baseName}${suffix}`
-        }
-
-        const noteId = crypto.randomUUID()
-        const noteOrder = allNotes.length ? Math.max(...allNotes.map((n) => n.order)) + 1 : 0
-
-        const newNote: Note = {
-          id: noteId,
-          name: noteName,
-          order: noteOrder,
-        }
-
-        const baseLeafOrder = allLeaves.length ? Math.max(...allLeaves.map((l) => l.order)) + 1 : 0
-
-        const importedLeaves: Leaf[] = parsed.leaves.map((leaf, idx) => ({
-          id: crypto.randomUUID(),
-          title: leaf.title,
-          noteId,
-          content: leaf.content,
-          updatedAt: leaf.updatedAt ?? Date.now(),
-          order: baseLeafOrder + idx,
-        }))
-
-        const skipped = parsed.skipped || 0
-        const reportTitle = $_('settings.importExport.importReportTitle')
-        const perItemLines = importedLeaves.map((leaf) =>
-          $_('settings.importExport.importReportPerItemLine', { values: { title: leaf.title } })
-        )
-
-        const sanitizedLines =
-          parsed.sanitizedTitles && parsed.sanitizedTitles.length > 0
-            ? [
-                $_('settings.importExport.importReportSanitizedHeader'),
-                ...parsed.sanitizedTitles.map((entry) =>
-                  $_('settings.importExport.importReportSanitizedLine', { values: { entry } })
-                ),
-              ]
-            : []
-
-        const errorLines =
-          parsed.errors?.length && parsed.errors.length > 0
-            ? [
-                $_('settings.importExport.importReportErrorsHeader'),
-                ...parsed.errors.map((msg) =>
-                  $_('settings.importExport.importReportErrorLine', { values: { message: msg } })
-                ),
-              ]
-            : []
-
-        const reportLines = [
-          $_('settings.importExport.importReportHeader'),
-          $_('settings.importExport.importReportSource'),
-          $_('settings.importExport.importReportCount', {
-            values: { count: importedLeaves.length },
-          }),
-          $_('settings.importExport.importReportSkipped', {
-            values: { skipped },
-          }),
-          $_('settings.importExport.importReportPlacement', {
-            values: { noteName },
-          }),
-          $_('settings.importExport.importReportUnsupported'),
-          ...sanitizedLines,
-          $_('settings.importExport.importReportPerItemHeader'),
-          ...perItemLines,
-          parsed.errors?.length ? $_('settings.importExport.importReportHasErrors') : '',
-          $_('settings.importExport.importReportConsole'),
-          ...errorLines,
-        ].filter(Boolean)
-
-        const reportLeaf: Leaf = {
-          id: crypto.randomUUID(),
-          title: reportTitle,
-          noteId,
-          content: reportLines.join('\n'),
-          updatedAt: Date.now(),
-          order: baseLeafOrder,
-        }
-
-        const shiftedImportedLeaves = importedLeaves.map((leaf, idx) => ({
-          ...leaf,
-          order: baseLeafOrder + 1 + idx,
-        }))
-
+        const { newNote, reportLeaf, importedLeaves, errors } = result.result
         updateNotes([...allNotes, newNote])
-        updateLeaves([...allLeaves, reportLeaf, ...shiftedImportedLeaves])
+        updateLeaves([...allLeaves, reportLeaf, ...importedLeaves])
 
-        if (parsed.errors?.length) {
-          console.warn('Import skipped items:', parsed.errors)
-        }
+        if (errors?.length) console.warn('Import skipped items:', errors)
         importOccurredInSettings = true
         showPushToast($_('settings.importExport.importDone'), 'success')
       } catch (error) {
@@ -1643,24 +1274,7 @@
 
   // Markdownダウンロード
   function downloadLeafAsMarkdown(leafId: string) {
-    if (isOperationsLocked) {
-      showPushToast($_('toast.needInitialPullDownload'), 'error')
-      return
-    }
-
-    const allLeaves = $leaves
-    const targetLeaf = allLeaves.find((l) => l.id === leafId)
-    if (!targetLeaf) return
-
-    const blob = new Blob([targetLeaf.content], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${targetLeaf.title}.md`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    downloadLeafAsMarkdownLib(leafId, isOperationsLocked, $_)
   }
 
   // プレビューを画像としてダウンロード
@@ -1686,80 +1300,30 @@
     }
   }
 
-  // シェア機能
+  // シェア機能（share.tsからインポート）
+  function getShareHandlers() {
+    return {
+      translate: $_,
+      getLeaf: (pane: Pane) => (pane === 'left' ? leftLeaf : rightLeaf),
+      getView: (pane: Pane) => (pane === 'left' ? leftView : rightView),
+      getPreviewView: (pane: Pane) => (pane === 'left' ? leftPreviewView : rightPreviewView),
+    }
+  }
+
   function handleCopyUrl(pane: Pane) {
-    const url = window.location.href
-    navigator.clipboard
-      .writeText(url)
-      .then(() => {
-        showPushToast($_('share.urlCopied'), 'success')
-      })
-      .catch((err) => {
-        console.error('URLのコピーに失敗しました:', err)
-        showPushToast($_('share.urlCopied'), 'error')
-      })
+    handleCopyUrlLib(pane, $_)
   }
 
-  function handleCopyMarkdown(pane: Pane) {
-    const leaf = pane === 'left' ? leftLeaf : rightLeaf
-    const view = pane === 'left' ? leftView : rightView
-
-    if (!leaf) return
-
-    // プレビューモード時は画像をコピー
-    if (view === 'preview') {
-      handleCopyImageToClipboard(pane)
-      return
-    }
-
-    // 編集モード時はMarkdownをコピー
-    navigator.clipboard
-      .writeText(leaf.content)
-      .then(() => {
-        showPushToast($_('share.markdownCopied'), 'success')
-      })
-      .catch((err) => {
-        console.error('Markdownのコピーに失敗しました:', err)
-        showPushToast($_('share.markdownCopied'), 'error')
-      })
+  async function handleCopyMarkdown(pane: Pane) {
+    await handleCopyMarkdownLib(pane, getShareHandlers())
   }
 
-  // 画像をクリップボードにコピー
   async function handleCopyImageToClipboard(pane: Pane) {
-    const previewView = pane === 'left' ? leftPreviewView : rightPreviewView
-
-    if (!previewView || !previewView.copyImageToClipboard) return
-
-    try {
-      await previewView.copyImageToClipboard()
-      showPushToast($_('share.imageCopied'), 'success')
-    } catch (error) {
-      console.error('画像のコピーに失敗しました:', error)
-      showPushToast($_('share.imageCopyFailed'), 'error')
-    }
+    await handleCopyImageToClipboardLib(pane, getShareHandlers())
   }
 
-  // Web Share APIで画像を共有
   async function handleShareImage(pane: Pane) {
-    const leaf = pane === 'left' ? leftLeaf : rightLeaf
-    const previewView = pane === 'left' ? leftPreviewView : rightPreviewView
-
-    if (!leaf || !previewView || !previewView.shareImage) return
-
-    try {
-      await previewView.shareImage(leaf.title)
-      // 成功時はトーストを表示しない（共有ダイアログで完結するため）
-    } catch (error: any) {
-      // Web Share APIがサポートされていない場合はクリップボードにコピー
-      if (error.message === 'Web Share API is not supported') {
-        await handleCopyImageToClipboard(pane)
-      } else if (error.name === 'AbortError') {
-        // ユーザーが共有をキャンセルした場合は何もしない
-      } else {
-        console.error('共有に失敗しました:', error)
-        showPushToast($_('share.shareFailed'), 'error')
-      }
-    }
+    await handleShareImageLib(pane, getShareHandlers())
   }
 
   // 設定
@@ -2330,295 +1894,3 @@
     />
   </div>
 {/if}
-
-<style>
-  .i18n-loading {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg, #1a1a1a);
-  }
-
-  .loading-spinner {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .loading-spinner .dot {
-    width: 12px;
-    height: 12px;
-    background: var(--accent, #8b5cf6);
-    border-radius: 50%;
-    animation: pulse 1.4s ease-in-out infinite;
-  }
-
-  .loading-spinner .dot:nth-child(2) {
-    animation-delay: 0.2s;
-  }
-
-  .loading-spinner .dot:nth-child(3) {
-    animation-delay: 0.4s;
-  }
-
-  @keyframes pulse {
-    0%,
-    80%,
-    100% {
-      opacity: 0.3;
-      transform: scale(0.8);
-    }
-    40% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-  :global(*) {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
-  :global(body) {
-    font-family:
-      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-  }
-
-  .app-container {
-    width: 100%;
-    height: 100vh; /* フォールバック */
-    height: 100dvh; /* モバイルブラウザのアドレスバーを考慮 */
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
-  }
-
-  .content-wrapper {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0;
-    flex: 1;
-    overflow: hidden;
-    position: relative;
-  }
-
-  .content-wrapper.single-pane {
-    grid-template-columns: 1fr;
-  }
-
-  .pane-divider {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    bottom: 0;
-    width: 1px;
-    background: rgba(0, 0, 0, 0.15);
-    z-index: 150;
-    pointer-events: none;
-  }
-
-  :global([data-theme='greenboard']) .pane-divider,
-  :global([data-theme='dotsD']) .pane-divider,
-  :global([data-theme='dotsF']) .pane-divider {
-    background: rgba(255, 255, 255, 0.15);
-  }
-
-  .left-column,
-  .right-column {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    position: relative;
-  }
-
-  .main-pane {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    position: relative;
-  }
-
-  .hidden {
-    display: none;
-  }
-
-  .settings-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 2rem;
-  }
-
-  .settings-modal-content {
-    background: var(--bg);
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    max-width: 900px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-  }
-
-  .settings-close-button {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 4px;
-    transition: all 0.2s;
-    z-index: 1;
-  }
-
-  .settings-close-button:hover {
-    background: var(--surface-1);
-    color: var(--text);
-  }
-
-  :global(.save-button) {
-    position: relative;
-  }
-
-  :global(.notification-badge) {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 8px;
-    height: 8px;
-    background: #ef4444;
-    border-radius: 50%;
-  }
-
-  .welcome-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    padding: 2rem;
-  }
-
-  .welcome-modal-content {
-    background: var(--bg);
-    border-radius: 16px;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-    padding: 3rem 2rem;
-    max-width: 500px;
-    width: 100%;
-    text-align: center;
-  }
-
-  .welcome-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 1.5rem;
-    line-height: 1.4;
-    white-space: pre-line;
-  }
-
-  .welcome-message {
-    font-size: 1rem;
-    color: var(--text-muted);
-    margin-bottom: 1rem;
-    line-height: 1.6;
-  }
-
-  .welcome-buttons {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-top: 2rem;
-  }
-
-  .welcome-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem 2rem;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    border: none;
-  }
-
-  .welcome-button .button-icon {
-    display: flex;
-    align-items: center;
-    width: 20px;
-    height: 20px;
-  }
-
-  .welcome-button.primary {
-    background: var(--accent);
-    color: white;
-  }
-
-  .welcome-button.primary:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-  }
-
-  .welcome-button.secondary {
-    background: var(--surface-1);
-    color: var(--text);
-  }
-
-  .welcome-button.secondary:hover {
-    background: var(--surface-2);
-  }
-
-  @media (max-width: 600px) {
-    .welcome-buttons {
-      flex-direction: column;
-    }
-
-    .welcome-button {
-      width: 100%;
-    }
-  }
-
-  .config-required-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    z-index: 200;
-  }
-</style>
