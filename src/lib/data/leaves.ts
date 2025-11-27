@@ -6,7 +6,8 @@ import type { Note, Leaf } from '../types'
 import type { Pane } from '../navigation'
 import { notes, leaves, updateLeaves } from '../stores'
 import { showAlert, showConfirm } from '../ui'
-import { generateUniqueName, normalizeBadgeValue } from '../utils'
+// 循環参照回避: utils/index.tsではなく、直接utils.tsからインポート
+import { generateUniqueName, normalizeBadgeValue } from '../utils/utils'
 import { extractH1Title, updateH1Title } from '../ui/breadcrumbs'
 import { computeLeafCharCount, type LeafStats } from '../utils/stats'
 

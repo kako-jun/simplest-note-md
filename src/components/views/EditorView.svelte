@@ -14,7 +14,6 @@
   export let onSwitchPane: (() => void) | null = null
   export let onDownload: (leafId: string) => void
   export let onDelete: (leafId: string) => void
-  export let disabled: boolean = false
   export let onScroll: ((scrollTop: number, scrollHeight: number) => void) | null = null
 
   let markdownEditor: any = null

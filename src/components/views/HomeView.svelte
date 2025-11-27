@@ -7,12 +7,10 @@
 
   export let notes: Note[]
   export let onSelectNote: (note: Note) => void
-  export let onCreateNote: () => void
   export let onDragStart: (note: Note) => void
   export let onDragEnd: () => void
   export let onDragOver: (e: DragEvent, note: Note) => void
   export let onDrop: (note: Note) => void
-  export let onSave: () => void
   export let dragOverNoteId: string | null = null
   export let getNoteItems: (noteId: string) => string[]
   export let disabled: boolean = false
@@ -26,10 +24,6 @@
   export let priorityLeaf: Leaf | null = null
   export let onSelectPriority: () => void
   export let onUpdatePriorityBadge: (icon: string, color: string) => void
-
-  // suppress unused export warnings
-  void onCreateNote
-  void onSave
 
   function formatDateTime(timestamp: number, variant: 'short' | 'long' = 'long'): string {
     const date = new Date(timestamp)

@@ -89,12 +89,10 @@
       {isActive}
       vimMode={$settings.vimMode ?? false}
       onSelectNote={(note) => actions.selectNote(note, pane)}
-      onCreateNote={() => actions.createNote(undefined, pane)}
       onDragStart={actions.handleDragStartNote}
       onDragEnd={actions.handleDragEndNote}
       onDragOver={actions.handleDragOverNote}
       onDrop={actions.handleDropNote}
-      onSave={actions.handleSaveToGitHub}
       dragOverNoteId={$state.dragOverNoteId}
       getNoteItems={actions.getNoteItems}
       leafCount={$state.totalLeafCount}
@@ -116,9 +114,6 @@
       vimMode={$settings.vimMode ?? false}
       onSelectNote={(note) => actions.selectNote(note, pane)}
       onSelectLeaf={(leaf) => actions.selectLeaf(leaf, pane)}
-      onCreateNote={() => actions.createNote(currentNote.id, pane)}
-      onCreateLeaf={() => actions.createLeaf(pane)}
-      onDeleteNote={() => actions.deleteNote(pane)}
       onDragStartNote={actions.handleDragStartNote}
       onDragStartLeaf={actions.handleDragStartLeaf}
       onDragEndNote={actions.handleDragEndNote}
@@ -127,13 +122,11 @@
       onDragOverLeaf={actions.handleDragOverLeaf}
       onDropNote={actions.handleDropNote}
       onDropLeaf={actions.handleDropLeaf}
-      onSave={actions.handleSaveToGitHub}
       dragOverNoteId={$state.dragOverNoteId}
       dragOverLeafId={$state.dragOverLeafId}
       getNoteItems={actions.getNoteItems}
       onUpdateNoteBadge={actions.updateNoteBadge}
       onUpdateLeafBadge={actions.updateLeafBadge}
-      loadingLeafIds={$state.loadingLeafIds}
       leafSkeletonMap={$state.leafSkeletonMap}
     />
   {:else if currentView === 'edit' && currentLeaf}
@@ -144,7 +137,6 @@
       vimMode={$settings.vimMode ?? false}
       linedMode={$settings.linedMode ?? false}
       {pane}
-      disabled={$state.isOperationsLocked}
       onContentChange={actions.updateLeafContent}
       onSave={actions.handleSaveToGitHub}
       onClose={() => actions.closeLeaf(pane)}

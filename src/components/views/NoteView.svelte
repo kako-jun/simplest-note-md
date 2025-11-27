@@ -11,9 +11,6 @@
   export let leaves: Leaf[]
   export let onSelectNote: (note: Note) => void
   export let onSelectLeaf: (leaf: Leaf) => void
-  export let onCreateNote: () => void
-  export let onCreateLeaf: () => void
-  export let onDeleteNote: () => void
   export let onDragStartNote: (note: Note) => void
   export let onDragStartLeaf: (leaf: Leaf) => void
   export let onDragEndNote: () => void
@@ -22,7 +19,6 @@
   export let onDragOverLeaf: (e: DragEvent, leaf: Leaf) => void
   export let onDropNote: (note: Note) => void
   export let onDropLeaf: (leaf: Leaf) => void
-  export let onSave: () => void
   export let dragOverNoteId: string | null = null
   export let dragOverLeafId: string | null = null
   export let getNoteItems: (noteId: string) => string[]
@@ -32,7 +28,6 @@
   export let vimMode: boolean = false
   export let onUpdateNoteBadge: (noteId: string, icon: string, color: string) => void
   export let onUpdateLeafBadge: (leafId: string, icon: string, color: string) => void
-  export let loadingLeafIds: Set<string> = new Set()
   export let leafSkeletonMap: Map<string, LeafSkeleton> = new Map()
 
   // このノートに属するスケルトン（まだleavesに存在しないもの）
