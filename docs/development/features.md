@@ -68,6 +68,47 @@ EditorView.updateListener.of((update) => {
 })
 ```
 
+### Ctrl+S / Cmd+S でPush
+
+#### 概要
+
+エディタでCtrl+S（Macでは Cmd+S）を押すとGitHubにPushする機能。ブラウザの標準「ページを保存」ダイアログをオーバーライドします。
+
+#### 実装
+
+```typescript
+// グローバルキーイベントハンドラ
+window.addEventListener('keydown', (e) => {
+  // Ctrl+S または Cmd+S を検出
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault() // ブラウザの保存ダイアログを防止
+    handleSaveToGitHub()
+  }
+})
+```
+
+#### 空コミット防止
+
+変更がない場合はPushをスキップし、不要なコミットを防止します。
+
+```typescript
+async function handleSaveToGitHub() {
+  // 変更がない場合はスキップ
+  if (!get(isDirty)) {
+    showToast('変更がありません', 'info')
+    return
+  }
+  // ... Push処理
+}
+```
+
+#### Vimモードとの共存
+
+- Vimモードが有効でもCtrl+Sは動作
+- Vimモードでは`:w`でもPush可能
+
+---
+
 ### Vimモード
 
 #### 概要

@@ -59,6 +59,80 @@ window.addEventListener('resize', updateDualPane)
 
 ---
 
+## 罫線エディタモード
+
+### 概要
+
+エディタに罫線（横線）を表示して、紙のノートのような見た目にする機能。設定画面からオン/オフを切り替え可能。
+
+### 設定
+
+```typescript
+interface Settings {
+  // ...
+  linedMode: boolean // 罫線モード（デフォルト: false）
+}
+```
+
+### 技術実装
+
+#### CodeMirror拡張
+
+```typescript
+import { lineNumbers } from '@codemirror/view'
+
+// 罫線モード用のエディタ拡張を動的に追加
+function getEditorExtensions(settings: Settings) {
+  const extensions = [basicSetup, markdown()]
+
+  if (settings.linedMode) {
+    extensions.push(lineNumbers())
+    extensions.push(linedModeTheme)
+  }
+
+  return extensions
+}
+```
+
+#### CSS実装
+
+```css
+/* 罫線スタイル（ライトテーマ） */
+.cm-editor.lined-mode .cm-line {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding-bottom: 2px;
+}
+
+/* 罫線スタイル（ダークテーマ） */
+.dark .cm-editor.lined-mode .cm-line {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 行番号 */
+.cm-editor.lined-mode .cm-gutters {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+}
+```
+
+### UI
+
+設定画面に「罫線モード」トグルを配置（Vimモードの直上）。
+
+```svelte
+<LinedModeToggle {settings} {onSettingsChange} />
+```
+
+### 仕様
+
+- **保存場所**: LocalStorage `Settings.linedMode`
+- **デフォルト**: オフ
+- **リアルタイム反映**: 設定変更後、即座にエディタに反映
+- **行番号**: 罫線モード有効時に自動表示
+- **テーマ対応**: ライト/ダークテーマで線色が自動調整
+
+---
+
 ## カスタムフォント機能
 
 ### 概要
@@ -609,6 +683,207 @@ dist/assets/en-DLi_lTuS.js    2.42 kB │ gzip:  1.10 kB
 
 ---
 
+## バッジ機能（アイコン＋色パレット）
+
+### 概要
+
+ノートとリーフのカード右上にバッジを表示する機能。アイコンと色を自由に組み合わせて視覚的に区別できます。
+
+### データ構造
+
+```typescript
+interface Note {
+  id: string
+  name: string
+  parentId: string | null
+  order: number
+  badgeIcon?: string // アイコン識別子（例: 'star', 'heart'）
+  badgeColor?: string // カラーコード（例: '#ff6b6b'）
+}
+
+interface Leaf {
+  id: string
+  title: string
+  content: string
+  noteId: string
+  order: number
+  updatedAt: number
+  badgeIcon?: string
+  badgeColor?: string
+}
+```
+
+### UI実装
+
+#### バッジ表示
+
+```svelte
+<div class="card">
+  <button class="badge" on:click={openBadgePicker}>
+    {#if badgeIcon && badgeIcon !== '+'}
+      <span class="badge-icon" style="color: {badgeColor}">{badgeIcon}</span>
+    {:else}
+      <span class="badge-plus">+</span>
+    {/if}
+  </button>
+</div>
+```
+
+#### アイコン選択UI（5×5グリッド）
+
+```svelte
+<div class="icon-grid">
+  {#each icons as icon}
+    <button
+      class="icon-option"
+      class:selected={selectedIcon === icon}
+      on:click={() => selectIcon(icon)}
+    >
+      {icon}
+    </button>
+  {/each}
+</div>
+```
+
+利用可能なアイコン（25種類）:
+
+- スター、ハート、チェック、フラグ、ブックマーク
+- 電球、ピン、ベル、時計、カレンダー
+- その他フォントアイコン
+
+#### 色選択UI（5色パレット）
+
+```svelte
+<div class="color-palette">
+  {#each colors as color}
+    <button
+      class="color-option"
+      style="background-color: {color}"
+      class:selected={selectedColor === color}
+      on:click={() => selectColor(color)}
+    />
+  {/each}
+</div>
+```
+
+カラーパレット:
+
+- `#ff6b6b` (赤)
+- `#ffd93d` (黄)
+- `#6bcb77` (緑)
+- `#4d96ff` (青)
+- `#9b59b6` (紫)
+
+### 保存先
+
+- **IndexedDB**: ノート/リーフのフィールドとして保存
+- **GitHub**: `metadata.json`内の各ノート/リーフエントリに保存
+
+---
+
+## ウェルカムポップアップ
+
+### 概要
+
+初回訪問時に表示されるウェルカムポップアップ。アプリの使い方を簡潔に紹介し、ユーザーがスムーズに開始できるようサポートします。
+
+### 機能
+
+- **言語自動検出**: ブラウザ/OSの言語設定に基づいて日本語/英語で表示
+- **レスポンシブ対応**: スマートフォンなど狭い画面ではボタンが縦並びに配置
+- **初回のみ表示**: LocalStorageで表示済みフラグを管理
+
+### レスポンシブ実装
+
+```css
+.welcome-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* 狭い画面ではボタンを縦配置 */
+@media (max-width: 480px) {
+  .welcome-buttons {
+    flex-direction: column;
+  }
+
+  .welcome-buttons button {
+    width: 100%;
+  }
+}
+```
+
+### i18n対応
+
+```json
+{
+  "welcome": {
+    "title": "Agasteerへようこそ",
+    "description": "シンプルなMarkdownノートアプリ",
+    "getStarted": "始める",
+    "learnMore": "詳しく見る"
+  }
+}
+```
+
+---
+
+## アプリアイコン（テーマカラー対応）
+
+### 概要
+
+ヘッダーのアプリタイトル左側にアプリアイコンを表示する機能。アイコンの色はテーマのアクセントカラーに応じて動的に変更されます。
+
+### 表示条件
+
+- **デフォルトタイトル時のみ表示**: ユーザーがツール名を変更していない場合のみ表示
+- **タイトル変更後は非表示**: カスタムツール名を設定した場合はアイコンを非表示
+
+### 技術実装
+
+#### AppIconコンポーネント
+
+```svelte
+<!-- src/components/AppIcon.svelte -->
+<script lang="ts">
+  export let size: number = 24
+  export let color: string = 'currentColor'
+</script>
+
+<svg width={size} height={size} viewBox="0 0 100 100" fill={color}>
+  <!-- SVGパス -->
+</svg>
+```
+
+#### 条件付き表示
+
+```svelte
+<script>
+  import AppIcon from './AppIcon.svelte'
+  import { DEFAULT_SETTINGS } from '../lib/types'
+
+  $: isDefaultTitle = settings.toolName === DEFAULT_SETTINGS.toolName
+</script>
+
+<header>
+  {#if isDefaultTitle}
+    <AppIcon color="var(--accent-color)" />
+  {/if}
+  <span class="title">{settings.toolName}</span>
+</header>
+```
+
+### デザイン
+
+- **サイズ**: 24x24px
+- **色**: `var(--accent-color)` - テーマのアクセントカラー
+- **位置**: アプリタイトルの左側
+- **間隔**: タイトルとの間に0.5rem
+
+---
+
 ## その他のUI改善
 
 ### GitHub設定画面の改善
@@ -707,6 +982,73 @@ Repository入力欄の右にGitHubリポジトリを直接開けるリンクボ�
   40% {
     transform: scale(1);
   }
+}
+```
+
+### 統計パネル（StatsPanel）
+
+ホーム画面右下にリーフ数・文字数・Push回数を表示するコンポーネント。
+
+#### StatsPanelコンポーネント
+
+```svelte
+<!-- src/components/StatsPanel.svelte -->
+<script lang="ts">
+  import { leaves, metadata } from '../lib/stores'
+  import { totalCharCount } from '../lib/stores'
+
+  $: leafCount = $leaves.length
+  $: charCount = $totalCharCount
+  $: pushCount = $metadata.pushCount
+</script>
+
+<div class="stats-panel">
+  <div class="stat-item">
+    <span class="stat-label">リーフ数</span>
+    <span class="stat-value">{leafCount.toLocaleString()}</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">文字数</span>
+    <span class="stat-value">{charCount.toLocaleString()}</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">Push回数</span>
+    <span class="stat-value">{pushCount.toLocaleString()}</span>
+  </div>
+</div>
+```
+
+#### 文字数キャッシュ
+
+パフォーマンス最適化のため、文字数は個別にキャッシュし、差分更新します。
+
+```typescript
+// totalCharCountストア
+export const totalCharCount = writable<number>(0)
+
+// リーフの作成/更新/削除/Pull時に差分更新
+export function updateTotalCharCount(leaves: Leaf[]): void {
+  const total = leaves.reduce((sum, leaf) => sum + leaf.content.length, 0)
+  totalCharCount.set(total)
+}
+```
+
+#### スタイル
+
+```css
+.stats-panel {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 0; /* カードの背面 */
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--accent-color);
 }
 ```
 
