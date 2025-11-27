@@ -1338,9 +1338,10 @@
         return nav.getPriorityFromUrl(notesFromGitHub)
       },
 
-      // 各リーフ取得完了時: leavesストアに追加
+      // 各リーフ取得完了時: leavesストアに追加、統計を更新
       onLeaf: (leaf) => {
         leaves.update((current) => [...current, leaf])
+        leafStatsStore.addLeaf(leaf.id, leaf.content)
         loadingLeafIds.delete(leaf.id)
         loadingLeafIds = loadingLeafIds // リアクティブ更新
       },
