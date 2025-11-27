@@ -258,7 +258,7 @@
 
   function updateUrlFromState() {
     // 初期化完了まで、URL更新をスキップ
-    if (isRestoringFromUrl || isPulling || isOperationsLocked) {
+    if (isRestoringFromUrl || $isPulling || isOperationsLocked) {
       return
     }
 
@@ -371,15 +371,8 @@
   // スケルトン表示用のリーフメタ情報（Pull中のみ使用）
   let leafSkeletonMap = new Map<string, LeafSkeleton>()
 
-  // 左ペインの状態変更をURLに反映
-  $: if ($leftNote || $leftLeaf || (!$leftNote && !$leftLeaf) || $leftView) {
-    updateUrlFromState()
-  }
-
-  // 右ペインの状態変更をURLに反映
-  $: if ($rightNote || $rightLeaf || (!$rightNote && !$rightLeaf) || $rightView) {
-    updateUrlFromState()
-  }
+  // ペインの状態変更をURLに反映
+  $: ($leftNote, $leftLeaf, $leftView, $rightNote, $rightLeaf, $rightView, updateUrlFromState())
 
   // 初期化
   onMount(() => {
