@@ -99,10 +99,10 @@
   import Toast from './components/layout/Toast.svelte'
   import MoveModal from './components/layout/MoveModal.svelte'
   import SearchBar from './components/layout/SearchBar.svelte'
+  import SettingsModal from './components/layout/SettingsModal.svelte'
+  import WelcomeModal from './components/layout/WelcomeModal.svelte'
   import { toggleSearch } from './lib/utils'
-  import SettingsView from './components/views/SettingsView.svelte'
   import PaneView from './components/layout/PaneView.svelte'
-  import SettingsIcon from './components/icons/SettingsIcon.svelte'
   import type { PaneActions, PaneState } from './lib/stores'
   import {
     priorityItems,
@@ -132,7 +132,6 @@
   let totalLeafCount = 0 // ホーム統計用: リーフ総数
   let totalLeafChars = 0 // ホーム統計用: リーフ総文字数（空白除く）
   const leafCharCounts = new Map<string, number>() // リーフごとの文字数キャッシュ
-  let settingsPointerFromContent = false // 設定モーダル内でドラッグ開始したかを判定
   let moveModalOpen = false
   let moveTargetLeaf: Leaf | null = null
   let moveTargetNote: Note | null = null
@@ -705,34 +704,6 @@
   function openSettingsFromWelcome() {
     showWelcome = false
     showSettings = true
-  }
-
-  function handleOverlayKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      closeSettings()
-    }
-  }
-
-  function handleSettingsOverlayClick() {
-    // モーダル内でドラッグ開始→外でmouseupされた場合は閉じない
-    if (settingsPointerFromContent) {
-      settingsPointerFromContent = false
-      return
-    }
-    closeSettings()
-  }
-
-  function handleSettingsContentPointerDown() {
-    settingsPointerFromContent = true
-  }
-
-  function handleSettingsContentPointerUp() {
-    settingsPointerFromContent = false
-  }
-
-  function handleContentClick(e: MouseEvent) {
-    e.stopPropagation()
   }
 
   // パンくずリスト（左右共通）- breadcrumbs.tsに移動
@@ -1635,84 +1606,25 @@
       onClose={closeModal}
     />
 
-    {#if showSettings}
-      <div
-        class="settings-modal-overlay"
-        role="button"
-        tabindex="0"
-        on:click={handleSettingsOverlayClick}
-        on:keydown={handleOverlayKeydown}
-        aria-label="設定を閉じる"
-      >
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-        <div
-          class="settings-modal-content"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="settings-title"
-          on:pointerdown={handleSettingsContentPointerDown}
-          on:pointerup={handleSettingsContentPointerUp}
-          on:click={handleContentClick}
-        >
-          <button class="settings-close-button" on:click={closeSettings} aria-label="閉じる">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-          <SettingsView
-            settings={$settings}
-            onThemeChange={handleThemeChange}
-            onSettingsChange={handleSettingsChange}
-            {isLoadingUI}
-            onPull={handlePull}
-            onExportZip={exportNotesAsZip}
-            onImport={handleImportFromOtherApps}
-            exporting={isExportingZip}
-            importing={isImporting}
-          />
-        </div>
-      </div>
-    {/if}
+    <SettingsModal
+      show={showSettings}
+      settings={$settings}
+      {isLoadingUI}
+      exporting={isExportingZip}
+      importing={isImporting}
+      onThemeChange={handleThemeChange}
+      onSettingsChange={handleSettingsChange}
+      onPull={handlePull}
+      onExportZip={exportNotesAsZip}
+      onImport={handleImportFromOtherApps}
+      onClose={closeSettings}
+    />
 
-    {#if showWelcome}
-      <div class="welcome-modal-overlay">
-        <div class="welcome-modal-content">
-          <h2 class="welcome-title">
-            {$_('welcome.title')}
-          </h2>
-          <p class="welcome-message">
-            {$_('welcome.message1')}
-          </p>
-          <p class="welcome-message">
-            {$_('welcome.message2')}
-          </p>
-          <div class="welcome-buttons">
-            <button class="welcome-button primary" on:click={openSettingsFromWelcome}>
-              <span class="button-icon">
-                <SettingsIcon />
-              </span>
-              {$_('welcome.openSettings')}
-            </button>
-            <button class="welcome-button secondary" on:click={closeWelcome}>
-              {$_('welcome.later')}
-            </button>
-          </div>
-        </div>
-      </div>
-    {/if}
+    <WelcomeModal
+      show={showWelcome}
+      onOpenSettings={openSettingsFromWelcome}
+      onClose={closeWelcome}
+    />
 
     <Toast
       pullMessage={$pullToastState.message}
