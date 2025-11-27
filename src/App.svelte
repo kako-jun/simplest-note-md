@@ -56,6 +56,8 @@
   import Modal from './components/layout/Modal.svelte'
   import Toast from './components/layout/Toast.svelte'
   import MoveModal from './components/layout/MoveModal.svelte'
+  import SearchBar from './components/layout/SearchBar.svelte'
+  import { toggleSearch } from './lib/search'
   import HomeFooter from './components/layout/footer/HomeFooter.svelte'
   import NoteFooter from './components/layout/footer/NoteFooter.svelte'
   import EditorFooter from './components/layout/footer/EditorFooter.svelte'
@@ -1920,8 +1922,10 @@
       }}
       onPull={() => handlePull(false)}
       pullDisabled={!canPull}
-      onSearchResultClick={handleSearchResultClick}
+      onSearchClick={toggleSearch}
     />
+    <!-- 検索ドロップダウン（ヘッダー右上、検索ボタンの下） -->
+    <SearchBar onResultClick={handleSearchResultClick} />
 
     <div class="content-wrapper" class:single-pane={!isDualPane}>
       <div class="pane-divider" class:hidden={!isDualPane}></div>
@@ -2393,6 +2397,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative;
   }
 
   .content-wrapper {

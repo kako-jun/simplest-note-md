@@ -5,7 +5,7 @@
   import IconButton from '../buttons/IconButton.svelte'
   import OctocatPullIcon from '../icons/OctocatPullIcon.svelte'
   import SettingsIcon from '../icons/SettingsIcon.svelte'
-  import SearchBar from './SearchBar.svelte'
+  import SearchIcon from '../icons/SearchIcon.svelte'
 
   export let githubConfigured: boolean
   export let title: string = 'Agasteer'
@@ -13,7 +13,7 @@
   export let onSettingsClick: () => void
   export let onPull: () => void
   export let pullDisabled: boolean = false
-  export let onSearchResultClick: (leafId: string, line: number) => void
+  export let onSearchClick: () => void
 
   $: hasTitle = title.trim().length > 0
   $: showAppIcon = hasTitle && title.trim() === defaultSettings.toolName
@@ -49,18 +49,26 @@
       </IconButton>
     </div>
   </div>
-  <SearchBar onResultClick={onSearchResultClick} />
-  <div class="settings-button-wrapper">
+  <div class="header-right">
     <IconButton
-      onClick={onSettingsClick}
-      title={$_('header.settings')}
-      ariaLabel={$_('header.settings')}
+      onClick={onSearchClick}
+      title={$_('search.placeholder')}
+      ariaLabel={$_('search.placeholder')}
     >
-      <SettingsIcon />
+      <SearchIcon />
     </IconButton>
-    {#if !githubConfigured}
-      <span class="notification-badge"></span>
-    {/if}
+    <div class="settings-button-wrapper">
+      <IconButton
+        onClick={onSettingsClick}
+        title={$_('header.settings')}
+        ariaLabel={$_('header.settings')}
+      >
+        <SettingsIcon />
+      </IconButton>
+      {#if !githubConfigured}
+        <span class="notification-badge"></span>
+      {/if}
+    </div>
   </div>
 </header>
 
@@ -75,6 +83,7 @@
     -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(0, 0, 0, 0.15);
     gap: 0.5rem;
+    position: relative;
   }
 
   :global([data-theme='greenboard']) header,
@@ -113,6 +122,12 @@
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
   }
 
   .settings-button-wrapper {

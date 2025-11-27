@@ -25,6 +25,23 @@ export const searchResults = derived([searchQuery, leaves, notes], ([$query, $le
 // ========== 検索ロジック ==========
 
 /**
+ * ノート/サブノート/リーフのパスを構築
+ */
+function buildPath(note: Note | undefined, leaf: Leaf, noteMap: Map<string, Note>): string {
+  if (!note) return leaf.title
+
+  // 親ノートがあればサブノート
+  if (note.parentId) {
+    const parentNote = noteMap.get(note.parentId)
+    if (parentNote) {
+      return `${parentNote.name}/${note.name}/${leaf.title}`
+    }
+  }
+
+  return `${note.name}/${leaf.title}`
+}
+
+/**
  * リーフを検索してマッチ結果を返す
  */
 export function searchLeaves(query: string, allLeaves: Leaf[], allNotes: Note[]): SearchMatch[] {
@@ -55,6 +72,7 @@ export function searchLeaves(query: string, allLeaves: Leaf[], allNotes: Note[])
         leafTitle: leaf.title,
         noteName: note?.name ?? '',
         noteId: leaf.noteId,
+        path: buildPath(note, leaf, noteMap),
         line: getLineNumber(leaf.content, matchIndex),
         snippet,
         matchStart,
@@ -73,6 +91,7 @@ export function searchLeaves(query: string, allLeaves: Leaf[], allNotes: Note[])
 
 /**
  * マッチ箇所を含むスニペットを生成
+ * マッチがある行を抽出し、前後contextChars文字を表示
  */
 export function createSnippet(
   content: string,
@@ -80,25 +99,59 @@ export function createSnippet(
   matchLength: number,
   contextChars: number
 ): { snippet: string; matchStart: number; matchEnd: number } {
-  const start = Math.max(0, matchIndex - contextChars)
-  const end = Math.min(content.length, matchIndex + matchLength + contextChars)
+  // マッチがある行を特定
+  const lineStart = content.lastIndexOf('\n', matchIndex - 1) + 1
+  const lineEnd = content.indexOf('\n', matchIndex)
+  const actualLineEnd = lineEnd === -1 ? content.length : lineEnd
 
-  let snippet = content.slice(start, end)
+  // 行内でのマッチ位置
+  const matchInLine = matchIndex - lineStart
+  const line = content.slice(lineStart, actualLineEnd)
 
-  // 改行を空白に置換（スニペット表示用）
-  snippet = snippet.replace(/\n/g, ' ')
+  // スニペットの総幅（前後contextChars + マッチ自体）
+  const totalWidth = contextChars * 2 + matchLength
+
+  // 行が短い場合はそのまま返す
+  if (line.length <= totalWidth) {
+    return {
+      snippet: line,
+      matchStart: matchInLine,
+      matchEnd: matchInLine + matchLength,
+    }
+  }
+
+  // マッチを中心にスニペット範囲を決定
+  let start = matchInLine - contextChars
+  let end = matchInLine + matchLength + contextChars
+
+  // 前が足りない場合、後ろを伸ばす
+  if (start < 0) {
+    end += -start
+    start = 0
+  }
+
+  // 後ろが足りない場合、前を伸ばす
+  if (end > line.length) {
+    start -= end - line.length
+    end = line.length
+  }
+
+  // 最終調整
+  start = Math.max(0, start)
+  end = Math.min(line.length, end)
+
+  const snippet = line.slice(start, end)
+  const relativeMatchStart = matchInLine - start
+  const relativeMatchEnd = relativeMatchStart + matchLength
 
   // 前後に省略記号
   const prefix = start > 0 ? '...' : ''
-  const suffix = end < content.length ? '...' : ''
-
-  const matchStart = prefix.length + (matchIndex - start)
-  const matchEnd = matchStart + matchLength
+  const suffix = end < line.length ? '...' : ''
 
   return {
     snippet: prefix + snippet + suffix,
-    matchStart,
-    matchEnd,
+    matchStart: prefix.length + relativeMatchStart,
+    matchEnd: prefix.length + relativeMatchEnd,
   }
 }
 
@@ -120,6 +173,14 @@ export function closeSearch(): void {
   isSearchOpen.set(false)
   searchQuery.set('')
   selectedResultIndex.set(-1)
+}
+
+export function toggleSearch(): void {
+  if (get(isSearchOpen)) {
+    closeSearch()
+  } else {
+    openSearch()
+  }
 }
 
 export function clearSearch(): void {

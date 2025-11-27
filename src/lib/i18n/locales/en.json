@@ -13,7 +13,8 @@
   "search": {
     "placeholder": "Search...",
     "noResults": "No results",
-    "clear": "Clear"
+    "clear": "Clear",
+    "close": "Close"
   },
   "breadcrumbs": {
     "goHome": "Go to home",

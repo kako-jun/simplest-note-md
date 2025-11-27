@@ -90,6 +90,7 @@ export interface SearchMatch {
   leafTitle: string
   noteName: string
   noteId: UUID
+  path: string // ノート/サブノート/リーフのパス形式
   line: number // マッチ行番号
   snippet: string // マッチ箇所のスニペット（前後N文字含む）
   matchStart: number // スニペット内のマッチ開始位置
