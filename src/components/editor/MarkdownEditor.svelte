@@ -295,10 +295,6 @@
           }
         },
       }),
-      // モバイルでキーボード表示時にカーソルが見えるようにマージンを確保
-      EditorView.scrollMargins.of(() => ({
-        bottom: isMobileDevice() ? 200 : 0,
-      })),
     ]
 
     // Vimモードが有効な場合は追加
@@ -405,10 +401,30 @@
       extensions: currentExtensions,
     })
 
-    editorView = new EditorView({
+    const editorConfig: any = {
       state: startState,
       parent: editorContainer,
-    })
+    }
+
+    // モバイルではタップ時の自動スクロールを無効化
+    if (isMobileDevice()) {
+      editorConfig.dispatchTransactions = (trs: any[], view: any) => {
+        // scrollIntoView効果を除去してからディスパッチ
+        const filteredTrs = trs.map((tr) => {
+          if (tr.scrollIntoView) {
+            // scrollIntoViewをfalseに設定した新しいトランザクションを作成
+            return view.state.update({
+              ...tr,
+              scrollIntoView: false,
+            })
+          }
+          return tr
+        })
+        view.update(filteredTrs)
+      }
+    }
+
+    editorView = new EditorView(editorConfig)
 
     // DOM要素にペイン情報をマーク（Vimコマンドで参照するため）
     editorView.dom.dataset.pane = pane
