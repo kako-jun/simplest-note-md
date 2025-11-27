@@ -203,6 +203,9 @@
 <style>
   .preview-section {
     padding: 1rem;
+    /* フレックスボックス内でオーバーフローしないように */
+    flex: 1;
+    min-height: 0;
     height: 100%;
     overflow: auto;
     position: relative;

@@ -360,6 +360,7 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 0;
   flex: 1;
+  min-height: 0; /* フレックスアイテムがオーバーフローしないように */
   overflow: hidden;
   position: relative;
 }
@@ -430,4 +431,27 @@ body {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 200;
+}
+
+/* PWAスタンドアロンモード対応 */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* PWAスタンドアロンモードでのビューポート修正 */
+@media all and (display-mode: standalone) {
+  .app-container {
+    /* iOSのセーフエリアに対応 */
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+}
+
+/* iOS PWAでのキーボード表示時の対応 */
+@supports (-webkit-touch-callout: none) {
+  .app-container {
+    /* iOS Safari/PWAでの100vhの問題を回避 */
+    height: -webkit-fill-available;
+  }
 }

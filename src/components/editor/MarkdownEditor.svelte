@@ -514,6 +514,9 @@
   }
 
   .editor-container {
+    /* フレックスボックス内でオーバーフローしないように */
+    flex: 1;
+    min-height: 0;
     height: 100%;
     overflow: hidden;
     margin: 0;
