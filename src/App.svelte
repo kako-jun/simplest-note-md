@@ -27,6 +27,9 @@
     isPulling,
     isPushing,
     focusedPane,
+    leafStatsStore,
+    dragStore,
+    moveModalStore,
   } from './lib/stores'
   import { clearAllData, loadSettings, saveNotes, saveLeaves } from './lib/data'
   import { applyTheme } from './lib/ui'
@@ -55,12 +58,7 @@
   import { resolvePath, buildPath } from './lib/navigation'
   import { buildNotesZip, downloadLeafAsMarkdown as downloadLeafAsMarkdownLib } from './lib/utils'
   import { getBreadcrumbs as buildBreadcrumbs, extractH1Title, updateH1Title } from './lib/ui'
-  import {
-    handleDragStart as dragStart,
-    handleDragEnd as dragEnd,
-    handleDragOver as dragOver,
-    reorderItems,
-  } from './lib/navigation'
+  import { reorderItems } from './lib/navigation'
   import {
     createNote as createNoteLib,
     deleteNote as deleteNoteLib,
@@ -80,14 +78,7 @@
     moveLeafTo as moveLeafToLib,
     getLeafCount,
   } from './lib/data'
-  import {
-    computeLeafCharCount,
-    rebuildLeafStats as rebuildLeafStatsLib,
-    addLeafToStats,
-    removeLeafFromStats,
-    updateLeafStats as updateLeafStatsLib,
-    type LeafStats,
-  } from './lib/utils'
+  import { computeLeafCharCount } from './lib/utils'
   import {
     handleCopyUrl as handleCopyUrlLib,
     handleCopyMarkdown as handleCopyMarkdownLib,
@@ -122,10 +113,13 @@
   let breadcrumbs: Breadcrumb[] = []
   let breadcrumbsRight: Breadcrumb[] = []
   let editingBreadcrumb: string | null = null
-  let draggedNote: Note | null = null
-  let draggedLeaf: Leaf | null = null
-  let dragOverNoteId: string | null = null // ドラッグオーバー中のノートID
-  let dragOverLeafId: string | null = null // ドラッグオーバー中のリーフID
+
+  // dragStoreへのリアクティブアクセス
+  $: draggedNote = $dragStore.draggedNote
+  $: draggedLeaf = $dragStore.draggedLeaf
+  $: dragOverNoteId = $dragStore.dragOverNoteId
+  $: dragOverLeafId = $dragStore.dragOverLeafId
+
   let isLoadingUI = false // ガラス効果・操作不可（優先リーフ完了で解除）
   let isOperationsLocked = true
   let showSettings = false
@@ -135,13 +129,13 @@
   let isImporting = false
   let importOccurredInSettings = false
   let isClosingSettingsPull = false
-  let totalLeafCount = 0 // ホーム統計用: リーフ総数
-  let totalLeafChars = 0 // ホーム統計用: リーフ総文字数（空白除く）
-  const leafCharCounts = new Map<string, number>() // リーフごとの文字数キャッシュ
-  let moveModalOpen = false
-  let moveTargetLeaf: Leaf | null = null
-  let moveTargetNote: Note | null = null
-  let moveTargetPane: Pane = 'left'
+
+  // leafStatsStoreとmoveModalStoreへのリアクティブアクセス
+  $: totalLeafCount = $leafStatsStore.totalLeafCount
+  $: totalLeafChars = $leafStatsStore.totalLeafChars
+  $: moveModalOpen = $moveModalStore.isOpen
+  $: moveTargetLeaf = $moveModalStore.targetLeaf
+  $: moveTargetNote = $moveModalStore.targetNote
 
   // 左右ペイン用の状態
   let isDualPane = false // 画面幅で切り替え
@@ -744,10 +738,7 @@
       updateLeaves(updatedLeaves)
 
       if (targetLeaf) {
-        const prevChars = leafCharCounts.get(actualId) ?? computeLeafCharCount(targetLeaf.content)
-        const nextChars = computeLeafCharCount(updatedContent)
-        leafCharCounts.set(actualId, nextChars)
-        totalLeafChars += nextChars - prevChars
+        leafStatsStore.updateLeafContent(actualId, updatedContent, targetLeaf.content)
       }
 
       const updatedLeaf = updatedLeaves.find((n) => n.id === actualId)
@@ -817,41 +808,31 @@
 
   // ドラッグ&ドロップ（ノート）
   function handleDragStartNote(note: Note) {
-    dragStart(
-      note,
-      (n) => (draggedNote = n),
-      (id) => (dragOverNoteId = id)
-    )
+    dragStore.startDragNote(note)
   }
 
   function handleDragEndNote() {
-    dragEnd(
-      (n) => (draggedNote = n),
-      (id) => (dragOverNoteId = id)
-    )
+    dragStore.endDragNote()
   }
 
   function handleDragOverNote(e: DragEvent, note: Note) {
-    dragOver(
-      e,
-      note,
-      draggedNote,
-      (dragged, target) => dragged.parentId === target.parentId,
-      (id) => (dragOverNoteId = id)
-    )
+    if (!draggedNote || draggedNote.id === note.id) return
+    if (draggedNote.parentId !== note.parentId) return
+    e.preventDefault()
+    dragStore.setDragOverNote(note.id)
   }
 
   function handleDropNote(targetNote: Note) {
-    dragOverNoteId = null
+    dragStore.setDragOverNote(null)
     if (!draggedNote || draggedNote.id === targetNote.id) return
     if (draggedNote.parentId !== targetNote.parentId) return
 
     const updatedNotes = reorderItems(draggedNote, targetNote, $notes, (n) =>
-      draggedNote.parentId ? n.parentId === draggedNote.parentId : !n.parentId
+      draggedNote!.parentId ? n.parentId === draggedNote!.parentId : !n.parentId
     )
 
     updateNotes(updatedNotes)
-    draggedNote = null
+    dragStore.endDragNote()
   }
 
   // リーフ管理（leaves.tsに委譲）
@@ -860,10 +841,7 @@
     if (!targetNote) return
     const newLeaf = createLeafLib({ targetNote, pane, isOperationsLocked })
     if (newLeaf) {
-      const chars = computeLeafCharCount(newLeaf.content)
-      leafCharCounts.set(newLeaf.id, chars)
-      totalLeafCount += 1
-      totalLeafChars += chars
+      leafStatsStore.addLeaf(newLeaf.id, newLeaf.content)
       selectLeaf(newLeaf, pane)
     }
   }
@@ -881,10 +859,7 @@
       },
       otherPaneLeafId: otherLeaf?.id,
       onUpdateStats: (id, content) => {
-        const chars = leafCharCounts.get(id) ?? computeLeafCharCount(content)
-        leafCharCounts.delete(id)
-        totalLeafCount = Math.max(0, totalLeafCount - 1)
-        totalLeafChars = Math.max(0, totalLeafChars - chars)
+        leafStatsStore.removeLeaf(id, content)
       },
     })
   }
@@ -896,10 +871,7 @@
       isOperationsLocked,
       translate: $_,
       onStatsUpdate: (id, prevContent, newContent) => {
-        const prevChars = leafCharCounts.get(id) ?? computeLeafCharCount(prevContent)
-        const nextChars = computeLeafCharCount(newContent)
-        leafCharCounts.set(id, nextChars)
-        totalLeafChars += nextChars - prevChars
+        leafStatsStore.updateLeafContent(id, newContent, prevContent)
       },
     })
     if (result.updatedLeaf) {
@@ -919,32 +891,22 @@
 
   // ドラッグ&ドロップ（リーフ）
   function handleDragStartLeaf(leaf: Leaf) {
-    dragStart(
-      leaf,
-      (l) => (draggedLeaf = l),
-      (id) => (dragOverLeafId = id)
-    )
+    dragStore.startDragLeaf(leaf)
   }
 
   function handleDragEndLeaf() {
-    dragEnd(
-      (l) => (draggedLeaf = l),
-      (id) => (dragOverLeafId = id)
-    )
+    dragStore.endDragLeaf()
   }
 
   function handleDragOverLeaf(e: DragEvent, leaf: Leaf) {
-    dragOver(
-      e,
-      leaf,
-      draggedLeaf,
-      (dragged, target) => dragged.noteId === target.noteId,
-      (id) => (dragOverLeafId = id)
-    )
+    if (!draggedLeaf || draggedLeaf.id === leaf.id) return
+    if (draggedLeaf.noteId !== leaf.noteId) return
+    e.preventDefault()
+    dragStore.setDragOverLeaf(leaf.id)
   }
 
   function handleDropLeaf(targetLeaf: Leaf) {
-    dragOverLeafId = null
+    dragStore.setDragOverLeaf(null)
     if (!draggedLeaf || draggedLeaf.id === targetLeaf.id) return
     if (draggedLeaf.noteId !== targetLeaf.noteId) return
 
@@ -952,11 +914,11 @@
       draggedLeaf,
       targetLeaf,
       $leaves,
-      (l) => l.noteId === draggedLeaf.noteId
+      (l) => l.noteId === draggedLeaf!.noteId
     )
 
     updateLeaves(updatedLeaves)
-    draggedLeaf = null
+    dragStore.endDragLeaf()
   }
 
   // 移動モーダル
@@ -964,45 +926,37 @@
     if (isOperationsLocked) return
     const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
     if (!leaf) return
-    moveTargetLeaf = leaf
-    moveTargetNote = null
-    moveTargetPane = pane
-    moveModalOpen = true
+    moveModalStore.openForLeaf(leaf, pane)
   }
 
   function openMoveModalForNote(pane: Pane) {
     if (isOperationsLocked) return
     const note = pane === 'left' ? $leftNote : $rightNote
     if (!note) return
-    moveTargetNote = note
-    moveTargetLeaf = null
-    moveTargetPane = pane
-    moveModalOpen = true
+    moveModalStore.openForNote(note, pane)
   }
 
   function closeMoveModal() {
-    moveModalOpen = false
-    moveTargetLeaf = null
-    moveTargetNote = null
+    moveModalStore.close()
   }
 
   function handleMoveConfirm(destNoteId: string | null) {
-    if (moveTargetLeaf) {
-      moveLeafTo(destNoteId)
-    } else if (moveTargetNote) {
-      moveNoteTo(destNoteId)
+    const state = moveModalStore.getState()
+    if (state.targetLeaf) {
+      moveLeafTo(destNoteId, state.targetLeaf)
+    } else if (state.targetNote) {
+      moveNoteTo(destNoteId, state.targetNote)
     }
   }
 
-  function moveLeafTo(destNoteId: string | null) {
-    if (!moveTargetLeaf) return
-    const result = moveLeafToLib(moveTargetLeaf, destNoteId, $_)
+  function moveLeafTo(destNoteId: string | null, targetLeaf: Leaf) {
+    const result = moveLeafToLib(targetLeaf, destNoteId, $_)
     if (result.success && result.movedLeaf && result.destNote) {
-      if ($leftLeaf?.id === moveTargetLeaf.id) {
+      if ($leftLeaf?.id === targetLeaf.id) {
         $leftLeaf = result.movedLeaf
         $leftNote = result.destNote
       }
-      if ($rightLeaf?.id === moveTargetLeaf.id) {
+      if ($rightLeaf?.id === targetLeaf.id) {
         $rightLeaf = result.movedLeaf
         $rightNote = result.destNote
       }
@@ -1011,12 +965,11 @@
     closeMoveModal()
   }
 
-  function moveNoteTo(destNoteId: string | null) {
-    if (!moveTargetNote) return
-    const result = moveNoteToLib(moveTargetNote, destNoteId, $_)
+  function moveNoteTo(destNoteId: string | null, targetNote: Note) {
+    const result = moveNoteToLib(targetNote, destNoteId, $_)
     if (result.success && result.updatedNote) {
-      if ($leftNote?.id === moveTargetNote.id) $leftNote = result.updatedNote
-      if ($rightNote?.id === moveTargetNote.id) $rightNote = result.updatedNote
+      if ($leftNote?.id === targetNote.id) $leftNote = result.updatedNote
+      if ($rightNote?.id === targetNote.id) $rightNote = result.updatedNote
       showPushToast('移動しました', 'success')
     }
     closeMoveModal()
@@ -1024,17 +977,11 @@
 
   // ヘルパー関数（notes.ts, leaves.ts, stats.tsからインポート）
   function resetLeafStats() {
-    leafCharCounts.clear()
-    totalLeafCount = 0
-    totalLeafChars = 0
+    leafStatsStore.reset()
   }
 
   function rebuildLeafStats(allLeaves: Leaf[], allNotes: Note[]) {
-    const stats = rebuildLeafStatsLib(allLeaves, allNotes)
-    leafCharCounts.clear()
-    stats.leafCharCounts.forEach((value, key) => leafCharCounts.set(key, value))
-    totalLeafCount = stats.totalLeafCount
-    totalLeafChars = stats.totalLeafChars
+    leafStatsStore.rebuild(allLeaves, allNotes)
   }
 
   // GitHub同期
