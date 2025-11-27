@@ -10,6 +10,11 @@
     "settings": "Open settings",
     "pull": "Pull"
   },
+  "search": {
+    "placeholder": "Search...",
+    "noResults": "No results",
+    "clear": "Clear"
+  },
   "breadcrumbs": {
     "goHome": "Go to home",
     "editNoteName": "Edit note name",

@@ -83,3 +83,15 @@ export interface ModalState {
   type: ModalType
   callback: (() => void) | null
 }
+
+// 検索結果の型
+export interface SearchMatch {
+  leafId: UUID
+  leafTitle: string
+  noteName: string
+  noteId: UUID
+  line: number // マッチ行番号
+  snippet: string // マッチ箇所のスニペット（前後N文字含む）
+  matchStart: number // スニペット内のマッチ開始位置
+  matchEnd: number // スニペット内のマッチ終了位置
+}

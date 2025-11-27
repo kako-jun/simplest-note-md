@@ -59,6 +59,24 @@
     }
   }
 
+  // 外部から指定行にジャンプする関数
+  export function scrollToLine(line: number) {
+    if (!editorView) return
+    try {
+      const doc = editorView.state.doc
+      const lineCount = doc.lines
+      const targetLine = Math.min(Math.max(1, line), lineCount)
+      const lineInfo = doc.line(targetLine)
+      editorView.dispatch({
+        selection: { anchor: lineInfo.from },
+        scrollIntoView: true,
+      })
+      editorView.focus()
+    } catch {
+      // 行が見つからない場合は無視
+    }
+  }
+
   const darkThemes: ThemeType[] = ['greenboard', 'dotsD', 'dotsF']
 
   // CodeMirrorモジュールを動的ロード

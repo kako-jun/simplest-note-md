@@ -44,6 +44,13 @@
       markdownEditor.focus()
     }
   }
+
+  // 外部から指定行にジャンプする関数
+  export function scrollToLine(line: number) {
+    if (markdownEditor && markdownEditor.scrollToLine) {
+      markdownEditor.scrollToLine(line)
+    }
+  }
 </script>
 
 <section class="editor-section">

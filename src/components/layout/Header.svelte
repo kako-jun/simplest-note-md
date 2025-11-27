@@ -5,6 +5,7 @@
   import IconButton from '../buttons/IconButton.svelte'
   import OctocatPullIcon from '../icons/OctocatPullIcon.svelte'
   import SettingsIcon from '../icons/SettingsIcon.svelte'
+  import SearchBar from './SearchBar.svelte'
 
   export let githubConfigured: boolean
   export let title: string = 'Agasteer'
@@ -12,6 +13,7 @@
   export let onSettingsClick: () => void
   export let onPull: () => void
   export let pullDisabled: boolean = false
+  export let onSearchResultClick: (leafId: string, line: number) => void
 
   $: hasTitle = title.trim().length > 0
   $: showAppIcon = hasTitle && title.trim() === defaultSettings.toolName
@@ -47,6 +49,7 @@
       </IconButton>
     </div>
   </div>
+  <SearchBar onResultClick={onSearchResultClick} />
   <div class="settings-button-wrapper">
     <IconButton
       onClick={onSettingsClick}

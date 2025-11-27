@@ -560,6 +560,18 @@
     syncNavState(state)
   }
 
+  async function handleSearchResultClick(leafId: string, line: number) {
+    const leaf = $leaves.find((l) => l.id === leafId)
+    if (leaf) {
+      selectLeaf(leaf, 'left')
+      // DOM更新を待ってから行ジャンプ
+      await tick()
+      if (leftEditorView && leftEditorView.scrollToLine) {
+        leftEditorView.scrollToLine(line)
+      }
+    }
+  }
+
   function closeLeaf(pane: Pane) {
     const state = getNavState()
     nav.closeLeaf(state, getNavDeps(), pane)
@@ -1908,6 +1920,7 @@
       }}
       onPull={() => handlePull(false)}
       pullDisabled={!canPull}
+      onSearchResultClick={handleSearchResultClick}
     />
 
     <div class="content-wrapper" class:single-pane={!isDualPane}>

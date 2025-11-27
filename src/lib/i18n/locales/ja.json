@@ -10,6 +10,11 @@
     "settings": "設定を開く",
     "pull": "Pullする"
   },
+  "search": {
+    "placeholder": "検索...",
+    "noResults": "該当なし",
+    "clear": "クリア"
+  },
   "breadcrumbs": {
     "goHome": "ホームへ移動",
     "editNoteName": "ノート名を編集",
