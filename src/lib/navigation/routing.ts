@@ -1,4 +1,4 @@
-import type { Note, Leaf } from './types'
+import type { Note, Leaf } from '../types'
 
 /**
  * パス解決の結果

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import AppIcon from '../icons/AppIcon.svelte'
-  import { defaultSettings } from '../../lib/storage'
+  import { defaultSettings } from '../../lib/data'
   import IconButton from '../buttons/IconButton.svelte'
   import OctocatPullIcon from '../icons/OctocatPullIcon.svelte'
   import SettingsIcon from '../icons/SettingsIcon.svelte'

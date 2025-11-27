@@ -28,14 +28,14 @@
     isPushing,
     focusedPane,
   } from './lib/stores'
-  import { clearAllData, loadSettings, saveNotes, saveLeaves } from './lib/storage'
-  import { applyTheme } from './lib/theme'
-  import { loadAndApplyCustomFont } from './lib/font'
-  import { loadAndApplyCustomBackgrounds } from './lib/background'
-  import { executePush, executePull, checkIfStaleEdit } from './lib/sync'
-  import type { PullOptions, PullPriority, LeafSkeleton, RateLimitInfo } from './lib/sync'
+  import { clearAllData, loadSettings, saveNotes, saveLeaves } from './lib/data'
+  import { applyTheme } from './lib/ui'
+  import { loadAndApplyCustomFont } from './lib/ui'
+  import { loadAndApplyCustomBackgrounds } from './lib/ui'
+  import { executePush, executePull, checkIfStaleEdit } from './lib/api'
+  import type { PullOptions, PullPriority, LeafSkeleton, RateLimitInfo } from './lib/api'
   import { initI18n, _ } from './lib/i18n'
-  import { processImportFile } from './lib/importers'
+  import { processImportFile } from './lib/data'
   import {
     pushToastState,
     pullToastState,
@@ -46,19 +46,15 @@
     showAlert,
     closeModal,
   } from './lib/ui'
-  import { resolvePath, buildPath } from './lib/routing'
-  import { buildNotesZip, downloadLeafAsMarkdown as downloadLeafAsMarkdownLib } from './lib/export'
-  import {
-    getBreadcrumbs as buildBreadcrumbs,
-    extractH1Title,
-    updateH1Title,
-  } from './lib/breadcrumbs'
+  import { resolvePath, buildPath } from './lib/navigation'
+  import { buildNotesZip, downloadLeafAsMarkdown as downloadLeafAsMarkdownLib } from './lib/utils'
+  import { getBreadcrumbs as buildBreadcrumbs, extractH1Title, updateH1Title } from './lib/ui'
   import {
     handleDragStart as dragStart,
     handleDragEnd as dragEnd,
     handleDragOver as dragOver,
     reorderItems,
-  } from './lib/drag-drop'
+  } from './lib/navigation'
   import {
     createNote as createNoteLib,
     deleteNote as deleteNoteLib,
@@ -68,7 +64,7 @@
     moveNoteTo as moveNoteToLib,
     getItemCount,
     getNoteItems,
-  } from './lib/notes'
+  } from './lib/data'
   import {
     createLeaf as createLeafLib,
     deleteLeaf as deleteLeafLib,
@@ -77,7 +73,7 @@
     normalizeLeafOrders,
     moveLeafTo as moveLeafToLib,
     getLeafCount,
-  } from './lib/leaves'
+  } from './lib/data'
   import {
     computeLeafCharCount,
     rebuildLeafStats as rebuildLeafStatsLib,
@@ -85,36 +81,36 @@
     removeLeafFromStats,
     updateLeafStats as updateLeafStatsLib,
     type LeafStats,
-  } from './lib/stats'
+  } from './lib/utils'
   import {
     handleCopyUrl as handleCopyUrlLib,
     handleCopyMarkdown as handleCopyMarkdownLib,
     handleShareImage as handleShareImageLib,
     handleCopyImageToClipboard as handleCopyImageToClipboardLib,
-  } from './lib/share'
+  } from './lib/utils'
   import {
     handlePaneScroll as handlePaneScrollLib,
     type ScrollSyncState,
     type ScrollSyncViews,
-  } from './lib/scroll-sync'
+  } from './lib/ui'
   import { generateUniqueName, normalizeBadgeValue } from './lib/utils'
   import Header from './components/layout/Header.svelte'
   import Modal from './components/layout/Modal.svelte'
   import Toast from './components/layout/Toast.svelte'
   import MoveModal from './components/layout/MoveModal.svelte'
   import SearchBar from './components/layout/SearchBar.svelte'
-  import { toggleSearch } from './lib/search'
+  import { toggleSearch } from './lib/utils'
   import SettingsView from './components/views/SettingsView.svelte'
   import PaneView from './components/layout/PaneView.svelte'
   import SettingsIcon from './components/icons/SettingsIcon.svelte'
-  import type { PaneActions, PaneState } from './lib/context'
+  import type { PaneActions, PaneState } from './lib/stores'
   import {
     priorityItems,
     createPriorityLeaf,
     isPriorityLeaf,
     isLeafSaveable,
     isNoteSaveable,
-  } from './lib/priority'
+  } from './lib/utils'
 
   // ローカル状態
   let breadcrumbs: Breadcrumb[] = []

@@ -4,9 +4,9 @@
  */
 
 import { writable, derived } from 'svelte/store'
-import type { Settings, Note, Leaf, Metadata, View } from './types'
-import type { Pane } from './navigation'
-import { defaultSettings, saveSettings, saveNotes, saveLeaves } from './storage'
+import type { Settings, Note, Leaf, Metadata, View } from '../types'
+import type { Pane } from '../navigation'
+import { defaultSettings, saveSettings, saveNotes, saveLeaves } from '../data'
 
 // 基本ストア
 export const settings = writable<Settings>(defaultSettings)

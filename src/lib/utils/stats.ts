@@ -1,7 +1,7 @@
 /**
  * リーフ統計の計算と管理
  */
-import type { Leaf, Note } from './types'
+import type { Leaf, Note } from '../types'
 import { isLeafSaveable } from './priority'
 
 export interface LeafStats {

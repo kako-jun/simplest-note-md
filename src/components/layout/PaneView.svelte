@@ -2,7 +2,7 @@
   import { getContext } from 'svelte'
   import type { Writable } from 'svelte/store'
   import type { Pane } from '../../lib/navigation'
-  import type { PaneActions, PaneState, PANE_ACTIONS_KEY, PANE_STATE_KEY } from '../../lib/context'
+  import type { PaneActions, PaneState, PANE_ACTIONS_KEY, PANE_STATE_KEY } from '../../lib/stores'
   import type { Note, Leaf, View } from '../../lib/types'
 
   // ストア

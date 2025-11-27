@@ -2,11 +2,11 @@
  * ノートのCRUD操作とビジネスロジック
  */
 import { get } from 'svelte/store'
-import type { Note, Leaf } from './types'
-import type { Pane } from './navigation'
-import { notes, leaves, updateNotes, updateLeaves } from './stores'
-import { showAlert, showConfirm } from './ui'
-import { generateUniqueName, normalizeBadgeValue } from './utils'
+import type { Note, Leaf } from '../types'
+import type { Pane } from '../navigation'
+import { notes, leaves, updateNotes, updateLeaves } from '../stores'
+import { showAlert, showConfirm } from '../ui'
+import { generateUniqueName, normalizeBadgeValue } from '../utils'
 
 export interface CreateNoteOptions {
   parentId?: string

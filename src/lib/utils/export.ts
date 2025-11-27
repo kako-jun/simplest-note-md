@@ -1,8 +1,8 @@
 import JSZip from 'jszip'
-import type { Leaf, Note, Metadata } from './types'
+import type { Leaf, Note, Metadata } from '../types'
 import { get } from 'svelte/store'
-import { leaves } from './stores'
-import { showPushToast } from './ui'
+import { leaves } from '../stores'
+import { showPushToast } from '../ui'
 
 /**
  * リーフをMarkdownファイルとしてダウンロード

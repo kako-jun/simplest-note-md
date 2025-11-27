@@ -6,8 +6,8 @@
  */
 
 import { derived } from 'svelte/store'
-import { leaves, notes } from './stores'
-import type { Leaf, Note } from './types'
+import { leaves, notes } from '../stores'
+import type { Leaf, Note } from '../types'
 
 /**
  * 抽出された優先段落の情報

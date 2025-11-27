@@ -3,8 +3,8 @@
  * コンポーネント間でアクションを共有するために使用
  */
 
-import type { Note, Leaf, Breadcrumb } from './types'
-import type { Pane } from './navigation'
+import type { Note, Leaf, Breadcrumb } from '../types'
+import type { Pane } from '../navigation'
 
 // Context キー
 export const PANE_ACTIONS_KEY = 'paneActions'

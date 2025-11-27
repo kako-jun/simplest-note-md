@@ -3,8 +3,8 @@
  * カスタムフォントの読み込み・適用を担当
  */
 
-import type { CustomFont } from './types'
-import { saveCustomFont, loadCustomFont, deleteCustomFont } from './storage'
+import type { CustomFont } from '../types'
+import { saveCustomFont, loadCustomFont, deleteCustomFont } from '../data'
 
 const CUSTOM_FONT_FAMILY = 'CustomUserFont'
 const CUSTOM_FONT_KEY = 'custom'

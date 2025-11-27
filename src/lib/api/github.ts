@@ -3,7 +3,7 @@
  * GitHubへのファイル保存とSHA取得を担当
  */
 
-import type { Leaf, Note, Settings, Metadata } from './types'
+import type { Leaf, Note, Settings, Metadata } from '../types'
 
 /**
  * レート制限エラー情報

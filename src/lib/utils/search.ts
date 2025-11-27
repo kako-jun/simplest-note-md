@@ -4,8 +4,8 @@
  */
 
 import { writable, derived, get } from 'svelte/store'
-import type { Leaf, Note, SearchMatch } from './types'
-import { leaves, notes } from './stores'
+import type { Leaf, Note, SearchMatch } from '../types'
+import { leaves, notes } from '../stores'
 
 // ========== 定数 ==========
 const MAX_RESULTS = 50

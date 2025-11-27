@@ -1,4 +1,4 @@
-import type { Note, Leaf, View } from './types'
+import type { Note, Leaf, View } from '../types'
 import type { Writable, Readable } from 'svelte/store'
 
 // ナビゲーション状態の型定義

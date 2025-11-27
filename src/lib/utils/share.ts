@@ -1,9 +1,9 @@
 /**
  * シェア機能（URL、Markdown、画像のコピー・共有）
  */
-import type { Leaf } from './types'
-import type { Pane } from './navigation'
-import { showPushToast } from './ui'
+import type { Leaf } from '../types'
+import type { Pane } from '../navigation'
+import { showPushToast } from '../ui'
 
 export interface ShareHandlers {
   translate: (key: string) => string

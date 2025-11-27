@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import type { Settings } from '../../lib/types'
-  import { uploadAndApplyBackground, removeAndDeleteCustomBackground } from '../../lib/background'
+  import { uploadAndApplyBackground, removeAndDeleteCustomBackground } from '../../lib/ui'
   import { showAlert } from '../../lib/ui'
 
   export let settings: Settings

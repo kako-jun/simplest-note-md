@@ -3,8 +3,8 @@
  * カスタム背景画像の読み込み・適用を担当
  */
 
-import type { CustomBackground } from './types'
-import { saveCustomBackground, loadCustomBackground, deleteCustomBackground } from './storage'
+import type { CustomBackground } from '../types'
+import { saveCustomBackground, loadCustomBackground, deleteCustomBackground } from '../data'
 
 const CUSTOM_BACKGROUND_KEY_LEFT = 'custom-left'
 const CUSTOM_BACKGROUND_KEY_RIGHT = 'custom-right'

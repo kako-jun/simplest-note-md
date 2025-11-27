@@ -12,7 +12,7 @@
     selectPrevResult,
     getSelectedResult,
     selectedResultIndex,
-  } from '../../lib/search'
+  } from '../../lib/utils'
   import type { SearchMatch } from '../../lib/types'
 
   export let onResultClick: (leafId: string, line: number) => void

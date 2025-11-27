@@ -2,13 +2,13 @@
  * リーフのCRUD操作とビジネスロジック
  */
 import { get } from 'svelte/store'
-import type { Note, Leaf } from './types'
-import type { Pane } from './navigation'
-import { notes, leaves, updateLeaves } from './stores'
-import { showAlert, showConfirm } from './ui'
-import { generateUniqueName, normalizeBadgeValue } from './utils'
-import { extractH1Title, updateH1Title } from './breadcrumbs'
-import { computeLeafCharCount, type LeafStats } from './stats'
+import type { Note, Leaf } from '../types'
+import type { Pane } from '../navigation'
+import { notes, leaves, updateLeaves } from '../stores'
+import { showAlert, showConfirm } from '../ui'
+import { generateUniqueName, normalizeBadgeValue } from '../utils'
+import { extractH1Title, updateH1Title } from '../ui/breadcrumbs'
+import { computeLeafCharCount, type LeafStats } from '../utils/stats'
 
 export interface CreateLeafOptions {
   targetNote: Note

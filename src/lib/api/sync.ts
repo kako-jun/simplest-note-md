@@ -1,4 +1,4 @@
-import type { Note, Leaf, Settings, Metadata } from './types'
+import type { Note, Leaf, Settings, Metadata } from '../types'
 import { pushAllWithTreeAPI, pullFromGitHub, fetchRemotePushCount } from './github'
 import type { PullOptions, RateLimitInfo } from './github'
 

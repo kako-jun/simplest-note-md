@@ -3,7 +3,7 @@
  * アプリケーションのテーマ適用を担当
  */
 
-import type { ThemeType, Settings } from './types'
+import type { ThemeType, Settings } from '../types'
 
 /**
  * テーマを適用

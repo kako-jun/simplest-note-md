@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import type { Settings } from '../../lib/types'
-  import { uploadAndApplyFont, removeAndDeleteCustomFont } from '../../lib/font'
+  import { uploadAndApplyFont, removeAndDeleteCustomFont } from '../../lib/ui'
   import { showAlert } from '../../lib/ui'
 
   export let settings: Settings

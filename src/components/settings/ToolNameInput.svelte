@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
-  import { defaultSettings } from '../../lib/storage'
+  import { defaultSettings } from '../../lib/data'
   import type { Settings } from '../../lib/types'
 
   export let settings: Settings

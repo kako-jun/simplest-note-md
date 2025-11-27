@@ -2,9 +2,8 @@
  * スクロール同期機能
  * 左右ペインで同じリーフを編集/プレビューで開いている場合のスクロール同期
  */
-import type { Leaf } from './types'
-import type { View } from './types'
-import type { Pane } from './navigation'
+import type { Leaf, View } from '../types'
+import type { Pane } from '../navigation'
 
 export interface ScrollSyncState {
   isDualPane: boolean

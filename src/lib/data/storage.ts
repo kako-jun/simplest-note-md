@@ -3,7 +3,15 @@
  * アプリケーションデータの永続化を担当
  */
 
-import type { Settings, Note, Leaf, ThemeType, CustomFont, CustomBackground, Locale } from './types'
+import type {
+  Settings,
+  Note,
+  Leaf,
+  ThemeType,
+  CustomFont,
+  CustomBackground,
+  Locale,
+} from '../types'
 import { getLocaleFromNavigator } from 'svelte-i18n'
 
 // 設定のみLocalStorage利用（キー簡素化）

@@ -1,8 +1,8 @@
 /**
  * パンくずリスト生成ユーティリティ
  */
-import type { Note, Leaf, Breadcrumb, View } from './types'
-import { isNoteSaveable } from './priority'
+import type { Note, Leaf, Breadcrumb, View } from '../types'
+import { isNoteSaveable } from '../utils/priority'
 
 type Pane = 'left' | 'right'
 

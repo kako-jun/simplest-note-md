@@ -2,7 +2,7 @@
   import { flip } from 'svelte/animate'
   import { _ } from '../../lib/i18n'
   import type { Note, Leaf } from '../../lib/types'
-  import type { LeafSkeleton } from '../../lib/sync'
+  import type { LeafSkeleton } from '../../lib/api'
   import NoteCard from '../cards/NoteCard.svelte'
   import BadgeButton from '../badges/BadgeButton.svelte'
 
