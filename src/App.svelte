@@ -66,6 +66,13 @@
   import PreviewView from './components/views/PreviewView.svelte'
   import SettingsView from './components/views/SettingsView.svelte'
   import SettingsIcon from './components/icons/SettingsIcon.svelte'
+  import {
+    priorityItems,
+    createPriorityLeaf,
+    isPriorityLeaf,
+    isLeafSaveable,
+    isNoteSaveable,
+  } from './lib/priority'
 
   // ローカル状態
   let breadcrumbs: Breadcrumb[] = []
@@ -165,6 +172,9 @@
   )
   $: isGitHubConfigured = $githubConfigured
   $: document.title = $settings.toolName
+
+  // Priorityリーフをリアクティブに生成
+  $: currentPriorityLeaf = createPriorityLeaf($priorityItems)
 
   // Pull/Push中はボタンを無効化（リアクティブに追跡）
   $: canPull = !isPulling && !isPushing
@@ -504,6 +514,40 @@
     syncNavState(state)
   }
 
+  function openPriorityView(pane: Pane) {
+    // 優先段落を集約した仮想リーフを生成（ホーム直下なのでnoteはnull）
+    const items = get(priorityItems)
+    const priorityLeaf = createPriorityLeaf(items)
+
+    if (pane === 'left') {
+      leftNote = null
+      leftLeaf = priorityLeaf
+      leftView = 'preview' // 読み取り専用なのでプレビューで開く
+    } else {
+      rightNote = null
+      rightLeaf = priorityLeaf
+      rightView = 'preview'
+    }
+  }
+
+  function navigateToLeafFromPriority(leafId: string, pane: Pane) {
+    const leaf = $leaves.find((l) => l.id === leafId)
+    if (!leaf) return
+
+    const note = $notes.find((n) => n.id === leaf.noteId)
+    if (!note) return
+
+    if (pane === 'left') {
+      leftNote = note
+      leftLeaf = leaf
+      leftView = 'edit'
+    } else {
+      rightNote = note
+      rightLeaf = leaf
+      rightView = 'edit'
+    }
+  }
+
   function selectNote(note: Note, pane: Pane) {
     const state = getNavState()
     nav.selectNote(state, getNavDeps(), note, pane)
@@ -798,7 +842,7 @@
 
       updateNotes(remainingNotes)
       updateLeaves(remainingLeaves)
-      rebuildLeafStats(remainingLeaves)
+      rebuildLeafStats(remainingLeaves, remainingNotes)
 
       const parentId = targetNote.parentId
       const parentNote = parentId ? remainingNotes.find((f) => f.id === parentId) : null
@@ -1272,9 +1316,11 @@
     return content.replace(/\s+/g, '').length
   }
 
-  function rebuildLeafStats(allLeaves: Leaf[]) {
+  function rebuildLeafStats(allLeaves: Leaf[], allNotes: Note[]) {
     resetLeafStats()
     for (const leaf of allLeaves) {
+      // ホーム直下のリーフ（仮想リーフ）は統計から除外
+      if (!isLeafSaveable(leaf, allNotes)) continue
       const chars = computeLeafCharCount(leaf.content)
       leafCharCounts.set(leaf.id, chars)
       totalLeafCount += 1
@@ -1349,7 +1395,10 @@
       // Push開始を通知
       showPushToast('Pushします')
 
-      const result = await executePush($leaves, $notes, $settings, isOperationsLocked)
+      // ホーム直下のリーフ・仮想ノートを除外してからPush
+      const saveableNotes = $notes.filter((n) => isNoteSaveable(n))
+      const saveableLeaves = $leaves.filter((l) => isLeafSaveable(l, saveableNotes))
+      const result = await executePush(saveableLeaves, saveableNotes, $settings, isOperationsLocked)
 
       // 結果を通知
       showPushToast(result.message, result.variant)
@@ -1785,7 +1834,7 @@
       // leavesストアはonLeafで逐次更新済みなので、最終的なソートのみ
       const sortedLeaves = result.leaves.sort((a, b) => a.order - b.order)
       leaves.set(sortedLeaves)
-      rebuildLeafStats(sortedLeaves)
+      rebuildLeafStats(sortedLeaves, result.notes)
 
       // stale編集検出用にpushCountを記録
       lastPulledPushCount.set(result.metadata.pushCount)
@@ -1872,6 +1921,9 @@
               leafCharCount={totalLeafChars}
               pushCount={$metadata.pushCount}
               onUpdateNoteBadge={updateNoteBadge}
+              priorityLeaf={currentPriorityLeaf}
+              onSelectPriority={() => openPriorityView('left')}
+              onUpdatePriorityBadge={(icon, color) => {}}
             />
           {:else if leftView === 'note' && leftNote}
             <NoteView
@@ -2015,6 +2067,9 @@
               leafCharCount={totalLeafChars}
               pushCount={$metadata.pushCount}
               onUpdateNoteBadge={updateNoteBadge}
+              priorityLeaf={currentPriorityLeaf}
+              onSelectPriority={() => openPriorityView('right')}
+              onUpdatePriorityBadge={(icon, color) => {}}
             />
           {:else if rightView === 'note' && rightNote}
             <NoteView

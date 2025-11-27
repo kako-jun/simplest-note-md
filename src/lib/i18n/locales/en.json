@@ -34,6 +34,12 @@
     "pushCount": "Push Count",
     "noNotes": "No notes yet.\nYou can create a new note using the button at the bottom left."
   },
+  "priority": {
+    "itemCount": "{count} items",
+    "empty": "No priority paragraphs yet.\nAdd markers like \"[1] \" at the start or \" [2]\" at the end of paragraphs (with a space) to see them here.",
+    "readOnly": "This view is read-only",
+    "fromLeaf": "📄 {leafTitle} ({noteName})"
+  },
   "note": {
     "updated": "Updated",
     "noItems": "No sub-notes or leaves yet.\nYou can add them using the button at the bottom left.",

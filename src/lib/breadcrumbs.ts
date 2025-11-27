@@ -2,6 +2,7 @@
  * パンくずリスト生成ユーティリティ
  */
 import type { Note, Leaf, Breadcrumb, View } from './types'
+import { isNoteSaveable } from './priority'
 
 type Pane = 'left' | 'right'
 
@@ -27,7 +28,8 @@ export function getBreadcrumbs(
     type: 'home',
   })
 
-  if (note) {
+  // ノートのパンくず（仮想ノートは除外）
+  if (note && isNoteSaveable(note)) {
     const parentNote = allNotes.find((f) => f.id === note.parentId)
     if (parentNote) {
       crumbs.push({
