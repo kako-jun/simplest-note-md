@@ -128,9 +128,10 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     flex: 1;
     min-width: 0;
+    overflow: hidden;
   }
 
   :global([data-theme='greenboard']) .breadcrumbs,
@@ -142,14 +143,15 @@
 
   .separator {
     color: var(--text-muted);
+    flex-shrink: 0;
   }
 
   .breadcrumb-item {
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    max-width: 320px;
     min-width: 0;
+    flex-shrink: 1;
   }
 
   .breadcrumb-button {
@@ -160,7 +162,11 @@
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     transition: background 0.2s;
-    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex-shrink: 1;
   }
   .breadcrumb-button.current {
     color: var(--text);
