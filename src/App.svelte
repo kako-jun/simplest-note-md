@@ -1,7 +1,7 @@
 <script lang="ts">
   import './App.css'
-  import { onMount, tick } from 'svelte'
-  import { get } from 'svelte/store'
+  import { onMount, tick, setContext } from 'svelte'
+  import { writable, get } from 'svelte/store'
   import type { Note, Leaf, Breadcrumb, View, Metadata } from './lib/types'
   import * as nav from './lib/navigation'
   import type { Pane } from './lib/navigation'
@@ -99,24 +99,15 @@
   } from './lib/scroll-sync'
   import { generateUniqueName, normalizeBadgeValue } from './lib/utils'
   import Header from './components/layout/Header.svelte'
-  import Breadcrumbs from './components/layout/Breadcrumbs.svelte'
-  import Footer from './components/layout/Footer.svelte'
-  import Loading from './components/layout/Loading.svelte'
   import Modal from './components/layout/Modal.svelte'
   import Toast from './components/layout/Toast.svelte'
   import MoveModal from './components/layout/MoveModal.svelte'
   import SearchBar from './components/layout/SearchBar.svelte'
   import { toggleSearch } from './lib/search'
-  import HomeFooter from './components/layout/footer/HomeFooter.svelte'
-  import NoteFooter from './components/layout/footer/NoteFooter.svelte'
-  import EditorFooter from './components/layout/footer/EditorFooter.svelte'
-  import PreviewFooter from './components/layout/footer/PreviewFooter.svelte'
-  import HomeView from './components/views/HomeView.svelte'
-  import NoteView from './components/views/NoteView.svelte'
-  import EditorView from './components/views/EditorView.svelte'
-  import PreviewView from './components/views/PreviewView.svelte'
   import SettingsView from './components/views/SettingsView.svelte'
+  import PaneView from './components/layout/PaneView.svelte'
   import SettingsIcon from './components/icons/SettingsIcon.svelte'
+  import type { PaneActions, PaneState } from './lib/context'
   import {
     priorityItems,
     createPriorityLeaf,
@@ -219,6 +210,53 @@
   // Pull/Push中はボタンを無効化（リアクティブに追跡）
   $: canPull = !$isPulling && !$isPushing
   $: canPush = !$isPulling && !$isPushing
+
+  // ========================================
+  // Context API によるペイン間の状態共有
+  // ========================================
+
+  // paneState ストア（リアクティブな状態を子コンポーネントに渡す）
+  const paneStateStore = writable<PaneState>({
+    isOperationsLocked: true,
+    canPush: false,
+    selectedIndexLeft: 0,
+    selectedIndexRight: 0,
+    editingBreadcrumb: null,
+    dragOverNoteId: null,
+    dragOverLeafId: null,
+    loadingLeafIds: new Set(),
+    leafSkeletonMap: new Map(),
+    totalLeafCount: 0,
+    totalLeafChars: 0,
+    currentPriorityLeaf: null,
+    breadcrumbs: [],
+    breadcrumbsRight: [],
+    showWelcome: false,
+    isLoadingUI: false,
+  })
+
+  // paneState をリアクティブに更新
+  $: paneStateStore.set({
+    isOperationsLocked,
+    canPush,
+    selectedIndexLeft,
+    selectedIndexRight,
+    editingBreadcrumb,
+    dragOverNoteId,
+    dragOverLeafId,
+    loadingLeafIds,
+    leafSkeletonMap,
+    totalLeafCount,
+    totalLeafChars,
+    currentPriorityLeaf,
+    breadcrumbs,
+    breadcrumbsRight,
+    showWelcome,
+    isLoadingUI,
+  })
+
+  // Context に設定
+  setContext('paneState', paneStateStore)
 
   // URLルーティング
   let isRestoringFromUrl = false
@@ -1339,6 +1377,67 @@
     await handleShareImageLib(pane, getShareHandlers())
   }
 
+  // ========================================
+  // paneActions Context 設定
+  // ========================================
+  const paneActions: PaneActions = {
+    // ナビゲーション
+    selectNote,
+    selectLeaf,
+    goHome,
+    closeLeaf,
+    switchPane,
+    togglePreview,
+    openPriorityView,
+
+    // CRUD操作
+    createNote,
+    deleteNote,
+    createLeaf,
+    deleteLeaf,
+    updateLeafContent,
+    updateNoteBadge,
+    updateLeafBadge,
+
+    // ドラッグ&ドロップ
+    handleDragStartNote,
+    handleDragEndNote,
+    handleDragOverNote,
+    handleDropNote,
+    handleDragStartLeaf,
+    handleDragEndLeaf,
+    handleDragOverLeaf,
+    handleDropLeaf,
+
+    // 移動モーダル
+    openMoveModalForNote,
+    openMoveModalForLeaf,
+
+    // 保存・エクスポート
+    handleSaveToGitHub,
+    downloadLeafAsMarkdown,
+    downloadLeafAsImage,
+
+    // パンくずリスト
+    startEditingBreadcrumb,
+    saveEditBreadcrumb,
+    cancelEditBreadcrumb,
+
+    // シェア
+    handleCopyUrl,
+    handleCopyMarkdown,
+    handleShareImage,
+
+    // スクロール
+    handleLeftScroll,
+    handleRightScroll,
+
+    // 統計
+    getNoteItems,
+  }
+
+  setContext('paneActions', paneActions)
+
   // 設定
   function handleThemeChange(theme: typeof $settings.theme) {
     const next = { ...$settings, theme }
@@ -1507,299 +1606,19 @@
     <div class="content-wrapper" class:single-pane={!isDualPane}>
       <div class="pane-divider" class:hidden={!isDualPane}></div>
       <div class="left-column">
-        <Breadcrumbs
-          {breadcrumbs}
-          editingId={editingBreadcrumb}
-          onStartEdit={startEditingBreadcrumb}
-          onSaveEdit={saveEditBreadcrumb}
-          onCancelEdit={cancelEditBreadcrumb}
-          onCopyUrl={() => handleCopyUrl('left')}
-          onCopyMarkdown={() => handleCopyMarkdown('left')}
-          onShareImage={() => handleShareImage('left')}
-          isPreview={$leftView === 'preview'}
+        <PaneView
+          pane="left"
+          bind:editorViewRef={leftEditorView}
+          bind:previewViewRef={leftPreviewView}
         />
-
-        <main class="main-pane">
-          {#if $leftView === 'home'}
-            <HomeView
-              notes={$rootNotes}
-              disabled={isOperationsLocked}
-              selectedIndex={selectedIndexLeft}
-              isActive={$focusedPane === 'left'}
-              vimMode={$settings.vimMode ?? false}
-              onSelectNote={(note) => selectNote(note, 'left')}
-              onCreateNote={() => createNote(undefined, 'left')}
-              onDragStart={handleDragStartNote}
-              onDragEnd={handleDragEndNote}
-              onDragOver={handleDragOverNote}
-              onDrop={handleDropNote}
-              onSave={handleSaveToGitHub}
-              {dragOverNoteId}
-              {getNoteItems}
-              leafCount={totalLeafCount}
-              leafCharCount={totalLeafChars}
-              pushCount={$metadata.pushCount}
-              onUpdateNoteBadge={updateNoteBadge}
-              priorityLeaf={currentPriorityLeaf}
-              onSelectPriority={() => openPriorityView('left')}
-              onUpdatePriorityBadge={(icon, color) => {}}
-            />
-          {:else if $leftView === 'note' && $leftNote}
-            <NoteView
-              currentNote={$leftNote}
-              subNotes={$notes
-                .filter((n) => n.parentId === $leftNote.id)
-                .sort((a, b) => a.order - b.order)}
-              leaves={$leaves
-                .filter((l) => l.noteId === $leftNote.id)
-                .sort((a, b) => a.order - b.order)}
-              disabled={isOperationsLocked}
-              selectedIndex={selectedIndexLeft}
-              isActive={$focusedPane === 'left'}
-              vimMode={$settings.vimMode ?? false}
-              onSelectNote={(note) => selectNote(note, 'left')}
-              onSelectLeaf={(leaf) => selectLeaf(leaf, 'left')}
-              onCreateNote={() => createNote($leftNote.id, 'left')}
-              onCreateLeaf={() => createLeaf('left')}
-              onDeleteNote={() => deleteNote('left')}
-              onDragStartNote={handleDragStartNote}
-              onDragStartLeaf={handleDragStartLeaf}
-              onDragEndNote={handleDragEndNote}
-              onDragEndLeaf={handleDragEndLeaf}
-              onDragOverNote={handleDragOverNote}
-              onDragOverLeaf={handleDragOverLeaf}
-              onDropNote={handleDropNote}
-              onDropLeaf={handleDropLeaf}
-              onSave={handleSaveToGitHub}
-              {dragOverNoteId}
-              {dragOverLeafId}
-              {getNoteItems}
-              onUpdateNoteBadge={updateNoteBadge}
-              onUpdateLeafBadge={updateLeafBadge}
-              {loadingLeafIds}
-              {leafSkeletonMap}
-            />
-          {:else if $leftView === 'edit' && $leftLeaf}
-            <EditorView
-              bind:this={leftEditorView}
-              leaf={$leftLeaf}
-              theme={$settings.theme}
-              vimMode={$settings.vimMode ?? false}
-              linedMode={$settings.linedMode ?? false}
-              pane="left"
-              disabled={isOperationsLocked}
-              onContentChange={updateLeafContent}
-              onSave={handleSaveToGitHub}
-              onClose={() => closeLeaf('left')}
-              onSwitchPane={() => switchPane('left')}
-              onDownload={downloadLeafAsMarkdown}
-              onDelete={(leafId) => deleteLeaf(leafId, 'left')}
-              onScroll={handleLeftScroll}
-            />
-          {:else if $leftView === 'preview' && $leftLeaf}
-            <PreviewView bind:this={leftPreviewView} leaf={$leftLeaf} onScroll={handleLeftScroll} />
-          {/if}
-        </main>
-
-        {#if $leftView === 'home'}
-          <HomeFooter
-            onCreateNote={() => createNote(undefined, 'left')}
-            onSave={handleSaveToGitHub}
-            disabled={isOperationsLocked}
-            isDirty={$isDirty}
-            saveDisabled={!canPush}
-          />
-        {:else if $leftView === 'note' && $leftNote}
-          <NoteFooter
-            onDeleteNote={() => deleteNote('left')}
-            onMove={() => openMoveModalForNote('left')}
-            onCreateSubNote={() => createNote($leftNote.id, 'left')}
-            onCreateLeaf={() => createLeaf('left')}
-            onSave={handleSaveToGitHub}
-            disabled={isOperationsLocked}
-            isDirty={$isDirty}
-            canHaveSubNote={!$leftNote.parentId}
-            saveDisabled={!canPush}
-          />
-        {:else if $leftView === 'edit' && $leftLeaf}
-          <EditorFooter
-            onDelete={() => deleteLeaf($leftLeaf.id, 'left')}
-            onMove={() => openMoveModalForLeaf('left')}
-            onDownload={() => downloadLeafAsMarkdown($leftLeaf.id)}
-            onTogglePreview={() => togglePreview('left')}
-            onSave={handleSaveToGitHub}
-            disabled={isOperationsLocked}
-            isDirty={$isDirty}
-            saveDisabled={!canPush}
-          />
-        {:else if $leftView === 'preview' && $leftLeaf}
-          <PreviewFooter
-            onMove={() => openMoveModalForLeaf('left')}
-            onDownload={() => downloadLeafAsImage($leftLeaf.id, 'left')}
-            onToggleEdit={() => togglePreview('left')}
-            onSave={handleSaveToGitHub}
-            disabled={isOperationsLocked}
-            isDirty={$isDirty}
-            saveDisabled={!canPush}
-          />
-        {/if}
-
-        {#if isOperationsLocked && !showWelcome && !isLoadingUI}
-          <div class="config-required-overlay"></div>
-        {/if}
-        {#if isLoadingUI || $isPushing}
-          <Loading />
-        {/if}
       </div>
 
       <div class="right-column" class:hidden={!isDualPane}>
-        <Breadcrumbs
-          breadcrumbs={breadcrumbsRight}
-          editingId={editingBreadcrumb}
-          onStartEdit={startEditingBreadcrumb}
-          onSaveEdit={saveEditBreadcrumb}
-          onCancelEdit={cancelEditBreadcrumb}
-          onCopyUrl={() => handleCopyUrl('right')}
-          onCopyMarkdown={() => handleCopyMarkdown('right')}
-          onShareImage={() => handleShareImage('right')}
-          isPreview={$rightView === 'preview'}
+        <PaneView
+          pane="right"
+          bind:editorViewRef={rightEditorView}
+          bind:previewViewRef={rightPreviewView}
         />
-
-        <main class="main-pane">
-          {#if $rightView === 'home'}
-            <HomeView
-              notes={$rootNotes}
-              disabled={isOperationsLocked}
-              selectedIndex={selectedIndexRight}
-              isActive={$focusedPane === 'right'}
-              vimMode={$settings.vimMode ?? false}
-              onSelectNote={(note) => selectNote(note, 'right')}
-              onCreateNote={() => createNote(undefined, 'right')}
-              onDragStart={handleDragStartNote}
-              onDragEnd={handleDragEndNote}
-              onDragOver={handleDragOverNote}
-              onDrop={handleDropNote}
-              onSave={handleSaveToGitHub}
-              {dragOverNoteId}
-              {getNoteItems}
-              leafCount={totalLeafCount}
-              leafCharCount={totalLeafChars}
-              pushCount={$metadata.pushCount}
-              onUpdateNoteBadge={updateNoteBadge}
-              priorityLeaf={currentPriorityLeaf}
-              onSelectPriority={() => openPriorityView('right')}
-              onUpdatePriorityBadge={(icon, color) => {}}
-            />
-          {:else if $rightView === 'note' && $rightNote}
-            <NoteView
-              currentNote={$rightNote}
-              subNotes={$notes
-                .filter((n) => n.parentId === $rightNote.id)
-                .sort((a, b) => a.order - b.order)}
-              leaves={$leaves
-                .filter((l) => l.noteId === $rightNote.id)
-                .sort((a, b) => a.order - b.order)}
-              disabled={isOperationsLocked}
-              selectedIndex={selectedIndexRight}
-              isActive={$focusedPane === 'right'}
-              vimMode={$settings.vimMode ?? false}
-              onSelectNote={(note) => selectNote(note, 'right')}
-              onSelectLeaf={(leaf) => selectLeaf(leaf, 'right')}
-              onCreateNote={() => createNote($rightNote.id, 'right')}
-              onCreateLeaf={() => createLeaf('right')}
-              onDeleteNote={() => deleteNote('right')}
-              onDragStartNote={handleDragStartNote}
-              onDragStartLeaf={handleDragStartLeaf}
-              onDragEndNote={handleDragEndNote}
-              onDragEndLeaf={handleDragEndLeaf}
-              onDragOverNote={handleDragOverNote}
-              onDragOverLeaf={handleDragOverLeaf}
-              onDropNote={handleDropNote}
-              onDropLeaf={handleDropLeaf}
-              onSave={handleSaveToGitHub}
-              {dragOverNoteId}
-              {dragOverLeafId}
-              {getNoteItems}
-              onUpdateNoteBadge={updateNoteBadge}
-              onUpdateLeafBadge={updateLeafBadge}
-              {loadingLeafIds}
-              {leafSkeletonMap}
-            />
-          {:else if $rightView === 'edit' && $rightLeaf}
-            <EditorView
-              bind:this={rightEditorView}
-              leaf={$rightLeaf}
-              theme={$settings.theme}
-              vimMode={$settings.vimMode ?? false}
-              linedMode={$settings.linedMode ?? false}
-              pane="right"
-              disabled={isOperationsLocked}
-              onContentChange={updateLeafContent}
-              onSave={handleSaveToGitHub}
-              onClose={() => closeLeaf('right')}
-              onSwitchPane={() => switchPane('right')}
-              onDownload={downloadLeafAsMarkdown}
-              onDelete={(leafId) => deleteLeaf(leafId, 'right')}
-              onScroll={handleRightScroll}
-            />
-          {:else if $rightView === 'preview' && $rightLeaf}
-            <PreviewView
-              bind:this={rightPreviewView}
-              leaf={$rightLeaf}
-              onScroll={handleRightScroll}
-            />
-          {/if}
-        </main>
-
-        {#if $rightView === 'home'}
-          <HomeFooter
-            onCreateNote={() => createNote(undefined, 'right')}
-            onSave={handleSaveToGitHub}
-            disabled={isOperationsLocked}
-            isDirty={$isDirty}
-            saveDisabled={!canPush}
-          />
-        {:else if $rightView === 'note' && $rightNote}
-          <NoteFooter
-            onDeleteNote={() => deleteNote('right')}
-            onMove={() => openMoveModalForNote('right')}
-            onCreateSubNote={() => createNote($rightNote.id, 'right')}
-            onCreateLeaf={() => createLeaf('right')}
-            onSave={handleSaveToGitHub}
-            disabled={isOperationsLocked}
-            isDirty={$isDirty}
-            canHaveSubNote={!$rightNote.parentId}
-            saveDisabled={!canPush}
-          />
-        {:else if $rightView === 'edit' && $rightLeaf}
-          <EditorFooter
-            onDelete={() => deleteLeaf($rightLeaf.id, 'right')}
-            onMove={() => openMoveModalForLeaf('right')}
-            onDownload={() => downloadLeafAsMarkdown($rightLeaf.id)}
-            onTogglePreview={() => togglePreview('right')}
-            onSave={handleSaveToGitHub}
-            disabled={isOperationsLocked}
-            isDirty={$isDirty}
-            saveDisabled={!canPush}
-          />
-        {:else if $rightView === 'preview' && $rightLeaf}
-          <PreviewFooter
-            onMove={() => openMoveModalForLeaf('right')}
-            onDownload={() => downloadLeafAsImage($rightLeaf.id, 'right')}
-            onToggleEdit={() => togglePreview('right')}
-            onSave={handleSaveToGitHub}
-            disabled={isOperationsLocked}
-            isDirty={$isDirty}
-            saveDisabled={!canPush}
-          />
-        {/if}
-
-        {#if isOperationsLocked && !showWelcome && !isLoadingUI}
-          <div class="config-required-overlay"></div>
-        {/if}
-        {#if isLoadingUI || $isPushing}
-          <Loading />
-        {/if}
       </div>
     </div>
 
