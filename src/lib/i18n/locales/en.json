@@ -208,8 +208,8 @@
     "pushing": "Pushing..."
   },
   "github": {
-    "rateLimited": "【LIMIT BREAK!】Please retry in ~{hours}h {minutes}m",
-    "rateLimitedNoTime": "【LIMIT BREAK!】Please wait and try again later",
+    "rateLimited": "LIMIT BREAK! Please retry in ~{minutes} min",
+    "rateLimitedNoTime": "LIMIT BREAK! Please wait and try again later",
     "invalidToken": "Invalid token",
     "userFetchFailed": "Failed to fetch user info",
     "repoNotFound": "Repository not found",

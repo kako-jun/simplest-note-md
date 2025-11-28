@@ -27,6 +27,8 @@ export interface PriorityItem {
   noteName: string
   /** パス（ノート名/リーフ名 または 親ノート名/ノート名/リーフ名） */
   path: string
+  /** 元リーフ内での行番号（1始まり） */
+  line: number
   /** 表示順序（ノート順 + リーフ順） */
   displayOrder: number
 }
@@ -102,11 +104,35 @@ export function extractPriorityItems(
 ): PriorityItem[] {
   const items: PriorityItem[] = []
 
-  // 空行で段落を分割
-  const paragraphs = leaf.content.split(/\n\n+/)
+  // 段落の開始位置を追跡しながら分割
+  const content = leaf.content
+  const paragraphPattern = /\n\n+/g
+  let lastIndex = 0
+  let currentLine = 1
 
-  for (const paragraph of paragraphs) {
-    const trimmed = paragraph.trim()
+  // 段落を順番に処理
+  let match: RegExpExecArray | null
+  const paragraphs: { text: string; line: number }[] = []
+
+  while ((match = paragraphPattern.exec(content)) !== null) {
+    const paragraphText = content.slice(lastIndex, match.index)
+    if (paragraphText.trim()) {
+      paragraphs.push({ text: paragraphText, line: currentLine })
+    }
+    // 次の段落の行番号を計算
+    const skippedText = content.slice(lastIndex, match.index + match[0].length)
+    currentLine += (skippedText.match(/\n/g) || []).length
+    lastIndex = match.index + match[0].length
+  }
+
+  // 最後の段落
+  const lastParagraph = content.slice(lastIndex)
+  if (lastParagraph.trim()) {
+    paragraphs.push({ text: lastParagraph, line: currentLine })
+  }
+
+  for (const { text, line } of paragraphs) {
+    const trimmed = text.trim()
     if (!trimmed) continue
 
     const priority = extractPriority(trimmed)
@@ -119,6 +145,7 @@ export function extractPriorityItems(
         noteId: leaf.noteId,
         noteName,
         path,
+        line,
         displayOrder,
       })
     }
@@ -238,8 +265,8 @@ export function generatePriorityContent(items: PriorityItem[]): string {
   for (const item of items) {
     // 優先度バッジ + 内容
     lines.push(`**[${item.priority}]** ${item.content}`)
-    // 出典（パス形式: note/leafTitle または parentNote/note/leafTitle）
-    lines.push(`_— ${item.path}_`)
+    // 出典（クリックで元リーフの該当行へジャンプ）
+    lines.push(`_— [${item.path}](#priority:${item.leafId}:${item.line})_`)
     lines.push('')
   }
 

@@ -21,12 +21,10 @@ export function translateGitHubMessage(
     return messageKey
   }
 
-  // レート制限メッセージの場合、残り時間を含める
+  // レート制限メッセージの場合、残り時間を含める（GitHub APIは最大60分でリセット）
   if (messageKey === 'github.rateLimited' && rateLimitInfo?.remainingSeconds !== undefined) {
-    const totalMinutes = Math.floor(rateLimitInfo.remainingSeconds / 60)
-    const hours = Math.floor(totalMinutes / 60)
-    const minutes = totalMinutes % 60
-    return translate('github.rateLimited', { values: { hours, minutes } })
+    const minutes = Math.ceil(rateLimitInfo.remainingSeconds / 60)
+    return translate('github.rateLimited', { values: { minutes } })
   } else if (messageKey === 'github.rateLimited') {
     return translate('github.rateLimitedNoTime')
   }

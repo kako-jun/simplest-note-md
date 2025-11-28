@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import type { Leaf } from '../../lib/types'
 
   export let leaf: Leaf
   export let onScroll: ((scrollTop: number, scrollHeight: number) => void) | null = null
+  /** Priorityリンククリック時のコールバック（leafId, line） */
+  export let onPriorityLinkClick: ((leafId: string, line: number) => void) | null = null
 
   let previewSection: HTMLElement
   let isScrollingSynced = false // スクロール同期中フラグ（無限ループ防止）
@@ -27,6 +29,10 @@
 
   onMount(async () => {
     await loadMarkdownTools()
+    // リンククリックハンドラを登録
+    if (previewSection) {
+      previewSection.addEventListener('click', handleClick)
+    }
   })
 
   // 外部からスクロール位置を設定する関数
@@ -182,6 +188,31 @@
       onScroll(target.scrollTop, target.scrollHeight)
     }
   }
+
+  // プレビュー内のリンククリックを処理
+  function handleClick(event: MouseEvent) {
+    const target = event.target as HTMLElement
+    const anchor = target.closest('a')
+    if (!anchor) return
+
+    const href = anchor.getAttribute('href')
+    if (!href) return
+
+    // #priority:leafId:line 形式のリンクを処理
+    const priorityMatch = href.match(/^#priority:([^:]+):(\d+)$/)
+    if (priorityMatch && onPriorityLinkClick) {
+      event.preventDefault()
+      const leafId = priorityMatch[1]
+      const line = parseInt(priorityMatch[2], 10)
+      onPriorityLinkClick(leafId, line)
+    }
+  }
+
+  onDestroy(() => {
+    if (previewSection) {
+      previewSection.removeEventListener('click', handleClick)
+    }
+  })
 </script>
 
 <section class="preview-section" bind:this={previewSection} on:scroll={handleScroll}>

@@ -578,6 +578,20 @@
     }
   }
 
+  async function handlePriorityLinkClick(leafId: string, line: number, pane: Pane) {
+    const leaf = $leaves.find((l) => l.id === leafId)
+    if (leaf) {
+      selectLeaf(leaf, pane)
+      // エディタのマウント完了を待つ（tick()だけでは不十分）
+      await tick()
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      const editorView = pane === 'left' ? leftEditorView : rightEditorView
+      if (editorView && editorView.scrollToLine) {
+        editorView.scrollToLine(line)
+      }
+    }
+  }
+
   function closeLeaf(pane: Pane) {
     const state = getNavState()
     nav.closeLeaf(state, getNavDeps(), pane)
@@ -1349,6 +1363,9 @@
 
     // パンくずリストからの兄弟選択
     selectSiblingFromBreadcrumb,
+
+    // Priorityリンククリック
+    handlePriorityLinkClick,
   }
 
   setContext('paneActions', paneActions)

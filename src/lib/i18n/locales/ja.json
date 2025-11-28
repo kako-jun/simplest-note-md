@@ -218,8 +218,8 @@
     "pushing": "Push中..."
   },
   "github": {
-    "rateLimited": "【LIMIT BREAK!】約{hours}時間{minutes}分後に再試行してください",
-    "rateLimitedNoTime": "【LIMIT BREAK!】しばらく待ってから再試行してください",
+    "rateLimited": "LIMIT BREAK! 約{minutes}分後に再試行してください",
+    "rateLimitedNoTime": "LIMIT BREAK! しばらく待ってから再試行してください",
     "invalidToken": "トークンが無効です",
     "userFetchFailed": "ユーザー情報取得に失敗しました",
     "repoNotFound": "リポジトリが見つかりません",

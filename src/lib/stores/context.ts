@@ -73,6 +73,9 @@ export interface PaneActions {
 
   // パンくずリストからの兄弟選択
   selectSiblingFromBreadcrumb: (id: string, type: 'note' | 'leaf', pane: Pane) => void
+
+  // Priorityリンククリック（元リーフの該当行へジャンプ）
+  handlePriorityLinkClick: (leafId: string, line: number, pane: Pane) => void
 }
 
 /**

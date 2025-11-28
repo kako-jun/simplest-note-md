@@ -148,7 +148,12 @@
       onScroll={handleScroll}
     />
   {:else if currentView === 'preview' && currentLeaf}
-    <PreviewView bind:this={previewViewRef} leaf={currentLeaf} onScroll={handleScroll} />
+    <PreviewView
+      bind:this={previewViewRef}
+      leaf={currentLeaf}
+      onScroll={handleScroll}
+      onPriorityLinkClick={(leafId, line) => actions.handlePriorityLinkClick(leafId, line, pane)}
+    />
   {/if}
 </main>
 
