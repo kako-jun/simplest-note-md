@@ -588,6 +588,25 @@
     updateUrlFromState()
   }
 
+  // スワイプナビゲーション
+  function goToNextSibling(pane: Pane): boolean {
+    const state = getNavState()
+    const result = nav.goToNextSibling(state, getNavDeps(), pane)
+    if (result) {
+      syncNavState(state)
+    }
+    return result
+  }
+
+  function goToPrevSibling(pane: Pane): boolean {
+    const state = getNavState()
+    const result = nav.goToPrevSibling(state, getNavDeps(), pane)
+    if (result) {
+      syncNavState(state)
+    }
+    return result
+  }
+
   function swapPanes() {
     // 左右ペインの状態を入れ替える
     const tempNote = $leftNote
@@ -1268,6 +1287,10 @@
     // スクロール
     handleLeftScroll,
     handleRightScroll,
+
+    // スワイプナビゲーション
+    goToNextSibling,
+    goToPrevSibling,
   }
 
   setContext('paneActions', paneActions)

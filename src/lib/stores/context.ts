@@ -65,6 +65,10 @@ export interface PaneActions {
   // スクロール
   handleLeftScroll: (scrollTop: number, scrollHeight: number) => void
   handleRightScroll: (scrollTop: number, scrollHeight: number) => void
+
+  // スワイプナビゲーション
+  goToNextSibling: (pane: Pane) => boolean
+  goToPrevSibling: (pane: Pane) => boolean
 }
 
 /**

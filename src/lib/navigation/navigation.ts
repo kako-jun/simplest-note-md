@@ -465,3 +465,69 @@ export function goBackToParent(state: NavigationState, deps: NavigationDependenc
   }
   // ホーム画面やエディタでは何もしない
 }
+
+// ========================================
+// スワイプナビゲーション
+// ========================================
+
+/**
+ * 同階層の次のノートに移動（左スワイプ）
+ */
+export function goToNextSibling(
+  state: NavigationState,
+  deps: NavigationDependencies,
+  pane: Pane
+): boolean {
+  const view = pane === 'left' ? state.leftView : state.rightView
+  const currentNote = pane === 'left' ? state.leftNote : state.rightNote
+
+  // ノートビューでのみ有効
+  if (view !== 'note' || !currentNote) return false
+
+  let notes: Note[] = []
+  deps.notes.subscribe((n) => (notes = n))()
+
+  // 同じ親を持つノート（兄弟ノート）を取得
+  const siblings = notes
+    .filter((n) => n.parentId === currentNote.parentId)
+    .sort((a, b) => a.order - b.order)
+
+  const currentIndex = siblings.findIndex((n) => n.id === currentNote.id)
+  if (currentIndex === -1 || currentIndex >= siblings.length - 1) return false
+
+  // 次のノートに移動
+  const nextNote = siblings[currentIndex + 1]
+  navigateToView(state, deps, pane, 'note', nextNote, null)
+  return true
+}
+
+/**
+ * 同階層の前のノートに移動（右スワイプ）
+ */
+export function goToPrevSibling(
+  state: NavigationState,
+  deps: NavigationDependencies,
+  pane: Pane
+): boolean {
+  const view = pane === 'left' ? state.leftView : state.rightView
+  const currentNote = pane === 'left' ? state.leftNote : state.rightNote
+
+  // ノートビューでのみ有効
+  if (view !== 'note' || !currentNote) return false
+
+  let notes: Note[] = []
+  deps.notes.subscribe((n) => (notes = n))()
+
+  // 同じ親を持つノート（兄弟ノート）を取得
+  const siblings = notes
+    .filter((n) => n.parentId === currentNote.parentId)
+    .sort((a, b) => a.order - b.order)
+
+  const currentIndex = siblings.findIndex((n) => n.id === currentNote.id)
+  if (currentIndex <= 0) return false
+
+  // 前のノートに移動
+  const prevNote = siblings[currentIndex - 1]
+  navigateToView(state, deps, pane, 'note', prevNote, null)
+  return true
+}

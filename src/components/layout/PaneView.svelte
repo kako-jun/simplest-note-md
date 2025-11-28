@@ -127,6 +127,8 @@
       onUpdateNoteBadge={actions.updateNoteBadge}
       onUpdateLeafBadge={actions.updateLeafBadge}
       leafSkeletonMap={$state.leafSkeletonMap}
+      onSwipeLeft={() => actions.goToNextSibling(pane)}
+      onSwipeRight={() => actions.goToPrevSibling(pane)}
     />
   {:else if currentView === 'edit' && currentLeaf}
     <EditorView

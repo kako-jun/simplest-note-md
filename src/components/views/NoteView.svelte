@@ -4,6 +4,7 @@
   import { _ } from '../../lib/i18n'
   import type { Note, Leaf } from '../../lib/types'
   import type { LeafSkeleton } from '../../lib/api'
+  import { swipe } from '../../lib/ui'
   import NoteCard from '../cards/NoteCard.svelte'
   import BadgeButton from '../badges/BadgeButton.svelte'
 
@@ -31,6 +32,8 @@
   export let onUpdateNoteBadge: (noteId: string, icon: string, color: string) => void
   export let onUpdateLeafBadge: (leafId: string, icon: string, color: string) => void
   export let leafSkeletonMap: Map<string, LeafSkeleton> = new Map()
+  export let onSwipeLeft: (() => void) | undefined = undefined
+  export let onSwipeRight: (() => void) | undefined = undefined
 
   // リアクティブにノートアイテムを計算（leavesが更新されるたびに再計算）
   function computeNoteItems(noteId: string, notes: Note[], leaves: Leaf[]): string[] {
@@ -129,7 +132,10 @@
   }
 </script>
 
-<section class="view-container">
+<section
+  class="view-container"
+  use:swipe={{ onSwipeLeft, onSwipeRight, disabled: !onSwipeLeft && !onSwipeRight }}
+>
   <div class="card-grid">
     {#if subNotes.length === 0 && displayItems.length === 0 && !disabled}
       <div class="empty-state">
