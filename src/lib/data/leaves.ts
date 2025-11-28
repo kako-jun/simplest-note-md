@@ -87,23 +87,28 @@ export function deleteLeaf(options: DeleteLeafOptions): void {
   const targetLeaf = allLeaves.find((l) => l.id === leafId)
   if (!targetLeaf) return
 
-  showConfirm('このリーフを削除しますか？', () => {
-    updateLeaves(allLeaves.filter((n) => n.id !== leafId))
+  const position = pane === 'left' ? 'bottom-left' : 'bottom-right'
+  showConfirm(
+    translate('modal.deleteLeaf'),
+    () => {
+      updateLeaves(allLeaves.filter((n) => n.id !== leafId))
 
-    // 統計更新
-    onUpdateStats(leafId, targetLeaf.content)
+      // 統計更新
+      onUpdateStats(leafId, targetLeaf.content)
 
-    const note = allNotes.find((f) => f.id === targetLeaf.noteId)
+      const note = allNotes.find((f) => f.id === targetLeaf.noteId)
 
-    // 現在のペインをナビゲート
-    onNavigate(pane, note || null)
+      // 現在のペインをナビゲート
+      onNavigate(pane, note || null)
 
-    // 他方のペインも同じリーフを表示している場合はナビゲート
-    if (otherPaneLeafId === leafId) {
-      const otherPane = pane === 'left' ? 'right' : 'left'
-      onNavigate(otherPane, note || null)
-    }
-  })
+      // 他方のペインも同じリーフを表示している場合はナビゲート
+      if (otherPaneLeafId === leafId) {
+        const otherPane = pane === 'left' ? 'right' : 'left'
+        onNavigate(otherPane, note || null)
+      }
+    },
+    position
+  )
 }
 
 /**

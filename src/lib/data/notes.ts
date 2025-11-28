@@ -106,7 +106,8 @@ export function deleteNote(options: DeleteNoteOptions): void {
     ? translate('modal.deleteSubNote')
     : translate('modal.deleteRootNote')
 
-  showConfirm(confirmMessage, deleteNoteAndDescendants)
+  const position = pane === 'left' ? 'bottom-left' : 'bottom-right'
+  showConfirm(confirmMessage, deleteNoteAndDescendants, position)
 }
 
 /**

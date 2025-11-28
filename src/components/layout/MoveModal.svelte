@@ -1,12 +1,14 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
   import type { Note, Leaf } from '../../lib/types'
+  import type { Pane } from '../../lib/navigation'
   import MoveIcon from '../icons/MoveIcon.svelte'
 
   export let show: boolean
   export let notes: Note[]
   export let targetNote: Note | null = null
   export let targetLeaf: Leaf | null = null
+  export let pane: Pane = 'left'
   export let onConfirm: (destNoteId: string | null) => void
   export let onClose: () => void
 
@@ -113,6 +115,7 @@
 {#if show}
   <div
     class="move-overlay"
+    class:right-pane={pane === 'right'}
     on:click={close}
     on:keydown={handleOverlayKeydown}
     role="button"
@@ -129,11 +132,9 @@
       aria-modal="true"
       aria-labelledby="move-modal-title"
     >
-      <header>
-        <div class="titles">
-          <h2 id="move-modal-title">{$_('move.title')}</h2>
-        </div>
-      </header>
+      <div class="modal-header">
+        <h2 id="move-modal-title">{$_('move.title')}</h2>
+      </div>
 
       <div class="list" role="listbox" tabindex="-1">
         <div class="tree">
@@ -222,17 +223,23 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.4);
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-end;
+    justify-content: flex-start;
     z-index: 1000;
-    padding: 1rem;
+    padding: 0;
+    padding-bottom: 40px;
+  }
+
+  .move-overlay.right-pane {
+    justify-content: flex-start;
+    padding-left: 50%;
   }
 
   .move-modal {
     width: min(520px, 100%);
     max-height: 90vh;
     background: var(--bg);
-    border-radius: 10px;
+    border-radius: 0 10px 0 0;
     padding: 1.25rem;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
     display: flex;
@@ -249,14 +256,7 @@
     color: var(--text);
   }
 
-  header {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    margin-bottom: 0.25rem;
-  }
-
-  .titles h2 {
+  .modal-header h2 {
     margin: 0;
     font-size: 1.1rem;
   }

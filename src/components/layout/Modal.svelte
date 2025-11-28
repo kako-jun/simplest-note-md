@@ -1,10 +1,12 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import type { ModalType } from '../../lib/types'
+  import type { ModalPosition } from '../../lib/ui'
 
   export let show: boolean
   export let message: string
   export let type: ModalType
+  export let position: ModalPosition = 'center'
   export let onConfirm: (() => void) | null
   export let onClose: () => void
 
@@ -19,7 +21,13 @@
 {#if show}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="modal-overlay" on:click={onClose} role="presentation">
+  <div
+    class="modal-overlay"
+    class:bottom-left={position === 'bottom-left'}
+    class:bottom-right={position === 'bottom-right'}
+    on:click={onClose}
+    role="presentation"
+  >
     <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <div class="modal-content" on:click|stopPropagation role="dialog" aria-modal="true">
       {#each message.split('\n') as line}
@@ -27,10 +35,10 @@
       {/each}
       <div class="modal-buttons">
         {#if type === 'confirm'}
-          <button on:click={handleConfirm}>{$_('common.ok')}</button>
-          <button on:click={onClose}>{$_('common.cancel')}</button>
+          <button class="secondary" on:click={onClose}>{$_('common.cancel')}</button>
+          <button class="primary" on:click={handleConfirm}>{$_('common.ok')}</button>
         {:else}
-          <button on:click={onClose}>{$_('common.ok')}</button>
+          <button class="primary" on:click={onClose}>{$_('common.ok')}</button>
         {/if}
       </div>
     </div>
@@ -49,6 +57,29 @@
     align-items: center;
     justify-content: center;
     z-index: 1000;
+  }
+
+  .modal-overlay.bottom-left {
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 0;
+    padding-bottom: 40px;
+  }
+
+  .modal-overlay.bottom-left .modal-content {
+    border-radius: 0 10px 0 0;
+  }
+
+  .modal-overlay.bottom-right {
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 0;
+    padding-bottom: 40px;
+    padding-left: 50%;
+  }
+
+  .modal-overlay.bottom-right .modal-content {
+    border-radius: 0 10px 0 0;
   }
 
   .modal-content {
@@ -78,12 +109,12 @@
     font-size: 0.9rem;
   }
 
-  .modal-buttons button:first-child {
+  .modal-buttons button.primary {
     background: var(--accent);
     color: white;
   }
 
-  .modal-buttons button:last-child {
+  .modal-buttons button.secondary {
     background: var(--surface-1);
     color: var(--text);
   }

@@ -9,6 +9,11 @@ export interface ToastState {
 }
 
 /**
+ * モーダルの位置
+ */
+export type ModalPosition = 'center' | 'bottom-left' | 'bottom-right'
+
+/**
  * モーダルの状態
  */
 export interface ModalState {
@@ -16,6 +21,7 @@ export interface ModalState {
   message: string
   type: 'confirm' | 'alert'
   callback: (() => void) | null
+  position: ModalPosition
 }
 
 /**
@@ -42,6 +48,7 @@ export const modalState = writable<ModalState>({
   message: '',
   type: 'confirm',
   callback: null,
+  position: 'center',
 })
 
 /**
@@ -67,24 +74,30 @@ export function showPullToast(message: string, variant: 'success' | 'error' | ''
 /**
  * 確認ダイアログを表示
  */
-export function showConfirm(message: string, onConfirm: () => void) {
+export function showConfirm(
+  message: string,
+  onConfirm: () => void,
+  position: ModalPosition = 'center'
+) {
   modalState.set({
     show: true,
     message,
     type: 'confirm',
     callback: onConfirm,
+    position,
   })
 }
 
 /**
  * アラートダイアログを表示
  */
-export function showAlert(message: string) {
+export function showAlert(message: string, position: ModalPosition = 'center') {
   modalState.set({
     show: true,
     message,
     type: 'alert',
     callback: null,
+    position,
   })
 }
 
@@ -97,5 +110,6 @@ export function closeModal() {
     message: '',
     type: 'confirm',
     callback: null,
+    position: 'center',
   })
 }

@@ -136,6 +136,7 @@
   $: moveModalOpen = $moveModalStore.isOpen
   $: moveTargetLeaf = $moveModalStore.targetLeaf
   $: moveTargetNote = $moveModalStore.targetNote
+  $: moveTargetPane = $moveModalStore.targetPane
 
   // 左右ペイン用の状態
   let isDualPane = false // 画面幅で切り替え
@@ -1544,6 +1545,7 @@
       notes={$notes}
       targetNote={moveTargetNote}
       targetLeaf={moveTargetLeaf}
+      pane={moveTargetPane}
       onConfirm={handleMoveConfirm}
       onClose={closeMoveModal}
     />
@@ -1552,6 +1554,7 @@
       show={$modalState.show}
       message={$modalState.message}
       type={$modalState.type}
+      position={$modalState.position}
       onConfirm={$modalState.callback}
       onClose={closeModal}
     />
