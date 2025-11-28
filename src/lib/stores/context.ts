@@ -65,9 +65,6 @@ export interface PaneActions {
   // スクロール
   handleLeftScroll: (scrollTop: number, scrollHeight: number) => void
   handleRightScroll: (scrollTop: number, scrollHeight: number) => void
-
-  // 統計
-  getNoteItems: (noteId: string) => string[]
 }
 
 /**

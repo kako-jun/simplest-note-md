@@ -53,6 +53,10 @@
     cursor: pointer;
     transition: all 0.2s;
     overflow: visible;
+    /* 高さ固定: タイトル1行 + 4行のアイテム（3行+...）を表示できる高さ */
+    height: 150px;
+    min-height: 150px;
+    max-height: 150px;
   }
 
   .note-card strong {

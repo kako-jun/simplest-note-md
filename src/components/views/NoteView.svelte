@@ -9,7 +9,9 @@
 
   export let currentNote: Note
   export let subNotes: Note[]
+  export let allNotes: Note[] = []
   export let leaves: Leaf[]
+  export let allLeaves: Leaf[] = []
   export let onSelectNote: (note: Note) => void
   export let onSelectLeaf: (leaf: Leaf) => void
   export let onDragStartNote: (note: Note) => void
@@ -22,7 +24,6 @@
   export let onDropLeaf: (leaf: Leaf) => void
   export let dragOverNoteId: string | null = null
   export let dragOverLeafId: string | null = null
-  export let getNoteItems: (noteId: string) => string[]
   export let disabled: boolean = false
   export let selectedIndex: number = 0
   export let isActive: boolean = true
@@ -30,6 +31,34 @@
   export let onUpdateNoteBadge: (noteId: string, icon: string, color: string) => void
   export let onUpdateLeafBadge: (leafId: string, icon: string, color: string) => void
   export let leafSkeletonMap: Map<string, LeafSkeleton> = new Map()
+
+  // リアクティブにノートアイテムを計算（leavesが更新されるたびに再計算）
+  function computeNoteItems(noteId: string, notes: Note[], leaves: Leaf[]): string[] {
+    const subNotesNames = notes
+      .filter((f) => f.parentId === noteId)
+      .sort((a, b) => a.order - b.order)
+      .map((f) => `${f.name}/`)
+
+    const leafNames = leaves
+      .filter((n) => n.noteId === noteId)
+      .sort((a, b) => a.order - b.order)
+      .map((n) => n.title)
+
+    const allItems = [...subNotesNames, ...leafNames]
+    const hasMore = allItems.length > 3
+    const items = allItems.slice(0, 3)
+
+    if (hasMore) {
+      items.push('...')
+    }
+
+    return items
+  }
+
+  // subNotesとallLeavesが変わるたびに再計算
+  $: noteItemsMap = new Map(
+    subNotes.map((note) => [note.id, computeNoteItems(note.id, allNotes, allLeaves)])
+  )
 
   // Vimモードで選択が変わったら選択中のカードが見えるようにスクロール
   afterUpdate(() => {
@@ -117,7 +146,7 @@
           onDragEnd={() => onDragEndNote()}
           onDragOver={(e) => onDragOverNote(e, subNote)}
           onDrop={() => onDropNote(subNote)}
-          items={getNoteItems(subNote.id)}
+          items={noteItemsMap.get(subNote.id) || []}
           isGroup={true}
           {vimMode}
           badgeIcon={subNote.badgeIcon || ''}

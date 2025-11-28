@@ -6,13 +6,13 @@
   import BadgeButton from '../badges/BadgeButton.svelte'
 
   export let notes: Note[]
+  export let allLeaves: Leaf[] = []
   export let onSelectNote: (note: Note) => void
   export let onDragStart: (note: Note) => void
   export let onDragEnd: () => void
   export let onDragOver: (e: DragEvent, note: Note) => void
   export let onDrop: (note: Note) => void
   export let dragOverNoteId: string | null = null
-  export let getNoteItems: (noteId: string) => string[]
   export let disabled: boolean = false
   export let selectedIndex: number = 0
   export let isActive: boolean = true
@@ -21,6 +21,34 @@
   export let priorityLeaf: Leaf | null = null
   export let onSelectPriority: () => void
   export let onUpdatePriorityBadge: (icon: string, color: string) => void
+
+  // リアクティブにノートアイテムを計算（leavesが更新されるたびに再計算）
+  function computeNoteItems(noteId: string, allNotes: Note[], leaves: Leaf[]): string[] {
+    const subNotesNames = allNotes
+      .filter((f) => f.parentId === noteId)
+      .sort((a, b) => a.order - b.order)
+      .map((f) => `${f.name}/`)
+
+    const leafNames = leaves
+      .filter((n) => n.noteId === noteId)
+      .sort((a, b) => a.order - b.order)
+      .map((n) => n.title)
+
+    const allItems = [...subNotesNames, ...leafNames]
+    const hasMore = allItems.length > 3
+    const items = allItems.slice(0, 3)
+
+    if (hasMore) {
+      items.push('...')
+    }
+
+    return items
+  }
+
+  // notesとallLeavesが変わるたびに再計算
+  $: noteItemsMap = new Map(
+    notes.map((note) => [note.id, computeNoteItems(note.id, notes, allLeaves)])
+  )
 
   // Vimモードで選択が変わったら選択中のカードが見えるようにスクロール
   afterUpdate(() => {
@@ -117,7 +145,7 @@
           onDragEnd={() => onDragEnd()}
           onDragOver={(e) => onDragOver(e, note)}
           onDrop={() => onDrop(note)}
-          items={getNoteItems(note.id)}
+          items={noteItemsMap.get(note.id) || []}
           isGroup={true}
           {vimMode}
           badgeIcon={note.badgeIcon || ''}

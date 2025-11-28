@@ -85,6 +85,7 @@
   {#if currentView === 'home'}
     <HomeView
       notes={$rootNotes}
+      allLeaves={$leaves}
       disabled={$state.isOperationsLocked}
       {selectedIndex}
       {isActive}
@@ -95,7 +96,6 @@
       onDragOver={actions.handleDragOverNote}
       onDrop={actions.handleDropNote}
       dragOverNoteId={$state.dragOverNoteId}
-      getNoteItems={actions.getNoteItems}
       onUpdateNoteBadge={actions.updateNoteBadge}
       priorityLeaf={$state.currentPriorityLeaf}
       onSelectPriority={() => actions.openPriorityView(pane)}
@@ -105,7 +105,9 @@
     <NoteView
       {currentNote}
       {subNotes}
+      allNotes={$notes}
       leaves={currentLeaves}
+      allLeaves={$leaves}
       disabled={$state.isOperationsLocked}
       {selectedIndex}
       {isActive}
@@ -122,7 +124,6 @@
       onDropLeaf={actions.handleDropLeaf}
       dragOverNoteId={$state.dragOverNoteId}
       dragOverLeafId={$state.dragOverLeafId}
-      getNoteItems={actions.getNoteItems}
       onUpdateNoteBadge={actions.updateNoteBadge}
       onUpdateLeafBadge={actions.updateLeafBadge}
       leafSkeletonMap={$state.leafSkeletonMap}

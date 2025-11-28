@@ -67,7 +67,6 @@
     normalizeNoteOrders,
     moveNoteTo as moveNoteToLib,
     getItemCount,
-    getNoteItems,
   } from './lib/data'
   import {
     createLeaf as createLeafLib,
@@ -1035,8 +1034,13 @@
       const saveableLeaves = $leaves.filter((l) => isLeafSaveable(l, saveableNotes))
       const result = await executePush(saveableLeaves, saveableNotes, $settings, isOperationsLocked)
 
-      // 結果を通知（GitHub APIのメッセージキーを翻訳）
-      const translatedMessage = translateGitHubMessage(result.message, $_, result.rateLimitInfo)
+      // 結果を通知（GitHub APIのメッセージキーを翻訳、変更件数を含める）
+      const translatedMessage = translateGitHubMessage(
+        result.message,
+        $_,
+        result.rateLimitInfo,
+        result.changedCount
+      )
       showPushToast(translatedMessage, result.variant)
 
       // Push成功時にダーティフラグをクリアし、pushCountを更新
@@ -1264,9 +1268,6 @@
     // スクロール
     handleLeftScroll,
     handleRightScroll,
-
-    // 統計
-    getNoteItems,
   }
 
   setContext('paneActions', paneActions)
