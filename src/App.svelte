@@ -184,7 +184,8 @@
     $notes,
     'left',
     goHome,
-    selectNote
+    selectNote,
+    $leaves
   )
   $: breadcrumbsRight = buildBreadcrumbs(
     $rightView,
@@ -193,7 +194,8 @@
     $notes,
     'right',
     goHome,
-    selectNote
+    selectNote,
+    $leaves
   )
   $: isGitHubConfigured = $githubConfigured
   $: document.title = $settings.toolName
@@ -607,6 +609,21 @@
     return result
   }
 
+  // パンくずリストからの兄弟選択
+  function selectSiblingFromBreadcrumb(id: string, type: 'note' | 'leaf', pane: Pane) {
+    if (type === 'note') {
+      const note = $notes.find((n) => n.id === id)
+      if (note) {
+        selectNote(note, pane)
+      }
+    } else if (type === 'leaf') {
+      const leaf = $leaves.find((l) => l.id === id)
+      if (leaf) {
+        selectLeaf(leaf, pane)
+      }
+    }
+  }
+
   function swapPanes() {
     // 左右ペインの状態を入れ替える
     const tempNote = $leftNote
@@ -684,7 +701,8 @@
       $notes,
       'left',
       goHome,
-      selectNote
+      selectNote,
+      $leaves
     )
     breadcrumbsRight = buildBreadcrumbs(
       $rightView,
@@ -693,7 +711,8 @@
       $notes,
       'right',
       goHome,
-      selectNote
+      selectNote,
+      $leaves
     )
   }
 
@@ -1291,6 +1310,9 @@
     // スワイプナビゲーション
     goToNextSibling,
     goToPrevSibling,
+
+    // パンくずリストからの兄弟選択
+    selectSiblingFromBreadcrumb,
   }
 
   setContext('paneActions', paneActions)

@@ -79,6 +79,7 @@
   onCopyMarkdown={() => actions.handleCopyMarkdown(pane)}
   onShareImage={() => actions.handleShareImage(pane)}
   isPreview={currentView === 'preview'}
+  onSelectSibling={(id, type) => actions.selectSiblingFromBreadcrumb(id, type, pane)}
 />
 
 <main class="main-pane">

@@ -68,11 +68,19 @@ export interface Leaf {
   badgeColor?: string
 }
 
+export interface BreadcrumbSibling {
+  id: UUID
+  label: string
+  isCurrent: boolean
+}
+
 export interface Breadcrumb {
   label: string
   action: () => void
   id: UUID
   type: 'home' | 'note' | 'leaf' | 'settings'
+  /** 同階層の兄弟ノート/リーフ一覧（ドロップダウン表示用） */
+  siblings?: BreadcrumbSibling[]
 }
 
 export type ModalType = 'confirm' | 'alert'

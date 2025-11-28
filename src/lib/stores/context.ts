@@ -69,6 +69,9 @@ export interface PaneActions {
   // スワイプナビゲーション
   goToNextSibling: (pane: Pane) => boolean
   goToPrevSibling: (pane: Pane) => boolean
+
+  // パンくずリストからの兄弟選択
+  selectSiblingFromBreadcrumb: (id: string, type: 'note' | 'leaf', pane: Pane) => void
 }
 
 /**

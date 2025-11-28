@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
-  import type { Breadcrumb } from '../../lib/types'
+  import type { Breadcrumb, BreadcrumbSibling } from '../../lib/types'
   import IconButton from '../buttons/IconButton.svelte'
   import ShareButton from '../buttons/ShareButton.svelte'
   import HomeIcon from '../icons/HomeIcon.svelte'
@@ -15,9 +15,11 @@
   export let onCopyMarkdown: (() => void) | null = null
   export let onShareImage: (() => void) | null = null
   export let isPreview: boolean = false
+  export let onSelectSibling: ((id: string, type: 'note' | 'leaf') => void) | null = null
 
   let inputValue = ''
   let inputElement: HTMLInputElement | null = null
+  let openDropdownIndex: number | null = null
 
   function handleStartEdit(crumb: Breadcrumb) {
     if (crumb.type === 'home' || crumb.type === 'settings') return
@@ -47,15 +49,73 @@
     }
   }
 
+  function toggleDropdown(index: number) {
+    if (openDropdownIndex === index) {
+      openDropdownIndex = null
+    } else {
+      openDropdownIndex = index
+    }
+  }
+
+  function closeDropdown() {
+    openDropdownIndex = null
+  }
+
+  function handleSiblingClick(sibling: BreadcrumbSibling, crumb: Breadcrumb) {
+    if (sibling.isCurrent) {
+      closeDropdown()
+      return
+    }
+    if (onSelectSibling && (crumb.type === 'note' || crumb.type === 'leaf')) {
+      onSelectSibling(sibling.id, crumb.type)
+    }
+    closeDropdown()
+  }
+
+  // ドロップダウン外クリックで閉じる
+  function handleWindowClick() {
+    closeDropdown()
+  }
+
   // リーフ表示かどうかを判定
   $: isLeafView = breadcrumbs.some((crumb) => crumb.type === 'leaf')
 </script>
+
+<svelte:window on:click={handleWindowClick} />
 
 <div class="breadcrumbs">
   <div class="breadcrumbs-left">
     {#each breadcrumbs as crumb, index}
       {#if index > 0}
-        <span class="separator">›</span>
+        <!-- セパレータ: 現在のパンくず（セパレータの右側）にsiblingsがあればドロップダウン表示 -->
+        {#if crumb.siblings && crumb.siblings.length > 0}
+          <div class="separator-dropdown">
+            <button
+              class="separator clickable"
+              on:click|stopPropagation={() => toggleDropdown(index)}
+              title={$_('breadcrumbs.showSiblings')}
+              aria-label={$_('breadcrumbs.showSiblings')}
+              aria-expanded={openDropdownIndex === index}
+            >
+              ›
+            </button>
+            {#if openDropdownIndex === index}
+              <div class="dropdown-menu" on:click|stopPropagation>
+                {#each crumb.siblings as sibling}
+                  <button
+                    class="dropdown-item"
+                    class:current={sibling.isCurrent}
+                    on:click={() => handleSiblingClick(sibling, crumb)}
+                  >
+                    {sibling.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <span class="separator">›</span>
+        {/if}
       {/if}
 
       <span class="breadcrumb-item">
@@ -131,7 +191,7 @@
     flex-wrap: nowrap;
     flex: 1;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   :global([data-theme='greenboard']) .breadcrumbs,
@@ -144,6 +204,74 @@
   .separator {
     color: var(--text-muted);
     flex-shrink: 0;
+  }
+
+  .separator.clickable {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+    font-size: 0.9rem;
+  }
+
+  .separator.clickable:hover {
+    background: var(--surface-2);
+    color: var(--accent);
+  }
+
+  .separator-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 150px;
+    max-width: 250px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 200;
+    margin-top: 4px;
+  }
+
+  .dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 0.85rem;
+    transition: background 0.15s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dropdown-item:hover {
+    background: var(--surface-2);
+  }
+
+  .dropdown-item.current {
+    background: var(--accent);
+    color: white;
+    font-weight: 500;
+  }
+
+  .dropdown-item.current:hover {
+    background: var(--accent);
   }
 
   .breadcrumb-item {

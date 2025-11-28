@@ -20,7 +20,8 @@
   "breadcrumbs": {
     "goHome": "Go to home",
     "editNoteName": "Edit note name",
-    "editLeafName": "Edit leaf name"
+    "editLeafName": "Edit leaf name",
+    "showSiblings": "Show siblings"
   },
   "share": {
     "title": "Share",
