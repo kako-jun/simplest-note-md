@@ -162,6 +162,7 @@
       '.cm-gutterElement': {
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'flex-end',
         lineHeight: '1.6',
         padding: '0',
       },
@@ -214,6 +215,7 @@
         '.cm-gutterElement': {
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'flex-end',
           lineHeight: '1.6',
           padding: '0',
         },
