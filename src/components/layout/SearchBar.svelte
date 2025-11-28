@@ -185,13 +185,15 @@
 <style>
   .search-dropdown {
     position: absolute;
-    top: 56px; /* ヘッダーの高さ */
-    right: 1rem;
+    top: 41px; /* ヘッダーの高さにくっつける */
+    right: 0;
     width: 350px;
-    max-width: calc(100vw - 2rem);
+    max-width: 100vw;
     background: var(--bg);
     border: 1px solid rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
+    border-top: none;
+    border-right: none;
+    border-radius: 0 0 0 10px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     z-index: 1000;
     overflow: hidden;
@@ -338,8 +340,9 @@
 
   @media (max-width: 400px) {
     .search-dropdown {
-      right: 0.5rem;
-      width: calc(100vw - 1rem);
+      right: 0;
+      width: 100vw;
+      border-radius: 0;
     }
   }
 </style>
