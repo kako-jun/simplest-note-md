@@ -25,6 +25,8 @@ export interface PriorityItem {
   noteId: string
   /** 元のノート名 */
   noteName: string
+  /** パス（ノート名/リーフ名 または 親ノート名/ノート名/リーフ名） */
+  path: string
   /** 表示順序（ノート順 + リーフ順） */
   displayOrder: number
 }
@@ -88,12 +90,14 @@ export function removePriorityMarker(paragraph: string): string {
  *
  * @param leaf リーフ
  * @param noteName ノート名
+ * @param path パス（ノート名/リーフ名）
  * @param displayOrder 表示順序
  * @returns 抽出された優先段落の配列
  */
 export function extractPriorityItems(
   leaf: Leaf,
   noteName: string,
+  path: string,
   displayOrder: number
 ): PriorityItem[] {
   const items: PriorityItem[] = []
@@ -114,6 +118,7 @@ export function extractPriorityItems(
         leafTitle: leaf.title,
         noteId: leaf.noteId,
         noteName,
+        path,
         displayOrder,
       })
     }
@@ -148,6 +153,30 @@ function getNoteDisplayOrder(noteId: string, noteList: Note[]): number {
 }
 
 /**
+ * ノート/サブノート/リーフのパスを構築（検索結果と同じ形式）
+ * 例: "parentNote/note/leafTitle" または "note/leafTitle"
+ */
+function buildPath(
+  noteId: string,
+  leafTitle: string,
+  noteList: Note[],
+  noteMap: Map<string, Note>
+): string {
+  const note = noteMap.get(noteId)
+  if (!note) return leafTitle
+
+  // 親ノートがあればサブノート
+  if (note.parentId) {
+    const parentNote = noteMap.get(note.parentId)
+    if (parentNote) {
+      return `${parentNote.name}/${note.name}/${leafTitle}`
+    }
+  }
+
+  return `${note.name}/${leafTitle}`
+}
+
+/**
  * 全リーフから優先段落を抽出し、ソートされた状態で返す derived store
  *
  * ソート順:
@@ -157,13 +186,21 @@ function getNoteDisplayOrder(noteId: string, noteList: Note[]): number {
 export const priorityItems = derived([leaves, notes], ([$leaves, $notes]) => {
   const items: PriorityItem[] = []
 
+  // noteMapを作成（パス構築用）
+  const noteMap = new Map<string, Note>()
+  for (const note of $notes) {
+    noteMap.set(note.id, note)
+  }
+
   for (const leaf of $leaves) {
     const noteName = getNoteName(leaf.noteId, $notes)
     const noteDisplayOrder = getNoteDisplayOrder(leaf.noteId, $notes)
     // 表示順序: ノート順 * 10000 + リーフ順
     const displayOrder = noteDisplayOrder * 10000 + leaf.order
+    // パスを構築（検索結果と同じ形式）
+    const path = buildPath(leaf.noteId, leaf.title, $notes, noteMap)
 
-    const extracted = extractPriorityItems(leaf, noteName, displayOrder)
+    const extracted = extractPriorityItems(leaf, noteName, path, displayOrder)
     items.push(...extracted)
   }
 
@@ -201,8 +238,8 @@ export function generatePriorityContent(items: PriorityItem[]): string {
   for (const item of items) {
     // 優先度バッジ + 内容
     lines.push(`**[${item.priority}]** ${item.content}`)
-    // 出典（リーフ名 @ ノート名）
-    lines.push(`_— ${item.leafTitle} @ ${item.noteName}_`)
+    // 出典（パス形式: note/leafTitle または parentNote/note/leafTitle）
+    lines.push(`_— ${item.path}_`)
     lines.push('')
   }
 
