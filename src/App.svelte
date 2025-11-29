@@ -1033,6 +1033,11 @@
         leafStatsStore.removeLeaf(id, content)
       },
     })
+    // スケルトンマップからも削除（削除したリーフがスケルトンとして再表示されるのを防ぐ）
+    if (leafSkeletonMap.has(leafId)) {
+      leafSkeletonMap.delete(leafId)
+      leafSkeletonMap = new Map(leafSkeletonMap) // リアクティブ更新をトリガー
+    }
   }
 
   function updateLeafContent(content: string, leafId: string) {
