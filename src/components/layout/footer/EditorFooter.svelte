@@ -49,7 +49,6 @@
       onClick={onTogglePreview}
       title={$_('footer.preview')}
       ariaLabel={$_('footer.preview')}
-      {disabled}
     >
       <EyeIcon />
     </IconButton>

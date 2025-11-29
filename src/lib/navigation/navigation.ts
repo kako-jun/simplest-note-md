@@ -19,7 +19,7 @@ export interface NavigationState {
   selectedIndexLeft: number
   selectedIndexRight: number
   showSettings: boolean
-  isOperationsLocked: boolean
+  isFirstPriorityFetched: boolean
 
   // エディタ参照
   leftEditorView: any

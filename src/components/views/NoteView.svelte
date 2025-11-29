@@ -25,7 +25,7 @@
   export let onDropLeaf: (leaf: Leaf) => void
   export let dragOverNoteId: string | null = null
   export let dragOverLeafId: string | null = null
-  export let disabled: boolean = false
+  export let isFirstPriorityFetched: boolean = false
   export let selectedIndex: number = 0
   export let isActive: boolean = true
   export let vimMode: boolean = false
@@ -137,7 +137,7 @@
   use:swipe={{ onSwipeLeft, onSwipeRight, disabled: !onSwipeLeft && !onSwipeRight }}
 >
   <div class="card-grid">
-    {#if subNotes.length === 0 && displayItems.length === 0 && !disabled}
+    {#if subNotes.length === 0 && displayItems.length === 0 && isFirstPriorityFetched}
       <div class="empty-state">
         <p>{currentNote.parentId ? $_('note.noLeaves') : $_('note.noItems')}</p>
       </div>

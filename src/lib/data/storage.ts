@@ -193,12 +193,19 @@ export async function saveNotes(notes: Note[]): Promise<void> {
 
 /**
  * 全データを削除（notes/leavesストアをクリア）
+ * オフラインリーフは保持する
  */
 export async function clearAllData(): Promise<void> {
   try {
     const db = await openAppDB()
+    // オフラインリーフを保護: 先に取得してから全削除、再保存
+    const offlineLeaf = await getItem<Leaf>(LEAVES_STORE, '__offline__')
     await replaceAllInStore<Leaf>(db, LEAVES_STORE, [])
     await replaceAllInStore<Note>(db, NOTES_STORE, [])
+    // オフラインリーフを復元
+    if (offlineLeaf) {
+      await putItem(LEAVES_STORE, offlineLeaf)
+    }
   } catch (error) {
     console.error('Failed to clear data in IndexedDB:', error)
   }
@@ -315,5 +322,29 @@ export async function deleteCustomBackground(name: string): Promise<void> {
   } catch (error) {
     console.error('Failed to delete custom background from IndexedDB:', error)
     throw error
+  }
+}
+
+/**
+ * オフラインリーフを保存（単一アイテム保存、デバウンス用）
+ */
+export async function saveOfflineLeaf(leaf: Leaf): Promise<void> {
+  try {
+    await putItem(LEAVES_STORE, leaf)
+  } catch (error) {
+    console.error('Failed to save offline leaf to IndexedDB:', error)
+    throw error
+  }
+}
+
+/**
+ * オフラインリーフを読み込む
+ */
+export async function loadOfflineLeaf(id: string): Promise<Leaf | null> {
+  try {
+    return await getItem<Leaf>(LEAVES_STORE, id)
+  } catch (error) {
+    console.error('Failed to load offline leaf from IndexedDB:', error)
+    return null
   }
 }

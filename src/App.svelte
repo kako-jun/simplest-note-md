@@ -33,7 +33,14 @@
     pullProgressStore,
     pullProgressInfo,
   } from './lib/stores'
-  import { clearAllData, loadSettings, saveNotes, saveLeaves } from './lib/data'
+  import {
+    clearAllData,
+    loadSettings,
+    saveNotes,
+    saveLeaves,
+    saveOfflineLeaf,
+    loadOfflineLeaf,
+  } from './lib/data'
   import { applyTheme } from './lib/ui'
   import { loadAndApplyCustomFont } from './lib/ui'
   import { loadAndApplyCustomBackgrounds } from './lib/ui'
@@ -109,6 +116,9 @@
     isLeafSaveable,
     isNoteSaveable,
     PRIORITY_LEAF_ID,
+    createOfflineLeaf,
+    isOfflineLeaf,
+    OFFLINE_LEAF_ID,
   } from './lib/utils'
 
   // ローカル状態
@@ -122,8 +132,9 @@
   $: dragOverNoteId = $dragStore.dragOverNoteId
   $: dragOverLeafId = $dragStore.dragOverLeafId
 
-  let isLoadingUI = false // ガラス効果・操作不可（優先リーフ完了で解除）
-  let isOperationsLocked = true
+  let isLoadingUI = false // ガラス効果（Pull中のみ）
+  let isFirstPriorityFetched = false // 第1優先リーフの取得が完了したか
+  let isPullCompleted = false // 全リーフのPullが完了したか
   let showSettings = false
   let i18nReady = false // i18n初期化完了フラグ
   let showWelcome = false // ウェルカムモーダル表示フラグ
@@ -131,6 +142,13 @@
   let isImporting = false
   let importOccurredInSettings = false
   let isClosingSettingsPull = false
+
+  // オフラインリーフの状態
+  let offlineLeafContent = '' // オフラインリーフの現在の内容
+  let offlineLeafBadgeIcon = ''
+  let offlineLeafBadgeColor = ''
+  let offlineLeafUpdatedAt = Date.now()
+  let offlineSaveTimeoutId: ReturnType<typeof setTimeout> | null = null
 
   // leafStatsStoreとmoveModalStoreへのリアクティブアクセス
   $: totalLeafCount = $leafStatsStore.totalLeafCount
@@ -212,6 +230,13 @@
     priorityBadgeMeta?.badgeColor
   )
 
+  // オフラインリーフをリアクティブに生成
+  $: currentOfflineLeaf = createOfflineLeaf(
+    offlineLeafContent,
+    offlineLeafBadgeIcon,
+    offlineLeafBadgeColor
+  )
+
   // Pull/Push中はボタンを無効化（リアクティブに追跡）
   $: canPull = !$isPulling && !$isPushing
   $: canPush = !$isPulling && !$isPushing
@@ -222,7 +247,8 @@
 
   // paneState ストア（リアクティブな状態を子コンポーネントに渡す）
   const paneStateStore = writable<PaneState>({
-    isOperationsLocked: true,
+    isFirstPriorityFetched: false,
+    isPullCompleted: false,
     canPush: false,
     saveDisabledReason: '',
     selectedIndexLeft: 0,
@@ -235,6 +261,7 @@
     totalLeafCount: 0,
     totalLeafChars: 0,
     currentPriorityLeaf: null,
+    currentOfflineLeaf: null,
     breadcrumbs: [],
     breadcrumbsRight: [],
     showWelcome: false,
@@ -250,7 +277,8 @@
 
   // paneState をリアクティブに更新
   $: paneStateStore.set({
-    isOperationsLocked,
+    isFirstPriorityFetched,
+    isPullCompleted,
     canPush,
     saveDisabledReason,
     selectedIndexLeft,
@@ -263,6 +291,7 @@
     totalLeafCount,
     totalLeafChars,
     currentPriorityLeaf,
+    currentOfflineLeaf,
     breadcrumbs,
     breadcrumbsRight,
     showWelcome,
@@ -277,7 +306,7 @@
 
   function updateUrlFromState() {
     // 初期化完了まで、URL更新をスキップ
-    if (isRestoringFromUrl || $isPulling || isOperationsLocked) {
+    if (isRestoringFromUrl || $isPulling || !isFirstPriorityFetched) {
       return
     }
 
@@ -407,6 +436,15 @@
       applyTheme(loadedSettings.theme, loadedSettings)
       document.title = loadedSettings.toolName
 
+      // オフラインリーフを読み込み（GitHub設定に関係なく常に利用可能）
+      const savedOfflineLeaf = await loadOfflineLeaf(OFFLINE_LEAF_ID)
+      if (savedOfflineLeaf) {
+        offlineLeafContent = savedOfflineLeaf.content
+        offlineLeafBadgeIcon = savedOfflineLeaf.badgeIcon || ''
+        offlineLeafBadgeColor = savedOfflineLeaf.badgeColor || ''
+        offlineLeafUpdatedAt = savedOfflineLeaf.updatedAt
+      }
+
       // カスタムフォントがあれば適用
       if (loadedSettings.hasCustomFont) {
         loadAndApplyCustomFont().catch((error) => {
@@ -496,7 +534,7 @@
       selectedIndexLeft,
       selectedIndexRight,
       showSettings,
-      isOperationsLocked,
+      isFirstPriorityFetched,
       leftEditorView,
       rightEditorView,
     }
@@ -545,6 +583,42 @@
       $rightLeaf = priorityLeaf
       $rightView = 'preview'
     }
+  }
+
+  function openOfflineView(pane: Pane) {
+    // オフラインリーフを開く（編集可能）
+    if (pane === 'left') {
+      $leftNote = null
+      $leftLeaf = currentOfflineLeaf
+      $leftView = 'edit'
+    } else {
+      $rightNote = null
+      $rightLeaf = currentOfflineLeaf
+      $rightView = 'edit'
+    }
+  }
+
+  function updateOfflineBadge(icon: string, color: string) {
+    offlineLeafBadgeIcon = icon
+    offlineLeafBadgeColor = color
+    // バッジ変更は即座に保存
+    const leaf = createOfflineLeaf(offlineLeafContent, icon, color)
+    saveOfflineLeaf(leaf)
+  }
+
+  function updateOfflineContent(content: string) {
+    offlineLeafContent = content
+    offlineLeafUpdatedAt = Date.now()
+    // デバウンス保存: 既存のタイマーをクリアして新しいタイマーを設定
+    if (offlineSaveTimeoutId) {
+      clearTimeout(offlineSaveTimeoutId)
+    }
+    offlineSaveTimeoutId = setTimeout(() => {
+      const leaf = createOfflineLeaf(content, offlineLeafBadgeIcon, offlineLeafBadgeColor)
+      leaf.updatedAt = offlineLeafUpdatedAt
+      saveOfflineLeaf(leaf)
+      offlineSaveTimeoutId = null
+    }, 500) // 500msのデバウンス
   }
 
   function navigateToLeafFromPriority(leafId: string, pane: Pane) {
@@ -622,6 +696,10 @@
   }
 
   function togglePreview(pane: Pane) {
+    // プライオリティリーフは編集不可（プレビュー専用）
+    const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
+    if (leaf && isPriorityLeaf(leaf.id)) return
+
     const state = getNavState()
     nav.togglePreview(state, getNavDeps(), pane)
     syncNavState(state)
@@ -856,7 +934,7 @@
 
   // ノート管理（notes.tsに委譲）
   function createNote(parentId: string | undefined, pane: Pane) {
-    createNoteLib({ parentId, pane, isOperationsLocked, translate: $_ })
+    createNoteLib({ parentId, pane, isOperationsLocked: !isFirstPriorityFetched, translate: $_ })
   }
 
   function deleteNote(pane: Pane) {
@@ -866,7 +944,7 @@
     deleteNoteLib({
       targetNote,
       pane,
-      isOperationsLocked,
+      isOperationsLocked: !isFirstPriorityFetched,
       translate: $_,
       onNavigate: (p, parentNote) => {
         // 両ペインのナビゲーション処理
@@ -927,7 +1005,7 @@
   function createLeaf(pane: Pane) {
     const targetNote = pane === 'left' ? $leftNote : $rightNote
     if (!targetNote) return
-    const newLeaf = createLeafLib({ targetNote, pane, isOperationsLocked })
+    const newLeaf = createLeafLib({ targetNote, pane, isOperationsLocked: !isFirstPriorityFetched })
     if (newLeaf) {
       leafStatsStore.addLeaf(newLeaf.id, newLeaf.content)
       selectLeaf(newLeaf, pane)
@@ -939,7 +1017,7 @@
     deleteLeafLib({
       leafId,
       pane,
-      isOperationsLocked,
+      isOperationsLocked: !isFirstPriorityFetched,
       translate: $_,
       onNavigate: (p, note) => {
         if (note) selectNote(note, p)
@@ -953,10 +1031,20 @@
   }
 
   function updateLeafContent(content: string, leafId: string) {
+    // オフラインリーフは専用の自動保存処理
+    if (isOfflineLeaf(leafId)) {
+      updateOfflineContent(content)
+      // 左右ペインのリーフを更新
+      const updated = createOfflineLeaf(content, offlineLeafBadgeIcon, offlineLeafBadgeColor)
+      if ($leftLeaf?.id === leafId) $leftLeaf = updated
+      if ($rightLeaf?.id === leafId) $rightLeaf = updated
+      return
+    }
+
     const result = updateLeafContentLib({
       content,
       leafId,
-      isOperationsLocked,
+      isOperationsLocked: !isFirstPriorityFetched,
       translate: $_,
       onStatsUpdate: (id, prevContent, newContent) => {
         leafStatsStore.updateLeafContent(id, newContent, prevContent)
@@ -1033,14 +1121,14 @@
 
   // 移動モーダル
   function openMoveModalForLeaf(pane: Pane) {
-    if (isOperationsLocked) return
+    if (!isFirstPriorityFetched) return
     const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
     if (!leaf) return
     moveModalStore.openForLeaf(leaf, pane)
   }
 
   function openMoveModalForNote(pane: Pane) {
-    if (isOperationsLocked) return
+    if (!isFirstPriorityFetched) return
     const note = pane === 'left' ? $leftNote : $rightNote
     if (!note) return
     moveModalStore.openForNote(note, pane)
@@ -1134,7 +1222,7 @@
         saveableLeaves,
         saveableNotes,
         $settings,
-        isOperationsLocked,
+        !isFirstPriorityFetched,
         $metadata
       )
 
@@ -1160,7 +1248,7 @@
 
   // Git clone相当のZIPエクスポート
   async function exportNotesAsZip() {
-    if (isOperationsLocked) {
+    if (!isFirstPriorityFetched) {
       showPushToast($_('settings.importExport.needInitialPull'), 'error')
       return
     }
@@ -1212,7 +1300,7 @@
 
   async function handleImportFromOtherApps() {
     if (isImporting) return
-    if (isOperationsLocked) {
+    if (!isFirstPriorityFetched) {
       showPushToast($_('settings.importExport.needInitialPullImport'), 'error')
       return
     }
@@ -1266,12 +1354,12 @@
 
   // Markdownダウンロード
   function downloadLeafAsMarkdown(leafId: string) {
-    downloadLeafAsMarkdownLib(leafId, isOperationsLocked, $_)
+    downloadLeafAsMarkdownLib(leafId, !isFirstPriorityFetched, $_)
   }
 
   // プレビューを画像としてダウンロード
   async function downloadLeafAsImage(leafId: string, pane: Pane) {
-    if (isOperationsLocked) {
+    if (!isFirstPriorityFetched) {
       showPushToast('初回Pullが完了するまでダウンロードできません', 'error')
       return
     }
@@ -1340,6 +1428,9 @@
     updateNoteBadge,
     updateLeafBadge,
     updatePriorityBadge,
+    updateOfflineBadge,
+    updateOfflineContent,
+    openOfflineView,
 
     // ドラッグ&ドロップ
     handleDragStartNote,
@@ -1434,7 +1525,8 @@
 
   async function executePullInternal(isInitial: boolean) {
     isLoadingUI = true
-    isOperationsLocked = true
+    isFirstPriorityFetched = false
+    isPullCompleted = false
     $isPulling = true // Pull処理中はURL更新をスキップ
 
     // Pull開始を通知
@@ -1483,9 +1575,9 @@
         pullProgressStore.increment()
       },
 
-      // 第1優先リーフ取得完了時: UIロック解除、ガラス効果解除、URL復元
+      // 第1優先リーフ取得完了時: 作成・削除許可、ガラス効果解除、URL復元
       onPriorityComplete: () => {
-        isOperationsLocked = false
+        isFirstPriorityFetched = true
         isLoadingUI = false // ガラス効果を解除（残りのリーフはバックグラウンドで取得継続）
 
         // 初回Pull時のURL復元
@@ -1502,7 +1594,9 @@
     const result = await executePull($settings, options)
 
     if (result.success) {
-      // 全リーフ取得完了後の処理
+      // 全リーフ取得完了
+      isPullCompleted = true
+
       // leavesストアはonLeafで逐次更新済みなので、最終的なソートのみ
       const sortedLeaves = result.leaves.sort((a, b) => a.order - b.order)
       leaves.set(sortedLeaves)

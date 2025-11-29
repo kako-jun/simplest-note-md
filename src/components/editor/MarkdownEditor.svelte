@@ -3,12 +3,14 @@
   import type { ThemeType } from '../../lib/types'
   import type { Pane } from '../../lib/navigation'
   import { isDirty } from '../../lib/stores'
+  import { isOfflineLeaf, isPriorityLeaf } from '../../lib/utils'
 
   export let content: string
   export let theme: ThemeType
   export let vimMode: boolean = false
   export let linedMode: boolean = false
   export let pane: Pane
+  export let leafId: string = ''
   export let onChange: (newContent: string) => void
   export let onSave: (() => void) | null = null
   export let onClose: (() => void) | null = null
@@ -284,8 +286,10 @@
         if (update.docChanged) {
           const newContent = update.state.doc.toString()
           onChange(newContent)
-          // エディタで変更があったらダーティフラグを立てる（Push成功まで解除されない）
-          isDirty.set(true)
+          // オフラインリーフとプライオリティリーフはGitHub同期しないのでダーティにしない
+          if (!isOfflineLeaf(leafId) && !isPriorityLeaf(leafId)) {
+            isDirty.set(true)
+          }
         }
       }),
       EditorView.domEventHandlers({

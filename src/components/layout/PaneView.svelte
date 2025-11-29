@@ -4,6 +4,7 @@
   import type { Pane } from '../../lib/navigation'
   import type { PaneActions, PaneState, PANE_ACTIONS_KEY, PANE_STATE_KEY } from '../../lib/stores'
   import type { Note, Leaf, View } from '../../lib/types'
+  import { isPriorityLeaf } from '../../lib/utils'
 
   // ストア
   import {
@@ -87,7 +88,8 @@
     <HomeView
       notes={$rootNotes}
       allLeaves={$leaves}
-      disabled={$state.isOperationsLocked}
+      isFirstPriorityFetched={$state.isFirstPriorityFetched}
+      isPullCompleted={$state.isPullCompleted}
       {selectedIndex}
       {isActive}
       vimMode={$settings.vimMode ?? false}
@@ -101,6 +103,9 @@
       priorityLeaf={$state.currentPriorityLeaf}
       onSelectPriority={() => actions.openPriorityView(pane)}
       onUpdatePriorityBadge={actions.updatePriorityBadge}
+      offlineLeaf={$state.currentOfflineLeaf}
+      onSelectOffline={() => actions.openOfflineView(pane)}
+      onUpdateOfflineBadge={actions.updateOfflineBadge}
     />
   {:else if currentView === 'note' && currentNote}
     <NoteView
@@ -109,7 +114,7 @@
       allNotes={$notes}
       leaves={currentLeaves}
       allLeaves={$leaves}
-      disabled={$state.isOperationsLocked}
+      isFirstPriorityFetched={$state.isFirstPriorityFetched}
       {selectedIndex}
       {isActive}
       vimMode={$settings.vimMode ?? false}
@@ -169,7 +174,7 @@
   <HomeFooter
     onCreateNote={() => actions.createNote(undefined, pane)}
     onSave={actions.handleSaveToGitHub}
-    disabled={$state.isOperationsLocked}
+    disabled={!$state.isFirstPriorityFetched}
     isDirty={$isDirty}
     saveDisabled={!$state.canPush}
     saveDisabledReason={$state.saveDisabledReason}
@@ -182,7 +187,7 @@
     onCreateSubNote={() => actions.createNote(currentNote.id, pane)}
     onCreateLeaf={() => actions.createLeaf(pane)}
     onSave={actions.handleSaveToGitHub}
-    disabled={$state.isOperationsLocked}
+    disabled={!$state.isFirstPriorityFetched}
     isDirty={$isDirty}
     canHaveSubNote={!currentNote.parentId}
     saveDisabled={!$state.canPush}
@@ -196,7 +201,7 @@
     onDownload={() => actions.downloadLeafAsMarkdown(currentLeaf.id)}
     onTogglePreview={() => actions.togglePreview(pane)}
     onSave={actions.handleSaveToGitHub}
-    disabled={$state.isOperationsLocked}
+    disabled={!$state.isFirstPriorityFetched}
     isDirty={$isDirty}
     saveDisabled={!$state.canPush}
     saveDisabledReason={$state.saveDisabledReason}
@@ -208,17 +213,16 @@
     onDownload={() => actions.downloadLeafAsImage(currentLeaf.id, pane)}
     onToggleEdit={() => actions.togglePreview(pane)}
     onSave={actions.handleSaveToGitHub}
-    disabled={$state.isOperationsLocked}
+    disabled={!$state.isFirstPriorityFetched}
     isDirty={$isDirty}
     saveDisabled={!$state.canPush}
     saveDisabledReason={$state.saveDisabledReason}
     onDisabledSaveClick={actions.handleDisabledSaveClick}
+    hideEditButton={isPriorityLeaf(currentLeaf.id)}
   />
 {/if}
 
-{#if $state.isOperationsLocked && !$state.showWelcome && !$state.isLoadingUI}
-  <div class="config-required-overlay"></div>
-{/if}
+<!-- ガラス効果オーバーレイは廃止（オフラインリーフを使えるようにするため） -->
 {#if $state.isLoadingUI || $isPushing}
   <Loading />
 {/if}

@@ -13,7 +13,8 @@
   export let onDragOver: (e: DragEvent, note: Note) => void
   export let onDrop: (note: Note) => void
   export let dragOverNoteId: string | null = null
-  export let disabled: boolean = false
+  export let isFirstPriorityFetched: boolean = false
+  export let isPullCompleted: boolean = false
   export let selectedIndex: number = 0
   export let isActive: boolean = true
   export let vimMode: boolean = false
@@ -21,6 +22,9 @@
   export let priorityLeaf: Leaf | null = null
   export let onSelectPriority: () => void
   export let onUpdatePriorityBadge: (icon: string, color: string) => void
+  export let offlineLeaf: Leaf | null = null
+  export let onSelectOffline: () => void
+  export let onUpdateOfflineBadge: (icon: string, color: string) => void
 
   // リアクティブにノートアイテムを計算（leavesが更新されるたびに再計算）
   function computeNoteItems(noteId: string, allNotes: Note[], leaves: Leaf[]): string[] {
@@ -49,6 +53,10 @@
   $: noteItemsMap = new Map(
     notes.map((note) => [note.id, computeNoteItems(note.id, notes, allLeaves)])
   )
+
+  // 特殊リーフ（Offline, Priority）のカウント（Vimナビゲーション用）
+  // Priorityは全リーフPull完了後のみ表示されるのでカウントに含める
+  $: specialLeafCount = (offlineLeaf ? 1 : 0) + (priorityLeaf && isPullCompleted ? 1 : 0)
 
   // Vimモードで選択が変わったら選択中のカードが見えるようにスクロール
   afterUpdate(() => {
@@ -96,13 +104,47 @@
 
 <section class="view-container">
   <div class="card-grid">
-    <!-- Priority リーフ: 常に先頭に表示 -->
-    {#if priorityLeaf}
+    <!-- Offline リーフ: 常に最初に表示 -->
+    {#if offlineLeaf}
       <!-- svelte-ignore a11y-click-events-have-key-events -->
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <div
         class="leaf-card"
         class:selected={vimMode && isActive && selectedIndex === 0}
+        role="button"
+        tabindex="0"
+        on:click={onSelectOffline}
+      >
+        <BadgeButton
+          icon={offlineLeaf.badgeIcon || ''}
+          color={offlineLeaf.badgeColor || ''}
+          onChange={(icon, color) => onUpdateOfflineBadge(icon, color)}
+        />
+        <strong class="text-ellipsis">{offlineLeaf.title}</strong>
+        <div class="card-meta">
+          {#if offlineLeaf.content}
+            <small class="leaf-stats">
+              {formatLeafStats(offlineLeaf.content)}
+            </small>
+          {/if}
+          <small
+            class="leaf-updated"
+            title={`${$_('note.updated')}: ${formatDateTime(offlineLeaf.updatedAt, 'long')}`}
+            aria-label={`${$_('note.updated')}: ${formatDateTime(offlineLeaf.updatedAt, 'long')}`}
+          >
+            {formatDateTime(offlineLeaf.updatedAt, 'short')}
+          </small>
+        </div>
+      </div>
+    {/if}
+
+    <!-- Priority リーフ: Offlineの次に表示（全リーフPull完了後のみ） -->
+    {#if priorityLeaf && isPullCompleted}
+      <!-- svelte-ignore a11y-click-events-have-key-events -->
+      <!-- svelte-ignore a11y-no-static-element-interactions -->
+      <div
+        class="leaf-card"
+        class:selected={vimMode && isActive && selectedIndex === (offlineLeaf ? 1 : 0)}
         role="button"
         tabindex="0"
         on:click={onSelectPriority}
@@ -130,7 +172,8 @@
       </div>
     {/if}
 
-    {#if notes.length === 0 && !disabled}
+    <!-- ノートカード: 特殊リーフの後に表示 -->
+    {#if notes.length === 0 && isFirstPriorityFetched}
       <div class="empty-state">
         <p>{$_('home.noNotes')}</p>
       </div>
@@ -139,7 +182,7 @@
         <NoteCard
           {note}
           dragOver={dragOverNoteId === note.id}
-          isSelected={isActive && index + 1 === selectedIndex}
+          isSelected={isActive && index + specialLeafCount === selectedIndex}
           onSelect={() => onSelectNote(note)}
           onDragStart={() => onDragStart(note)}
           onDragEnd={() => onDragEnd()}

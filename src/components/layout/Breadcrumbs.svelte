@@ -5,6 +5,7 @@
   import ShareButton from '../buttons/ShareButton.svelte'
   import HomeIcon from '../icons/HomeIcon.svelte'
   import EditIcon from '../icons/EditIcon.svelte'
+  import { isOfflineLeaf, isPriorityLeaf } from '../../lib/utils'
 
   export let breadcrumbs: Breadcrumb[]
   export let editingId: string | null = null
@@ -145,7 +146,7 @@
               {crumb.label}
             </button>
           {/if}
-          {#if index === breadcrumbs.length - 1 && (crumb.type === 'note' || crumb.type === 'leaf')}
+          {#if index === breadcrumbs.length - 1 && (crumb.type === 'note' || crumb.type === 'leaf') && !isOfflineLeaf(crumb.id) && !isPriorityLeaf(crumb.id)}
             <IconButton
               onClick={() => handleStartEdit(crumb)}
               title={crumb.type === 'leaf'

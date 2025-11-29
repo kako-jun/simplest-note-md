@@ -29,10 +29,13 @@ export interface PaneActions {
   deleteNote: (pane: Pane) => void
   createLeaf: (pane: Pane) => void
   deleteLeaf: (leafId: string, pane: Pane) => void
-  updateLeafContent: (leafId: string, content: string) => void
+  updateLeafContent: (content: string, leafId: string) => void
   updateNoteBadge: (noteId: string, icon: string, color: string) => void
   updateLeafBadge: (leafId: string, icon: string, color: string) => void
   updatePriorityBadge: (icon: string, color: string) => void
+  updateOfflineBadge: (icon: string, color: string) => void
+  updateOfflineContent: (content: string) => void
+  openOfflineView: (pane: Pane) => void
 
   // ドラッグ&ドロップ
   handleDragStartNote: (note: Note) => void
@@ -85,7 +88,11 @@ export interface PaneActions {
  * ペインの状態（propsで渡すには多すぎるもの）
  */
 export interface PaneState {
-  isOperationsLocked: boolean
+  /** 第1優先リーフの取得が完了したか（URLで指定されたリーフ） */
+  isFirstPriorityFetched: boolean
+  /** 全リーフのPullが完了したか */
+  isPullCompleted: boolean
+  /** Push可能か */
   canPush: boolean
   /** Saveボタンが無効な理由（Pull中の進捗メッセージなど） */
   saveDisabledReason: string
@@ -99,6 +106,7 @@ export interface PaneState {
   totalLeafCount: number
   totalLeafChars: number
   currentPriorityLeaf: Leaf | null
+  currentOfflineLeaf: Leaf | null
   breadcrumbs: Breadcrumb[]
   breadcrumbsRight: Breadcrumb[]
   showWelcome: boolean

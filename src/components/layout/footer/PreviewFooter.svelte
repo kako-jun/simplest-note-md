@@ -16,6 +16,7 @@
   export let saveDisabled: boolean = false
   export let saveDisabledReason: string = ''
   export let onDisabledSaveClick: ((reason: string) => void) | null = null
+  export let hideEditButton: boolean = false
 </script>
 
 <Footer>
@@ -34,14 +35,11 @@
     </IconButton>
   </svelte:fragment>
   <svelte:fragment slot="right">
-    <IconButton
-      onClick={onToggleEdit}
-      title={$_('footer.edit')}
-      ariaLabel={$_('footer.edit')}
-      {disabled}
-    >
-      <FileEditIcon />
-    </IconButton>
+    {#if !hideEditButton}
+      <IconButton onClick={onToggleEdit} title={$_('footer.edit')} ariaLabel={$_('footer.edit')}>
+        <FileEditIcon />
+      </IconButton>
+    {/if}
 
     <SaveButton
       {onSave}
