@@ -134,8 +134,13 @@ export function manageFocus(
     document.activeElement.blur()
   }
 
-  // エディタビューの場合はエディタにフォーカス
-  if (view === 'edit' && shouldFocusEditor) {
+  // モバイルではエディタにフォーカスしない（キーボードが自動で出るのを防ぐ）
+  const isMobile =
+    typeof window !== 'undefined' &&
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+  // エディタビューの場合はエディタにフォーカス（モバイル以外）
+  if (view === 'edit' && shouldFocusEditor && !isMobile) {
     const editor = pane === 'left' ? state.leftEditorView : state.rightEditorView
     if (editor && editor.focusEditor) {
       setTimeout(() => {
