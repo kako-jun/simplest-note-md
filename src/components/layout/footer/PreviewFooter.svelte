@@ -17,13 +17,16 @@
   export let saveDisabledReason: string = ''
   export let onDisabledSaveClick: ((reason: string) => void) | null = null
   export let hideEditButton: boolean = false
+  export let hideMoveButton: boolean = false
 </script>
 
 <Footer>
   <svelte:fragment slot="left">
-    <IconButton onClick={onMove} title="移動" ariaLabel="移動" {disabled}>
-      <MoveIcon />
-    </IconButton>
+    {#if !hideMoveButton}
+      <IconButton onClick={onMove} title="移動" ariaLabel="移動" {disabled}>
+        <MoveIcon />
+      </IconButton>
+    {/if}
 
     <IconButton
       onClick={onDownload}

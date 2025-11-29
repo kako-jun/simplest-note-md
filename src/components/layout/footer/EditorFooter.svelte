@@ -18,22 +18,25 @@
   export let saveDisabled: boolean = false
   export let saveDisabledReason: string = ''
   export let onDisabledSaveClick: ((reason: string) => void) | null = null
+  export let hideDeleteMove: boolean = false
 </script>
 
 <Footer>
   <svelte:fragment slot="left">
-    <IconButton
-      onClick={onDelete}
-      title={$_('footer.deleteLeaf')}
-      ariaLabel={$_('footer.deleteLeaf')}
-      {disabled}
-    >
-      <DeleteIcon />
-    </IconButton>
+    {#if !hideDeleteMove}
+      <IconButton
+        onClick={onDelete}
+        title={$_('footer.deleteLeaf')}
+        ariaLabel={$_('footer.deleteLeaf')}
+        {disabled}
+      >
+        <DeleteIcon />
+      </IconButton>
 
-    <IconButton onClick={onMove} title="移動" ariaLabel="移動" {disabled}>
-      <MoveIcon />
-    </IconButton>
+      <IconButton onClick={onMove} title="移動" ariaLabel="移動" {disabled}>
+        <MoveIcon />
+      </IconButton>
+    {/if}
 
     <IconButton
       onClick={onDownload}

@@ -146,7 +146,7 @@
               {crumb.label}
             </button>
           {/if}
-          {#if index === breadcrumbs.length - 1 && (crumb.type === 'note' || crumb.type === 'leaf') && !isOfflineLeaf(crumb.id) && !isPriorityLeaf(crumb.id)}
+          {#if index === breadcrumbs.length - 1 && (crumb.type === 'note' || (crumb.type === 'leaf' && !isOfflineLeaf(crumb.id) && !isPriorityLeaf(crumb.id)))}
             <IconButton
               onClick={() => handleStartEdit(crumb)}
               title={crumb.type === 'leaf'

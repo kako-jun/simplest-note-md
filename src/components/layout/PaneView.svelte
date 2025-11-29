@@ -4,7 +4,7 @@
   import type { Pane } from '../../lib/navigation'
   import type { PaneActions, PaneState, PANE_ACTIONS_KEY, PANE_STATE_KEY } from '../../lib/stores'
   import type { Note, Leaf, View } from '../../lib/types'
-  import { isPriorityLeaf } from '../../lib/utils'
+  import { isPriorityLeaf, isOfflineLeaf } from '../../lib/utils'
 
   // ストア
   import {
@@ -206,6 +206,7 @@
     saveDisabled={!$state.canPush}
     saveDisabledReason={$state.saveDisabledReason}
     onDisabledSaveClick={actions.handleDisabledSaveClick}
+    hideDeleteMove={isOfflineLeaf(currentLeaf.id)}
   />
 {:else if currentView === 'preview' && currentLeaf}
   <PreviewFooter
@@ -219,6 +220,7 @@
     saveDisabledReason={$state.saveDisabledReason}
     onDisabledSaveClick={actions.handleDisabledSaveClick}
     hideEditButton={isPriorityLeaf(currentLeaf.id)}
+    hideMoveButton={isPriorityLeaf(currentLeaf.id)}
   />
 {/if}
 
