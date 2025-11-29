@@ -242,7 +242,8 @@
     "pullOk": "Pull OK",
     "pushOk": "Push OK",
     "pushOkWithCount": "{count}件のリーフを保存しました",
-    "noChanges": "変更なし（Pushスキップ）"
+    "noChanges": "変更なし（Pushスキップ）",
+    "noRemoteChanges": "変更なし（Pullスキップ）"
   },
   "welcome": {
     "title": "Agasteerに\n興味をもってくれてありがとう！",

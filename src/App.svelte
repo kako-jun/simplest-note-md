@@ -1546,6 +1546,7 @@
     const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
     if (!isStale && !importOccurredInSettings) {
       // リモートに変更なし、かつインポートもしていない場合はPull不要
+      showPullToast($_('toast.noRemoteChanges'), 'success')
       importOccurredInSettings = false
       return
     }

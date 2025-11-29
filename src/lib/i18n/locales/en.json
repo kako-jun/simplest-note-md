@@ -232,7 +232,8 @@
     "pullOk": "Pull OK",
     "pushOk": "Push OK",
     "pushOkWithCount": "Saved {count} leaves",
-    "noChanges": "No changes (Push skipped)"
+    "noChanges": "No changes (Push skipped)",
+    "noRemoteChanges": "No changes (Pull skipped)"
   },
   "move": {
     "title": "Select destination",
