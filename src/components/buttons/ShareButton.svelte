@@ -97,6 +97,15 @@
           <span>{$_('share.shareImage')}</span>
         </button>
       {/if}
+
+      {#if !isPreview && supportsWebShare && onShareSelectionImage}
+        <button class="menu-item" on:click={handleShareSelectionImage}>
+          <UploadIcon />
+          <span
+            >{currentHasSelection ? $_('share.shareSelectionImage') : $_('share.shareImage')}</span
+          >
+        </button>
+      {/if}
     </div>
   {/if}
 </div>

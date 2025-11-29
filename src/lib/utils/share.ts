@@ -226,11 +226,14 @@ export async function handleShareSelectionImage(
 
   if (!leaf) return
 
+  // 選択範囲があればそれを、なければ全体を共有
   const selectedText = getSelectedText(pane, handlers)
-  if (!selectedText) return
+  const textToShare = selectedText || leaf.content
+
+  if (!textToShare) return
 
   try {
-    const blob = await convertMarkdownToImageBlob(selectedText)
+    const blob = await convertMarkdownToImageBlob(textToShare)
     if (!blob) return
 
     // Web Share API がサポートされているか確認
