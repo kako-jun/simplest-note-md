@@ -32,6 +32,7 @@
     moveModalStore,
     pullProgressStore,
     pullProgressInfo,
+    offlineLeafStore,
   } from './lib/stores'
   import {
     clearAllData,
@@ -144,11 +145,7 @@
   let importOccurredInSettings = false
   let isClosingSettingsPull = false
 
-  // オフラインリーフの状態
-  let offlineLeafContent = '' // オフラインリーフの現在の内容
-  let offlineLeafBadgeIcon = ''
-  let offlineLeafBadgeColor = ''
-  let offlineLeafUpdatedAt = Date.now()
+  // オフラインリーフの状態（ストアから取得、HMRでもリセットされない）
   let offlineSaveTimeoutId: ReturnType<typeof setTimeout> | null = null
 
   // leafStatsStoreとmoveModalStoreへのリアクティブアクセス
@@ -231,11 +228,11 @@
     priorityBadgeMeta?.badgeColor
   )
 
-  // オフラインリーフをリアクティブに生成
+  // オフラインリーフをリアクティブに生成（ストアから）
   $: currentOfflineLeaf = createOfflineLeaf(
-    offlineLeafContent,
-    offlineLeafBadgeIcon,
-    offlineLeafBadgeColor
+    $offlineLeafStore.content,
+    $offlineLeafStore.badgeIcon,
+    $offlineLeafStore.badgeColor
   )
 
   // Pull/Push中はボタンを無効化（リアクティブに追跡）
@@ -438,12 +435,17 @@
       document.title = loadedSettings.toolName
 
       // オフラインリーフを読み込み（GitHub設定に関係なく常に利用可能）
-      const savedOfflineLeaf = await loadOfflineLeaf(OFFLINE_LEAF_ID)
-      if (savedOfflineLeaf) {
-        offlineLeafContent = savedOfflineLeaf.content
-        offlineLeafBadgeIcon = savedOfflineLeaf.badgeIcon || ''
-        offlineLeafBadgeColor = savedOfflineLeaf.badgeColor || ''
-        offlineLeafUpdatedAt = savedOfflineLeaf.updatedAt
+      // ストアが空の場合のみ読み込み（HMR時はストアにデータが残っている）
+      if (!$offlineLeafStore.content) {
+        const savedOfflineLeaf = await loadOfflineLeaf(OFFLINE_LEAF_ID)
+        if (savedOfflineLeaf) {
+          offlineLeafStore.set({
+            content: savedOfflineLeaf.content,
+            badgeIcon: savedOfflineLeaf.badgeIcon || '',
+            badgeColor: savedOfflineLeaf.badgeColor || '',
+            updatedAt: savedOfflineLeaf.updatedAt,
+          })
+        }
       }
 
       // カスタムフォントがあれば適用
@@ -600,23 +602,23 @@
   }
 
   function updateOfflineBadge(icon: string, color: string) {
-    offlineLeafBadgeIcon = icon
-    offlineLeafBadgeColor = color
+    offlineLeafStore.update((s) => ({ ...s, badgeIcon: icon, badgeColor: color }))
     // バッジ変更は即座に保存
-    const leaf = createOfflineLeaf(offlineLeafContent, icon, color)
+    const leaf = createOfflineLeaf($offlineLeafStore.content, icon, color)
     saveOfflineLeaf(leaf)
   }
 
   function updateOfflineContent(content: string) {
-    offlineLeafContent = content
-    offlineLeafUpdatedAt = Date.now()
+    const now = Date.now()
+    offlineLeafStore.update((s) => ({ ...s, content, updatedAt: now }))
     // デバウンス保存: 既存のタイマーをクリアして新しいタイマーを設定
     if (offlineSaveTimeoutId) {
       clearTimeout(offlineSaveTimeoutId)
     }
     offlineSaveTimeoutId = setTimeout(() => {
-      const leaf = createOfflineLeaf(content, offlineLeafBadgeIcon, offlineLeafBadgeColor)
-      leaf.updatedAt = offlineLeafUpdatedAt
+      const current = $offlineLeafStore
+      const leaf = createOfflineLeaf(current.content, current.badgeIcon, current.badgeColor)
+      leaf.updatedAt = current.updatedAt
       saveOfflineLeaf(leaf)
       offlineSaveTimeoutId = null
     }, 500) // 500msのデバウンス
@@ -1037,10 +1039,7 @@
     // オフラインリーフは専用の自動保存処理
     if (isOfflineLeaf(leafId)) {
       updateOfflineContent(content)
-      // 左右ペインのリーフを更新
-      const updated = createOfflineLeaf(content, offlineLeafBadgeIcon, offlineLeafBadgeColor)
-      if ($leftLeaf?.id === leafId) $leftLeaf = updated
-      if ($rightLeaf?.id === leafId) $rightLeaf = updated
+      // 左右ペインのリーフはcurrentOfflineLeafから自動更新されるので不要
       return
     }
 

@@ -33,6 +33,19 @@ export const isPushing = writable<boolean>(false)
 // フォーカス状態
 export const focusedPane = writable<Pane>('left')
 
+// オフラインリーフ状態ストア（HMRでもリセットされない）
+export const offlineLeafStore = writable<{
+  content: string
+  badgeIcon: string
+  badgeColor: string
+  updatedAt: number
+}>({
+  content: '',
+  badgeIcon: '',
+  badgeColor: '',
+  updatedAt: Date.now(),
+})
+
 // 派生ストア
 export const rootNotes = derived(notes, ($notes) =>
   $notes.filter((f) => !f.parentId).sort((a, b) => a.order - b.order)

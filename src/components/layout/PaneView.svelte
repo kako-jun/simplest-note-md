@@ -53,10 +53,15 @@
   // pane に応じてストアを選択
   $: currentView = pane === 'left' ? $leftView : $rightView
   $: currentNote = pane === 'left' ? $leftNote : $rightNote
-  // PriorityリーフはPaneStateの常に最新のものを使う
+  // Priority/OfflineリーフはPaneStateの常に最新のものを使う
   $: storeLeaf = pane === 'left' ? $leftLeaf : $rightLeaf
-  $: currentLeaf =
-    storeLeaf && isPriorityLeaf(storeLeaf.id) ? $state.currentPriorityLeaf : storeLeaf
+  $: currentLeaf = storeLeaf
+    ? isPriorityLeaf(storeLeaf.id)
+      ? $state.currentPriorityLeaf
+      : isOfflineLeaf(storeLeaf.id)
+        ? $state.currentOfflineLeaf
+        : storeLeaf
+    : null
   $: selectedIndex = pane === 'left' ? $state.selectedIndexLeft : $state.selectedIndexRight
   $: breadcrumbs = pane === 'left' ? $state.breadcrumbs : $state.breadcrumbsRight
   $: isActive = $focusedPane === pane
