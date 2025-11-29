@@ -79,7 +79,9 @@
   onCopyUrl={() => actions.handleCopyUrl(pane)}
   onCopyMarkdown={() => actions.handleCopyMarkdown(pane)}
   onShareImage={() => actions.handleShareImage(pane)}
+  onShareSelectionImage={() => actions.handleShareSelectionImage(pane)}
   isPreview={currentView === 'preview'}
+  getHasSelection={() => actions.getHasSelection(pane)}
   onSelectSibling={(id, type) => actions.selectSiblingFromBreadcrumb(id, type, pane)}
 />
 
@@ -148,7 +150,7 @@
       onSave={actions.handleSaveToGitHub}
       onClose={() => actions.closeLeaf(pane)}
       onSwitchPane={() => actions.switchPane(pane)}
-      onDownload={actions.downloadLeafAsMarkdown}
+      onDownload={(leafId) => actions.downloadLeafAsMarkdown(leafId, pane)}
       onDelete={(leafId) => actions.deleteLeaf(leafId, pane)}
       onScroll={handleScroll}
     />
@@ -198,7 +200,7 @@
   <EditorFooter
     onDelete={() => actions.deleteLeaf(currentLeaf.id, pane)}
     onMove={() => actions.openMoveModalForLeaf(pane)}
-    onDownload={() => actions.downloadLeafAsMarkdown(currentLeaf.id)}
+    onDownload={() => actions.downloadLeafAsMarkdown(currentLeaf.id, pane)}
     onTogglePreview={() => actions.togglePreview(pane)}
     onSave={actions.handleSaveToGitHub}
     disabled={!$state.isFirstPriorityFetched}
@@ -207,6 +209,7 @@
     saveDisabledReason={$state.saveDisabledReason}
     onDisabledSaveClick={actions.handleDisabledSaveClick}
     hideDeleteMove={isOfflineLeaf(currentLeaf.id)}
+    getHasSelection={() => actions.getHasSelection(pane)}
   />
 {:else if currentView === 'preview' && currentLeaf}
   <PreviewFooter

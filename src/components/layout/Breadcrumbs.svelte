@@ -15,7 +15,9 @@
   export let onCopyUrl: (() => void) | null = null
   export let onCopyMarkdown: (() => void) | null = null
   export let onShareImage: (() => void) | null = null
+  export let onShareSelectionImage: (() => void) | null = null
   export let isPreview: boolean = false
+  export let getHasSelection: (() => boolean) | null = null
   export let onSelectSibling: ((id: string, type: 'note' | 'leaf') => void) | null = null
 
   let inputValue = ''
@@ -101,7 +103,13 @@
               ›
             </button>
             {#if openDropdownIndex === index}
-              <div class="dropdown-menu" on:click|stopPropagation>
+              <div
+                class="dropdown-menu"
+                role="menu"
+                tabindex="-1"
+                on:click|stopPropagation
+                on:keydown|stopPropagation
+              >
                 {#each crumb.siblings as sibling}
                   <button
                     class="dropdown-item"
@@ -165,7 +173,14 @@
   </div>
 
   {#if isLeafView && onCopyUrl && onCopyMarkdown}
-    <ShareButton {onCopyUrl} {onCopyMarkdown} {onShareImage} {isPreview} />
+    <ShareButton
+      {onCopyUrl}
+      {onCopyMarkdown}
+      {onShareImage}
+      {onShareSelectionImage}
+      {isPreview}
+      {getHasSelection}
+    />
   {/if}
 </div>
 

@@ -10,13 +10,20 @@
   export let onCopyUrl: () => void
   export let onCopyMarkdown: () => void
   export let onShareImage: (() => void) | null = null
+  export let onShareSelectionImage: (() => void) | null = null
+  export let getHasSelection: (() => boolean) | null = null
   export let isPreview: boolean = false
 
   let showMenu = false
   let menuElement: HTMLDivElement
   let supportsWebShare = false
+  let currentHasSelection = false
 
   function toggleMenu() {
+    // メニューを開く時に選択状態をチェック
+    if (!showMenu && getHasSelection) {
+      currentHasSelection = getHasSelection()
+    }
     showMenu = !showMenu
   }
 
@@ -39,6 +46,13 @@
   function handleShareImage() {
     if (onShareImage) {
       onShareImage()
+      showMenu = false
+    }
+  }
+
+  function handleShareSelectionImage() {
+    if (onShareSelectionImage) {
+      onShareSelectionImage()
       showMenu = false
     }
   }
@@ -68,7 +82,13 @@
 
       <button class="menu-item" on:click={handleCopyMarkdown}>
         <CopyIcon />
-        <span>{isPreview ? $_('share.copyImage') : $_('share.copyMarkdown')}</span>
+        <span
+          >{isPreview
+            ? $_('share.copyImage')
+            : currentHasSelection
+              ? $_('share.copySelectionMarkdown')
+              : $_('share.copyMarkdown')}</span
+        >
       </button>
 
       {#if isPreview && supportsWebShare && onShareImage}

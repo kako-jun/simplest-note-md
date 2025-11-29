@@ -19,6 +19,20 @@
   export let saveDisabledReason: string = ''
   export let onDisabledSaveClick: ((reason: string) => void) | null = null
   export let hideDeleteMove: boolean = false
+  export let getHasSelection: (() => boolean) | null = null
+
+  let downloadTitle = $_('footer.download')
+
+  // マウスエンター時に選択状態をチェックしてtitleを更新
+  function updateDownloadTitle() {
+    downloadTitle =
+      getHasSelection && getHasSelection() ? $_('footer.downloadSelection') : $_('footer.download')
+  }
+
+  // ダウンロードボタンクリック時
+  function handleDownload() {
+    onDownload()
+  }
 </script>
 
 <Footer>
@@ -39,9 +53,10 @@
     {/if}
 
     <IconButton
-      onClick={onDownload}
-      title={$_('footer.download')}
-      ariaLabel={$_('footer.download')}
+      onClick={handleDownload}
+      onMouseEnter={updateDownloadTitle}
+      title={downloadTitle}
+      ariaLabel={downloadTitle}
       {disabled}
     >
       <DownloadIcon />

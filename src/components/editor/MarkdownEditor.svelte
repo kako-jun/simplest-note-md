@@ -87,6 +87,15 @@
     }
   }
 
+  // 外部から選択テキストを取得する関数
+  export function getSelectedText(): string {
+    if (!editorView) return ''
+    const state = editorView.state
+    const selection = state.selection.main
+    if (selection.empty) return ''
+    return state.doc.sliceString(selection.from, selection.to)
+  }
+
   const darkThemes: ThemeType[] = ['greenboard', 'dotsD', 'dotsF']
 
   // CodeMirrorモジュールを動的ロード

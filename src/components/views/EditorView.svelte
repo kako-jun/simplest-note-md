@@ -50,6 +50,14 @@
       markdownEditor.scrollToLine(line)
     }
   }
+
+  // 外部から選択テキストを取得する関数
+  export function getSelectedText(): string {
+    if (markdownEditor && markdownEditor.getSelectedText) {
+      return markdownEditor.getSelectedText()
+    }
+    return ''
+  }
 </script>
 
 <section class="editor-section">

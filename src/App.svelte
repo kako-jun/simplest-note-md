@@ -91,6 +91,7 @@
     handleCopyUrl as handleCopyUrlLib,
     handleCopyMarkdown as handleCopyMarkdownLib,
     handleShareImage as handleShareImageLib,
+    handleShareSelectionImage as handleShareSelectionImageLib,
     handleCopyImageToClipboard as handleCopyImageToClipboardLib,
   } from './lib/utils'
   import {
@@ -1354,8 +1355,34 @@
     input.click()
   }
 
-  // Markdownダウンロード
-  function downloadLeafAsMarkdown(leafId: string) {
+  // Markdownダウンロード（選択範囲があれば選択範囲をダウンロード）
+  function downloadLeafAsMarkdown(leafId: string, pane: Pane) {
+    if (!isFirstPriorityFetched) {
+      showPushToast($_('toast.needInitialPullDownload'), 'error')
+      return
+    }
+
+    // 選択テキストがあればそれをダウンロード
+    const editorView = pane === 'left' ? leftEditorView : rightEditorView
+    if (editorView && editorView.getSelectedText) {
+      const selectedText = editorView.getSelectedText()
+      if (selectedText) {
+        const targetLeaf = $leaves.find((l) => l.id === leafId)
+        if (!targetLeaf) return
+        const blob = new Blob([selectedText], { type: 'text/markdown' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${targetLeaf.title}-selection.md`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        return
+      }
+    }
+
+    // 選択なしの場合は全文ダウンロード
     downloadLeafAsMarkdownLib(leafId, !isFirstPriorityFetched, $_)
   }
 
@@ -1389,6 +1416,7 @@
       getLeaf: (pane: Pane) => (pane === 'left' ? $leftLeaf : $rightLeaf),
       getView: (pane: Pane) => (pane === 'left' ? $leftView : $rightView),
       getPreviewView: (pane: Pane) => (pane === 'left' ? leftPreviewView : rightPreviewView),
+      getEditorView: (pane: Pane) => (pane === 'left' ? leftEditorView : rightEditorView),
     }
   }
 
@@ -1406,6 +1434,16 @@
 
   async function handleShareImage(pane: Pane) {
     await handleShareImageLib(pane, getShareHandlers())
+  }
+
+  async function handleShareSelectionImage(pane: Pane) {
+    await handleShareSelectionImageLib(pane, getShareHandlers())
+  }
+
+  function getHasSelection(pane: Pane): boolean {
+    const editorView = pane === 'left' ? leftEditorView : rightEditorView
+    if (!editorView || !editorView.getSelectedText) return false
+    return editorView.getSelectedText() !== ''
   }
 
   // ========================================
@@ -1462,6 +1500,8 @@
     handleCopyUrl,
     handleCopyMarkdown,
     handleShareImage,
+    handleShareSelectionImage,
+    getHasSelection,
 
     // スクロール
     handleLeftScroll,

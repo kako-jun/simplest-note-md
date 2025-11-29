@@ -53,7 +53,7 @@ export interface PaneActions {
 
   // 保存・エクスポート
   handleSaveToGitHub: () => void
-  downloadLeafAsMarkdown: (leafId: string) => void
+  downloadLeafAsMarkdown: (leafId: string, pane: Pane) => void
   downloadLeafAsImage: (leafId: string, pane: Pane) => void
 
   // パンくずリスト
@@ -65,6 +65,8 @@ export interface PaneActions {
   handleCopyUrl: (pane: Pane) => void
   handleCopyMarkdown: (pane: Pane) => void
   handleShareImage: (pane: Pane) => void
+  handleShareSelectionImage: (pane: Pane) => void
+  getHasSelection: (pane: Pane) => boolean
 
   // スクロール
   handleLeftScroll: (scrollTop: number, scrollHeight: number) => void

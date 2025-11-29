@@ -7,11 +7,13 @@
   export let iconSize = 18
   export let iconWidth: number | null = null
   export let iconHeight: number | null = null
+  export let onMouseEnter: (() => void) | null = null
 </script>
 
 <button
   type="button"
   on:click={onClick}
+  on:mouseenter={() => onMouseEnter?.()}
   {title}
   aria-label={ariaLabel}
   {disabled}
