@@ -223,7 +223,6 @@ function buildPath(leaf: Leaf, notes: Note[]): string {
 
   const folderPath = getFolderPath(note, notes)
   const path = `notes/${folderPath}/${leaf.title}.md`
-  console.log('[buildPath]', leaf.title, '→', path, '(noteId:', leaf.noteId, ')')
   return path
 }
 

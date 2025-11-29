@@ -16,6 +16,7 @@
   export let pullDisabled: boolean = false
   /** Pull進捗情報、nullなら非表示 */
   export let pullProgress: { percent: number; fetched: number; total: number } | null = null
+  export let onPullProgressClick: () => void = () => {}
   export let onSearchClick: () => void
   export let isDualPane: boolean = false
   export let onSwapPanes: () => void = () => {}
@@ -53,11 +54,7 @@
         <OctocatPullIcon />
       </IconButton>
       {#if pullProgress !== null}
-        <span
-          class="pull-progress"
-          title={$_('home.leafFetched', {
-            values: { fetched: pullProgress.fetched, total: pullProgress.total },
-          })}>{pullProgress.percent}%</span
+        <button class="pull-progress" on:click={onPullProgressClick}>{pullProgress.percent}%</button
         >
       {/if}
     </div>
@@ -187,6 +184,16 @@
     font-weight: 500;
     color: var(--accent);
     min-width: 2.5em;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    user-select: none;
+  }
+
+  .pull-progress:hover {
+    background: var(--surface-2);
   }
 
   .swap-button {

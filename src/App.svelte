@@ -678,8 +678,10 @@
   }
 
   function handleDisabledSaveClick(reason: string) {
-    if (reason) {
-      showPushToast(reason)
+    // reasonが空でもsaveDisabledReasonを使う
+    const message = reason || saveDisabledReason
+    if (message) {
+      showPushToast(message)
     }
   }
 
@@ -1652,6 +1654,15 @@
       onPull={() => handlePull(false)}
       pullDisabled={!canPull}
       pullProgress={$pullProgressInfo}
+      onPullProgressClick={() => {
+        if ($pullProgressInfo) {
+          showPullToast(
+            $_('home.leafFetched', {
+              values: { fetched: $pullProgressInfo.fetched, total: $pullProgressInfo.total },
+            })
+          )
+        }
+      }}
       onSearchClick={toggleSearch}
       {isDualPane}
       onSwapPanes={swapPanes}

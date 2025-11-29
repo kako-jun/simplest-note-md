@@ -278,13 +278,16 @@
   .breadcrumb-item {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 0.25rem;
     min-width: 0;
     max-width: 200px;
     flex-shrink: 1;
+    overflow: hidden;
   }
 
   .breadcrumb-button {
+    display: block;
     background: none;
     border: none;
     color: var(--accent);
@@ -296,8 +299,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
-    max-width: 100%;
-    flex-shrink: 1;
+    flex: 1;
     text-align: left;
   }
   .breadcrumb-button.current {

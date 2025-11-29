@@ -1,6 +1,5 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
-  import IconButton from './IconButton.svelte'
   import OctocatPushIcon from '../icons/OctocatPushIcon.svelte'
 
   export let onSave: () => void
@@ -12,36 +11,27 @@
   export let onDisabledClick: ((reason: string) => void) | null = null
 
   function handleClick() {
-    if (disabled && disabledReason && onDisabledClick) {
-      onDisabledClick(disabledReason)
-    } else if (!disabled) {
+    if (disabled) {
+      if (disabledReason && onDisabledClick) {
+        onDisabledClick(disabledReason)
+      }
+    } else {
       onSave()
     }
   }
 </script>
 
 <div class="save-button-wrapper">
-  <!-- disabled時もクリックを検知するため、wrapperでクリックを受ける -->
-  <div
-    class="button-click-area"
+  <button
+    type="button"
+    class="save-button"
     class:disabled
     on:click={handleClick}
-    on:keydown={(e) => e.key === 'Enter' && handleClick()}
-    role="button"
-    tabindex={disabled ? 0 : -1}
+    title={$_('common.save')}
+    aria-label={$_('common.save')}
   >
-    <IconButton
-      onClick={() => {}}
-      title={disabled && disabledReason ? disabledReason : $_('common.save')}
-      ariaLabel={$_('common.save')}
-      variant="primary"
-      iconWidth={32}
-      iconHeight={20}
-      {disabled}
-    >
-      <OctocatPushIcon />
-    </IconButton>
-  </div>
+    <OctocatPushIcon />
+  </button>
   {#if isDirty}
     <span class="notification-badge"></span>
   {/if}
@@ -52,12 +42,30 @@
     position: relative;
   }
 
-  .button-click-area {
-    display: contents;
+  .save-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s;
   }
 
-  .button-click-area.disabled {
-    cursor: not-allowed;
+  .save-button:hover:not(.disabled) {
+    opacity: 0.7;
+  }
+
+  .save-button.disabled {
+    opacity: 0.4;
+    cursor: pointer;
+  }
+
+  .save-button :global(svg) {
+    width: 32px;
+    height: 20px;
   }
 
   .notification-badge {
