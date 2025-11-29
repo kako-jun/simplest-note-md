@@ -1242,8 +1242,10 @@
       // Push成功時にダーティフラグをクリアし、pushCountを更新
       if (result.variant === 'success') {
         isDirty.set(false)
-        // Push成功後はリモートと同期したのでpushCountを+1
-        lastPulledPushCount.update((n) => n + 1)
+        // 実際に変更があった場合のみpushCountを+1（スキップ時は更新しない）
+        if (result.changedCount && result.changedCount > 0) {
+          lastPulledPushCount.update((n) => n + 1)
+        }
       }
     } finally {
       $isPushing = false
@@ -1542,23 +1544,6 @@
     }
   }
   async function handleCloseSettings() {
-    // リモートに変更がなければPullをスキップ
-    const localPushCount = get(lastPulledPushCount)
-    console.log('[DEBUG] handleCloseSettings: localPushCount =', localPushCount)
-    const isStale = await checkIfStaleEdit($settings, localPushCount)
-    console.log(
-      '[DEBUG] handleCloseSettings: isStale =',
-      isStale,
-      ', importOccurredInSettings =',
-      importOccurredInSettings
-    )
-    if (!isStale && !importOccurredInSettings) {
-      // リモートに変更なし、かつインポートもしていない場合はPull不要
-      showPullToast($_('toast.noRemoteChanges'), 'success')
-      importOccurredInSettings = false
-      return
-    }
-
     isClosingSettingsPull = true
     await handlePull(false)
     importOccurredInSettings = false
@@ -1568,6 +1553,15 @@
   async function handlePull(isInitial = false) {
     // 交通整理: Pull不可なら何もしない（初回Pullは例外）
     if (!isInitial && !canSync($isPulling, $isPushing).canPull) return
+
+    // 初回Pull以外で、リモートに変更がなければスキップ
+    if (!isInitial) {
+      const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
+      if (!isStale) {
+        showPullToast($_('toast.noRemoteChanges'), 'success')
+        return
+      }
+    }
 
     // 初回Pull以外で未保存の変更がある場合は確認
     if (!isInitial && get(isDirty)) {

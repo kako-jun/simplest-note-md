@@ -128,11 +128,5 @@ export async function checkIfStaleEdit(
   lastPulledPushCount: number
 ): Promise<boolean> {
   const remotePushCount = await fetchRemotePushCount(settings)
-  console.log(
-    '[DEBUG] checkIfStaleEdit: remotePushCount =',
-    remotePushCount,
-    ', lastPulledPushCount =',
-    lastPulledPushCount
-  )
   return remotePushCount > lastPulledPushCount
 }
