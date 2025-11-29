@@ -211,7 +211,7 @@
     onDownload={() => actions.downloadLeafAsMarkdown(currentLeaf.id, pane)}
     onTogglePreview={() => actions.togglePreview(pane)}
     onSave={actions.handleSaveToGitHub}
-    disabled={!$state.isFirstPriorityFetched}
+    disabled={!$state.isFirstPriorityFetched && !isOfflineLeaf(currentLeaf.id)}
     isDirty={$isDirty}
     saveDisabled={!$state.canPush}
     saveDisabledReason={$state.saveDisabledReason}
@@ -225,13 +225,13 @@
     onDownload={() => actions.downloadLeafAsImage(currentLeaf.id, pane)}
     onToggleEdit={() => actions.togglePreview(pane)}
     onSave={actions.handleSaveToGitHub}
-    disabled={!$state.isFirstPriorityFetched}
+    disabled={!$state.isFirstPriorityFetched && !isOfflineLeaf(currentLeaf.id)}
     isDirty={$isDirty}
     saveDisabled={!$state.canPush}
     saveDisabledReason={$state.saveDisabledReason}
     onDisabledSaveClick={actions.handleDisabledSaveClick}
     hideEditButton={isPriorityLeaf(currentLeaf.id)}
-    hideMoveButton={isPriorityLeaf(currentLeaf.id)}
+    hideMoveButton={isPriorityLeaf(currentLeaf.id) || isOfflineLeaf(currentLeaf.id)}
   />
 {/if}
 
