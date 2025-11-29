@@ -1543,7 +1543,15 @@
   }
   async function handleCloseSettings() {
     // リモートに変更がなければPullをスキップ
-    const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
+    const localPushCount = get(lastPulledPushCount)
+    console.log('[DEBUG] handleCloseSettings: localPushCount =', localPushCount)
+    const isStale = await checkIfStaleEdit($settings, localPushCount)
+    console.log(
+      '[DEBUG] handleCloseSettings: isStale =',
+      isStale,
+      ', importOccurredInSettings =',
+      importOccurredInSettings
+    )
     if (!isStale && !importOccurredInSettings) {
       // リモートに変更なし、かつインポートもしていない場合はPull不要
       showPullToast($_('toast.noRemoteChanges'), 'success')
