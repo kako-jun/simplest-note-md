@@ -279,6 +279,7 @@
     align-items: center;
     gap: 0.25rem;
     min-width: 0;
+    max-width: 200px;
     flex-shrink: 1;
   }
 
@@ -294,7 +295,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    max-width: 100%;
     flex-shrink: 1;
+    text-align: left;
   }
   .breadcrumb-button.current {
     color: var(--text);
