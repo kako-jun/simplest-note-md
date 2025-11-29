@@ -81,7 +81,10 @@
         selection: { anchor: lineInfo.from },
         scrollIntoView: true,
       })
-      editorView.focus()
+      // モバイルではfocusしない（キーボードが出るのを防ぐ）
+      if (!isMobileDevice()) {
+        editorView.focus()
+      }
     } catch {
       // 行が見つからない場合は無視
     }
@@ -422,20 +425,19 @@
     }
 
     // モバイルではタップ時の自動スクロールを無効化
+    // トランザクションはそのまま適用し、スクロール位置を復元することで対応
     if (isMobileDevice()) {
       editorConfig.dispatchTransactions = (trs: any[], view: any) => {
-        // scrollIntoView効果を除去してからディスパッチ
-        const filteredTrs = trs.map((tr) => {
-          if (tr.scrollIntoView) {
-            // scrollIntoViewをfalseに設定した新しいトランザクションを作成
-            return view.state.update({
-              ...tr,
-              scrollIntoView: false,
-            })
-          }
-          return tr
-        })
-        view.update(filteredTrs)
+        const hasScrollIntoView = trs.some((tr) => tr.scrollIntoView)
+        const scrollTop = hasScrollIntoView ? view.scrollDOM.scrollTop : null
+
+        // トランザクションをそのまま適用（選択操作などを壊さない）
+        view.update(trs)
+
+        // スクロール位置を復元
+        if (scrollTop !== null) {
+          view.scrollDOM.scrollTop = scrollTop
+        }
       }
     }
 
