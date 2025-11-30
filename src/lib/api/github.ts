@@ -271,7 +271,7 @@ export async function saveToGitHub(
     content: encodedContent,
     committer: {
       name: 'agasteer',
-      email: 'agasteer@example.com',
+      email: 'agasteer@users.noreply.github.com',
     },
   }
 
@@ -668,11 +668,11 @@ export async function pushAllWithTreeAPI(
           parents: [currentCommitSha],
           committer: {
             name: 'agasteer',
-            email: 'agasteer@example.com',
+            email: 'agasteer@users.noreply.github.com',
           },
           author: {
             name: 'agasteer',
-            email: 'agasteer@example.com',
+            email: 'agasteer@users.noreply.github.com',
           },
         }),
       }
