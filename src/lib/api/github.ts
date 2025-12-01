@@ -73,7 +73,10 @@ export interface SaveResult {
   success: boolean
   message: string
   rateLimitInfo?: RateLimitInfo
-  changedCount?: number
+  /** 変更されたリーフの数（コンテンツ変更のみカウント） */
+  changedLeafCount?: number
+  /** メタデータのみ変更されたか（リーフ変更なしでメタデータ変更あり） */
+  metadataOnlyChanged?: boolean
 }
 
 export interface TestResult {
@@ -376,8 +379,6 @@ export async function pushAllWithTreeAPI(
     return normalized
   }
 
-  let hasContentChanges = false
-
   // 設定の検証
   const validation = validateGitHubSettings(settings)
   if (!validation.valid) {
@@ -583,7 +584,7 @@ export async function pushAllWithTreeAPI(
       })
     }
 
-    const changedContentPaths: string[] = []
+    const changedLeafPaths: string[] = []
 
     // 全リーフをTreeに追加（変化していないファイルは既存SHAを使用）
     for (const leaf of leaves) {
@@ -612,16 +613,18 @@ export async function pushAllWithTreeAPI(
         type: 'blob',
         content: leaf.content,
       })
-      changedContentPaths.push(path)
+      changedLeafPaths.push(path)
     }
 
     // metadata差分を含めて変更チェック（pushCountのインクリメントは除外）
     const normalizedExisting = normalizeMetadata(existingMetadata, currentPushCount)
     const normalizedCurrent = normalizeMetadata(metadata, currentPushCount)
-    const metaChanged = stableStringify(normalizedExisting) !== stableStringify(normalizedCurrent)
+    const metadataChanged =
+      stableStringify(normalizedExisting) !== stableStringify(normalizedCurrent)
 
-    const hasChanges = hasContentChanges || changedContentPaths.length > 0 || metaChanged
-    if (!hasChanges) {
+    const leafChanged = changedLeafPaths.length > 0
+    const hasAnyChanges = leafChanged || metadataChanged
+    if (!hasAnyChanges) {
       // 変更がない場合は何もせずに成功を返す
       return { success: true, message: 'github.noChanges' }
     }
@@ -713,7 +716,8 @@ export async function pushAllWithTreeAPI(
     return {
       success: true,
       message: 'github.pushOk',
-      changedCount: changedContentPaths.length,
+      changedLeafCount: changedLeafPaths.length,
+      metadataOnlyChanged: !leafChanged && metadataChanged,
     }
   } catch (error) {
     console.error('GitHub Tree API error:', error)

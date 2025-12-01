@@ -12,7 +12,10 @@ export interface PushResult {
   message: string
   variant: 'success' | 'error'
   rateLimitInfo?: RateLimitInfo
-  changedCount?: number
+  /** 変更されたリーフの数（コンテンツ変更のみカウント） */
+  changedLeafCount?: number
+  /** メタデータのみ変更されたか（リーフ変更なしでメタデータ変更あり） */
+  metadataOnlyChanged?: boolean
 }
 
 /**
@@ -76,7 +79,8 @@ export async function executePush(
     message: result.message,
     variant: result.success ? 'success' : 'error',
     rateLimitInfo: result.rateLimitInfo,
-    changedCount: result.changedCount,
+    changedLeafCount: result.changedLeafCount,
+    metadataOnlyChanged: result.metadataOnlyChanged,
   }
 }
 

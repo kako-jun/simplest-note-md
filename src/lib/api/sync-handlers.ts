@@ -8,13 +8,13 @@ import type { RateLimitInfo } from './github'
 /**
  * GitHub APIのメッセージキーを翻訳してトースト用テキストに変換
  * rateLimitInfoがある場合は残り時間を含める
- * changedCountがある場合は変更件数を含める
+ * changedLeafCountがある場合は変更件数を含める
  */
 export function translateGitHubMessage(
   messageKey: string,
   translate: (key: string, options?: { values?: Record<string, unknown> }) => string,
   rateLimitInfo?: RateLimitInfo,
-  changedCount?: number
+  changedLeafCount?: number
 ): string {
   // i18nキーでなければそのまま返す（後方互換性のため）
   if (!messageKey.startsWith('github.') && !messageKey.startsWith('toast.')) {
@@ -30,8 +30,13 @@ export function translateGitHubMessage(
   }
 
   // Push成功時に変更件数を含める
-  if (messageKey === 'github.pushOk' && changedCount !== undefined) {
-    return translate('github.pushOkWithCount', { values: { count: changedCount } })
+  if (messageKey === 'github.pushOk') {
+    if (changedLeafCount !== undefined && changedLeafCount > 0) {
+      return translate('github.pushOkWithCount', { values: { count: changedLeafCount } })
+    } else {
+      // リーフ変更なし（メタデータのみ更新）
+      return translate('github.pushOkMetadataOnly')
+    }
   }
 
   // 通常のi18n翻訳

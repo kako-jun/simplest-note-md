@@ -1235,15 +1235,18 @@
         result.message,
         $_,
         result.rateLimitInfo,
-        result.changedCount
+        result.changedLeafCount
       )
       showPushToast(translatedMessage, result.variant)
 
       // Push成功時にダーティフラグをクリアし、pushCountを更新
       if (result.variant === 'success') {
         isDirty.set(false)
-        // 実際に変更があった場合のみpushCountを+1（スキップ時は更新しない）
-        if (result.changedCount && result.changedCount > 0) {
+        // 実際にPushが行われた場合のみpushCountを+1（noChangesでスキップ時は更新しない）
+        // changedLeafCount > 0 または metadataOnlyChanged の場合にPushが実際に行われた
+        const actuallyPushed =
+          (result.changedLeafCount && result.changedLeafCount > 0) || result.metadataOnlyChanged
+        if (actuallyPushed) {
           lastPulledPushCount.update((n) => n + 1)
         }
       }
