@@ -209,7 +209,8 @@
     "duplicateLeafSameNote": "A leaf with the same name exists in this note. Please choose a different name.",
     "duplicateLeafHeading": "A leaf with the same name exists in this note. Use a different heading.",
     "noNestedSubNote": "Cannot create a sub-note under another sub-note.",
-    "needInitialPull": "Operations are locked until the initial Pull completes. Please Pull from settings."
+    "needInitialPull": "Operations are locked until the initial Pull completes. Please Pull from settings.",
+    "exitApp": "You have unsaved changes. Continue?"
   },
   "loading": {
     "pulling": "Pulling...",

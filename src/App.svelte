@@ -162,6 +162,22 @@
   // 左右ペイン用の状態
   let isDualPane = false // 画面幅で切り替え
 
+  // PWAスタンドアロンモード検出（Android戻るスワイプ対策）
+  const isPWAStandalone =
+    typeof window !== 'undefined' &&
+    (window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true)
+
+  // PWA終了ガード用のセンチネルキー
+  const PWA_EXIT_GUARD_KEY = 'pwa-exit-guard'
+
+  // PWA終了ガード用のダミーエントリを追加
+  function pushExitGuard() {
+    if (isPWAStandalone) {
+      history.pushState({ [PWA_EXIT_GUARD_KEY]: true }, '', location.href)
+    }
+  }
+
   // キーボードナビゲーション用の状態
   let selectedIndexLeft = 0 // 左ペインで選択中のアイテムインデックス
   let selectedIndexRight = 0 // 右ペインで選択中のアイテムインデックス
@@ -489,8 +505,27 @@
 
     window.addEventListener('resize', updateDualPane)
 
-    // ブラウザの戻る/進むボタンに対応
-    const handlePopState = () => {
+    // PWAスタンドアロンモードの場合、初期終了ガードを追加
+    pushExitGuard()
+
+    // ブラウザの戻る/進むボタンに対応（PWA終了ガード含む）
+    const handlePopState = (e: PopStateEvent) => {
+      // PWA終了ガードに到達した場合
+      if (isPWAStandalone && e.state?.[PWA_EXIT_GUARD_KEY]) {
+        // まずガードを再追加（アプリ終了を防ぐ）
+        pushExitGuard()
+
+        // 未保存の変更がある場合は確認ダイアログを表示
+        if (get(isDirty)) {
+          showConfirm($_('modal.exitApp'), () => {
+            // ユーザーが終了を選択：ガードを削除してもう一度戻る
+            history.go(-2) // ガード + 1つ前のエントリを削除
+          })
+        }
+        return
+      }
+
+      // 通常のpopstate処理
       restoreStateFromUrl()
     }
     window.addEventListener('popstate', handlePopState)
