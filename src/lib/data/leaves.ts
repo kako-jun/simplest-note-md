@@ -15,6 +15,7 @@ export interface CreateLeafOptions {
   targetNote: Note
   pane: Pane
   isOperationsLocked: boolean
+  title?: string
 }
 
 export interface DeleteLeafOptions {
@@ -39,7 +40,7 @@ export interface UpdateLeafContentOptions {
  * 新しいリーフを作成
  */
 export function createLeaf(options: CreateLeafOptions): Leaf | null {
-  const { targetNote, pane, isOperationsLocked } = options
+  const { targetNote, pane, isOperationsLocked, title } = options
 
   if (isOperationsLocked) return null
   if (!targetNote) return null
@@ -48,7 +49,14 @@ export function createLeaf(options: CreateLeafOptions): Leaf | null {
   const noteLeaves = allLeaves.filter((n) => n.noteId === targetNote.id)
 
   const existingTitles = noteLeaves.map((l) => l.title)
-  const uniqueTitle = generateUniqueName('リーフ', existingTitles)
+
+  // タイトルが指定されている場合、重複チェック
+  if (title && existingTitles.includes(title)) {
+    showAlert('同じノートに同名のリーフがあります。別の名前を入力してください。')
+    return null
+  }
+
+  const uniqueTitle = title || generateUniqueName('リーフ', existingTitles)
 
   const newLeaf: Leaf = {
     id: crypto.randomUUID(),

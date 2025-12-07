@@ -8,13 +8,48 @@
   export let type: ModalType
   export let position: ModalPosition = 'center'
   export let onConfirm: (() => void) | null
+  export let onPromptSubmit: ((value: string) => void) | null = null
+  export let placeholder: string = ''
   export let onClose: () => void
+
+  let inputValue = ''
+  let inputElement: HTMLInputElement | null = null
+
+  // モーダルが表示されたらフォーカス
+  $: if (show && type === 'prompt') {
+    setTimeout(() => inputElement?.focus(), 0)
+  }
+
+  // モーダルが閉じたら入力値をリセット
+  $: if (!show) {
+    inputValue = ''
+  }
 
   function handleConfirm() {
     if (onConfirm) {
       onConfirm()
     }
     onClose()
+  }
+
+  function handlePromptSubmit() {
+    const value = inputValue.trim()
+    if (value && onPromptSubmit) {
+      onPromptSubmit(value)
+    }
+    onClose()
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (type === 'prompt') {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        handlePromptSubmit()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      }
+    }
   }
 </script>
 
@@ -33,10 +68,25 @@
       {#each message.split('\n') as line}
         <p>{line}</p>
       {/each}
+      {#if type === 'prompt'}
+        <input
+          bind:this={inputElement}
+          bind:value={inputValue}
+          type="text"
+          class="prompt-input"
+          {placeholder}
+          on:keydown={handleKeydown}
+        />
+      {/if}
       <div class="modal-buttons">
         {#if type === 'confirm'}
           <button class="secondary" on:click={onClose}>{$_('common.cancel')}</button>
           <button class="primary" on:click={handleConfirm}>{$_('common.ok')}</button>
+        {:else if type === 'prompt'}
+          <button class="secondary" on:click={onClose}>{$_('common.cancel')}</button>
+          <button class="primary" on:click={handlePromptSubmit} disabled={!inputValue.trim()}
+            >{$_('common.ok')}</button
+          >
         {:else}
           <button class="primary" on:click={onClose}>{$_('common.ok')}</button>
         {/if}
@@ -117,5 +167,26 @@
   .modal-buttons button.secondary {
     background: var(--surface-1);
     color: var(--text);
+  }
+
+  .modal-buttons button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .prompt-input {
+    width: 100%;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1rem;
+  }
+
+  .prompt-input:focus {
+    outline: none;
+    border-color: var(--accent);
   }
 </style>

@@ -83,13 +83,15 @@ export interface Breadcrumb {
   siblings?: BreadcrumbSibling[]
 }
 
-export type ModalType = 'confirm' | 'alert'
+export type ModalType = 'confirm' | 'alert' | 'prompt'
 
 export interface ModalState {
   show: boolean
   message: string
   type: ModalType
   callback: (() => void) | null
+  promptCallback?: ((value: string) => void) | null
+  placeholder?: string
 }
 
 // 検索結果の型

@@ -66,6 +66,7 @@
     showPullToast,
     showConfirm,
     showAlert,
+    showPrompt,
     closeModal,
   } from './lib/ui'
   import { resolvePath, buildPath } from './lib/navigation'
@@ -1005,8 +1006,33 @@
   }
 
   // ノート管理（notes.tsに委譲）
-  function createNote(parentId: string | undefined, pane: Pane) {
-    createNoteLib({ parentId, pane, isOperationsLocked: !isFirstPriorityFetched, translate: $_ })
+  function createNote(parentId: string | undefined, pane: Pane, name?: string) {
+    if (!name) {
+      // 名前が指定されていない場合はモーダルで入力を求める
+      const position = pane === 'left' ? 'bottom-left' : 'bottom-right'
+      showPrompt(
+        $_('footer.newNote'),
+        (inputName) => {
+          createNoteLib({
+            parentId,
+            pane,
+            isOperationsLocked: !isFirstPriorityFetched,
+            translate: $_,
+            name: inputName,
+          })
+        },
+        '',
+        position
+      )
+    } else {
+      createNoteLib({
+        parentId,
+        pane,
+        isOperationsLocked: !isFirstPriorityFetched,
+        translate: $_,
+        name,
+      })
+    }
   }
 
   function deleteNote(pane: Pane) {
@@ -1074,13 +1100,41 @@
   }
 
   // リーフ管理（leaves.tsに委譲）
-  function createLeaf(pane: Pane) {
+  function createLeaf(pane: Pane, title?: string) {
     const targetNote = pane === 'left' ? $leftNote : $rightNote
     if (!targetNote) return
-    const newLeaf = createLeafLib({ targetNote, pane, isOperationsLocked: !isFirstPriorityFetched })
-    if (newLeaf) {
-      leafStatsStore.addLeaf(newLeaf.id, newLeaf.content)
-      selectLeaf(newLeaf, pane)
+
+    if (!title) {
+      // タイトルが指定されていない場合はモーダルで入力を求める
+      const position = pane === 'left' ? 'bottom-left' : 'bottom-right'
+      showPrompt(
+        $_('footer.newLeaf'),
+        (inputTitle) => {
+          const newLeaf = createLeafLib({
+            targetNote,
+            pane,
+            isOperationsLocked: !isFirstPriorityFetched,
+            title: inputTitle,
+          })
+          if (newLeaf) {
+            leafStatsStore.addLeaf(newLeaf.id, newLeaf.content)
+            selectLeaf(newLeaf, pane)
+          }
+        },
+        '',
+        position
+      )
+    } else {
+      const newLeaf = createLeafLib({
+        targetNote,
+        pane,
+        isOperationsLocked: !isFirstPriorityFetched,
+        title,
+      })
+      if (newLeaf) {
+        leafStatsStore.addLeaf(newLeaf.id, newLeaf.content)
+        selectLeaf(newLeaf, pane)
+      }
     }
   }
 
@@ -1905,6 +1959,8 @@
       type={$modalState.type}
       position={$modalState.position}
       onConfirm={$modalState.callback}
+      onPromptSubmit={$modalState.promptCallback}
+      placeholder={$modalState.placeholder || ''}
       onClose={closeModal}
     />
 

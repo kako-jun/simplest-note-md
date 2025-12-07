@@ -19,8 +19,10 @@ export type ModalPosition = 'center' | 'bottom-left' | 'bottom-right'
 export interface ModalState {
   show: boolean
   message: string
-  type: 'confirm' | 'alert'
+  type: 'confirm' | 'alert' | 'prompt'
   callback: (() => void) | null
+  promptCallback?: ((value: string) => void) | null
+  placeholder?: string
   position: ModalPosition
 }
 
@@ -102,6 +104,26 @@ export function showAlert(message: string, position: ModalPosition = 'center') {
 }
 
 /**
+ * 入力ダイアログを表示
+ */
+export function showPrompt(
+  message: string,
+  onSubmit: (value: string) => void,
+  placeholder: string = '',
+  position: ModalPosition = 'center'
+) {
+  modalState.set({
+    show: true,
+    message,
+    type: 'prompt',
+    callback: null,
+    promptCallback: onSubmit,
+    placeholder,
+    position,
+  })
+}
+
+/**
  * モーダルを閉じる
  */
 export function closeModal() {
@@ -110,6 +132,8 @@ export function closeModal() {
     message: '',
     type: 'confirm',
     callback: null,
+    promptCallback: null,
+    placeholder: '',
     position: 'center',
   })
 }

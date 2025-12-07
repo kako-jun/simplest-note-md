@@ -5,7 +5,7 @@
   import SaveButton from '../../buttons/SaveButton.svelte'
   import FolderPlusIcon from '../../icons/FolderPlusIcon.svelte'
 
-  export let onCreateNote: () => void
+  export let onCreateNote: (name: string) => void
   export let onSave: () => void
   export let disabled: boolean
   export let isDirty: boolean
@@ -17,7 +17,7 @@
 <Footer>
   <svelte:fragment slot="left">
     <IconButton
-      onClick={onCreateNote}
+      onClick={() => onCreateNote('')}
       title={$_('footer.newNote')}
       ariaLabel={$_('footer.newNote')}
       {disabled}

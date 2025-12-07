@@ -25,9 +25,9 @@ export interface PaneActions {
   openPriorityView: (pane: Pane) => void
 
   // CRUD操作
-  createNote: (parentId: string | undefined, pane: Pane) => void
+  createNote: (parentId: string | undefined, pane: Pane, name?: string) => void
   deleteNote: (pane: Pane) => void
-  createLeaf: (pane: Pane) => void
+  createLeaf: (pane: Pane, title?: string) => void
   deleteLeaf: (leafId: string, pane: Pane) => void
   updateLeafContent: (content: string, leafId: string) => void
   updateNoteBadge: (noteId: string, icon: string, color: string) => void

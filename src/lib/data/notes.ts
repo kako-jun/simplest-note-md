@@ -14,6 +14,7 @@ export interface CreateNoteOptions {
   pane: Pane
   isOperationsLocked: boolean
   translate: (key: string) => string
+  name?: string
 }
 
 export interface DeleteNoteOptions {
@@ -29,7 +30,7 @@ export interface DeleteNoteOptions {
  * 新しいノートを作成
  */
 export function createNote(options: CreateNoteOptions): Note | null {
-  const { parentId, pane, isOperationsLocked, translate } = options
+  const { parentId, pane, isOperationsLocked, translate, name } = options
 
   if (isOperationsLocked) return null
 
@@ -49,7 +50,14 @@ export function createNote(options: CreateNoteOptions): Note | null {
     : allNotes.filter((f) => !f.parentId)
 
   const existingNames = targetNotes.map((n) => n.name)
-  const uniqueName = generateUniqueName('ノート', existingNames)
+
+  // 名前が指定されている場合、重複チェック
+  if (name && existingNames.includes(name)) {
+    showAlert(translate('modal.duplicateNoteSameLevel'))
+    return null
+  }
+
+  const uniqueName = name || generateUniqueName('ノート', existingNames)
 
   const newNote: Note = {
     id: crypto.randomUUID(),

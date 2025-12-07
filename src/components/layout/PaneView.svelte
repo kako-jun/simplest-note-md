@@ -182,7 +182,7 @@
 
 {#if currentView === 'home'}
   <HomeFooter
-    onCreateNote={() => actions.createNote(undefined, pane)}
+    onCreateNote={(name) => actions.createNote(undefined, pane, name)}
     onSave={actions.handleSaveToGitHub}
     disabled={!$state.isFirstPriorityFetched}
     isDirty={$isDirty}
@@ -194,8 +194,8 @@
   <NoteFooter
     onDeleteNote={() => actions.deleteNote(pane)}
     onMove={() => actions.openMoveModalForNote(pane)}
-    onCreateSubNote={() => actions.createNote(currentNote.id, pane)}
-    onCreateLeaf={() => actions.createLeaf(pane)}
+    onCreateSubNote={(name) => actions.createNote(currentNote.id, pane, name)}
+    onCreateLeaf={(name) => actions.createLeaf(pane, name)}
     onSave={actions.handleSaveToGitHub}
     disabled={!$state.isFirstPriorityFetched}
     isDirty={$isDirty}

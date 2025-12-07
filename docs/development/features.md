@@ -346,33 +346,42 @@ function getBreadcrumbs() {
 
 ## モーダルシステム
 
-確認ダイアログとアラートダイアログを統一的に管理。
+確認ダイアログ、アラートダイアログ、入力ダイアログを統一的に管理。
 
 ```typescript
-let showModal = false
-let modalMessage = ''
-let modalType: 'confirm' | 'alert' = 'confirm'
-let modalCallback: (() => void) | null = null
-
-function showConfirm(message: string, onConfirm: () => void) {
-  modalMessage = message
-  modalType = 'confirm'
-  modalCallback = onConfirm
-  showModal = true
+export interface ModalState {
+  show: boolean
+  message: string
+  type: 'confirm' | 'alert' | 'prompt'
+  callback: (() => void) | null
+  promptCallback?: ((value: string) => void) | null
+  placeholder?: string
+  position: ModalPosition
 }
 
-function showAlert(message: string) {
-  modalMessage = message
-  modalType = 'alert'
-  modalCallback = null
-  showModal = true
+function showConfirm(message: string, onConfirm: () => void, position?: ModalPosition) {
+  modalState.set({ show: true, message, type: 'confirm', callback: onConfirm, position })
 }
 
-function confirmModal() {
-  if (modalCallback) {
-    modalCallback()
-  }
-  closeModal()
+function showAlert(message: string, position?: ModalPosition) {
+  modalState.set({ show: true, message, type: 'alert', callback: null, position })
+}
+
+function showPrompt(
+  message: string,
+  onSubmit: (value: string) => void,
+  placeholder?: string,
+  position?: ModalPosition
+) {
+  modalState.set({
+    show: true,
+    message,
+    type: 'prompt',
+    callback: null,
+    promptCallback: onSubmit,
+    placeholder,
+    position,
+  })
 }
 ```
 
@@ -380,15 +389,36 @@ function confirmModal() {
 
 ```typescript
 // 削除確認
-showConfirm('このノートを削除しますか？', () => {
-  notes = notes.filter((n) => n.id !== currentNote!.id)
-  persistNotes()
-  goToParentFolder()
-})
+showConfirm(
+  'このノートを削除しますか？',
+  () => {
+    deleteNote(targetNote)
+  },
+  'bottom-left'
+)
 
 // エラー通知
 showAlert('GitHub同期に失敗しました。')
+
+// 名前入力（新規ノート/リーフ作成時）
+showPrompt(
+  '新規ノート',
+  (name) => {
+    createNote({ name, parentId, pane })
+  },
+  '',
+  'bottom-left'
+)
 ```
+
+### 新規ノート/リーフ作成フロー
+
+フッターの新規ノート/リーフボタンをクリックすると、入力モーダルが表示される：
+
+1. ボタンクリックで `showPrompt` を呼び出し
+2. モーダルで名前を入力
+3. OK（またはEnter）で作成実行、キャンセル（またはEsc）で中止
+4. 左ペインは `bottom-left`、右ペインは `bottom-right` に表示
 
 ---
 

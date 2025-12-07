@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { _ } from '../../../lib/i18n'
   import Footer from '../Footer.svelte'
   import IconButton from '../../buttons/IconButton.svelte'
   import SaveButton from '../../buttons/SaveButton.svelte'
@@ -9,8 +10,8 @@
 
   export let onDeleteNote: () => void
   export let onMove: () => void
-  export let onCreateSubNote: () => void
-  export let onCreateLeaf: () => void
+  export let onCreateSubNote: (name: string) => void
+  export let onCreateLeaf: (name: string) => void
   export let onSave: () => void
   export let disabled: boolean
   export let isDirty: boolean
@@ -22,7 +23,12 @@
 
 <Footer>
   <svelte:fragment slot="left">
-    <IconButton onClick={onDeleteNote} title="ノートを削除" ariaLabel="ノートを削除" {disabled}>
+    <IconButton
+      onClick={onDeleteNote}
+      title={$_('footer.deleteNote')}
+      ariaLabel={$_('footer.deleteNote')}
+      {disabled}
+    >
       <DeleteIcon />
     </IconButton>
 
@@ -32,16 +38,21 @@
 
     {#if canHaveSubNote}
       <IconButton
-        onClick={onCreateSubNote}
-        title="新規サブノート"
-        ariaLabel="新規サブノート"
+        onClick={() => onCreateSubNote('')}
+        title={$_('footer.newNote')}
+        ariaLabel={$_('footer.newNote')}
         {disabled}
       >
         <FolderPlusIcon />
       </IconButton>
     {/if}
 
-    <IconButton onClick={onCreateLeaf} title="新規リーフ" ariaLabel="新規リーフ" {disabled}>
+    <IconButton
+      onClick={() => onCreateLeaf('')}
+      title={$_('footer.newLeaf')}
+      ariaLabel={$_('footer.newLeaf')}
+      {disabled}
+    >
       <FilePlusIcon />
     </IconButton>
   </svelte:fragment>
