@@ -43,6 +43,13 @@
   let vim: any
   let Vim: any
   let lineNumbers: any
+  let highlightActiveLine: any
+  let highlightSpecialChars: any
+  let dropCursor: any
+  let drawSelection: any
+  let highlightActiveLineGutter: any
+  let rectangularSelection: any
+  let crosshairCursor: any
   let HighlightStyle: any
   let syntaxHighlighting: any
   let tags: any
@@ -105,7 +112,18 @@
   async function loadCodeMirror() {
     const [
       { EditorState: ES },
-      { EditorView: EV, keymap: km, lineNumbers: ln },
+      {
+        EditorView: EV,
+        keymap: km,
+        lineNumbers: ln,
+        highlightActiveLine: hal,
+        highlightSpecialChars: hsc,
+        dropCursor: dc,
+        drawSelection: ds,
+        highlightActiveLineGutter: halg,
+        rectangularSelection: rs,
+        crosshairCursor: cc,
+      },
       { defaultKeymap: dk, history: h, historyKeymap: hk },
       { markdown: md },
       { basicSetup: bs },
@@ -132,6 +150,13 @@
     vim = v
     Vim = V
     lineNumbers = ln
+    highlightActiveLine = hal
+    highlightSpecialChars = hsc
+    dropCursor = dc
+    drawSelection = ds
+    highlightActiveLineGutter = halg
+    rectangularSelection = rs
+    crosshairCursor = cc
     HighlightStyle = HS
     syntaxHighlighting = sh
     tags = (await import('@lezer/highlight')).tags
@@ -290,10 +315,18 @@
     if (!editorContainer || editorView || isLoading) return
 
     const extensions = [
-      basicSetup,
+      // basicSetupの代わりに必要な機能だけ追加（drawSelection以外）
+      lineNumbers(),
+      highlightActiveLineGutter(),
+      highlightSpecialChars(),
+      drawSelection(),
+      dropCursor(),
+      rectangularSelection(),
+      crosshairCursor(),
+      // highlightActiveLine(), // Gboardと相性が悪いため除外
       markdown(),
-      keymap.of([...defaultKeymap, ...historyKeymap]),
       history(),
+      keymap.of([...defaultKeymap, ...historyKeymap]),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
           const newContent = update.state.doc.toString()
@@ -422,23 +455,6 @@
     const editorConfig: any = {
       state: startState,
       parent: editorContainer,
-    }
-
-    // モバイルではタップ時の自動スクロールを無効化
-    // トランザクションはそのまま適用し、スクロール位置を復元することで対応
-    if (isMobileDevice()) {
-      editorConfig.dispatchTransactions = (trs: any[], view: any) => {
-        const hasScrollIntoView = trs.some((tr) => tr.scrollIntoView)
-        const scrollTop = hasScrollIntoView ? view.scrollDOM.scrollTop : null
-
-        // トランザクションをそのまま適用（選択操作などを壊さない）
-        view.update(trs)
-
-        // スクロール位置を復元
-        if (scrollTop !== null) {
-          view.scrollDOM.scrollTop = scrollTop
-        }
-      }
     }
 
     editorView = new EditorView(editorConfig)

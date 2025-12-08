@@ -11,10 +11,19 @@ function initializeEditor() {
   if (!editorContainer) return
 
   const extensions = [
-    basicSetup,
+    // basicSetupの代わりに個別の拡張機能を追加
+    // highlightActiveLine()はGboardとの互換性問題があるため除外
+    lineNumbers(),
+    highlightActiveLineGutter(),
+    highlightSpecialChars(),
+    drawSelection(),
+    dropCursor(),
+    rectangularSelection(),
+    crosshairCursor(),
+    // highlightActiveLine(), // モバイルで範囲選択が中断される問題を回避
     markdown(),
-    keymap.of([...defaultKeymap, ...historyKeymap]),
     history(),
+    keymap.of([...defaultKeymap, ...historyKeymap]),
     EditorView.updateListener.of((update) => {
       if (update.docChanged && currentNote) {
         updateNoteContent(currentNote.id, update.state.doc.toString())
@@ -38,6 +47,37 @@ function initializeEditor() {
   })
 }
 ```
+
+### モバイル互換性
+
+#### basicSetup の代替
+
+CodeMirrorの`basicSetup`は多くの便利な拡張機能をバンドルしていますが、モバイルデバイス（特にAndroid + Gboard）で問題を引き起こす拡張機能が含まれています。
+
+**問題**: `highlightActiveLine()`拡張機能がGboardと相性が悪く、段落をまたぐ範囲選択を行うと選択が中断されてポップアップメニューが表示される。
+
+**解決策**: `basicSetup`を使用せず、必要な拡張機能を個別にインポートし、`highlightActiveLine()`を除外する。
+
+```typescript
+import {
+  lineNumbers,
+  highlightActiveLineGutter,
+  highlightSpecialChars,
+  drawSelection,
+  dropCursor,
+  rectangularSelection,
+  crosshairCursor,
+  // highlightActiveLine は除外
+} from '@codemirror/view'
+```
+
+#### Gboard関連の既知の制約
+
+Android端末でGboardを使用している場合、空行（段落と段落の間の空白行）をタップするとスクロール位置が意図しない場所にジャンプする現象が発生します。これはGboardがCodeMirrorのフォーカス処理に介入することで起こるもので、CodeMirror側での修正は困難です。
+
+**回避策**: 空行をタップする代わりに、テキストがある行をタップしてからカーソルを移動する。
+
+詳細は[既知の課題](./future-plans.md#その他の既知の制約)を参照してください。
 
 ### コンテンツリセット
 
