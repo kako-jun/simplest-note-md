@@ -158,26 +158,18 @@
           />
         {:else}
           {#if index === 0}
-            <!-- Home/Archive切り替えドロップダウン -->
+            <!-- Home/Archiveアイコン + ワールド切り替えセパレータ -->
             {#if onWorldChange}
-              <div class="world-dropdown">
+              <!-- ワールド切り替えセパレータ（Homeの左に配置） -->
+              <div class="world-separator-dropdown">
                 <button
-                  class="world-button"
+                  class="world-separator clickable"
                   on:click|stopPropagation={toggleWorldDropdown}
-                  title={currentWorld === 'home'
-                    ? $_('breadcrumbs.goHome')
-                    : $_('breadcrumbs.goArchive')}
-                  aria-label={currentWorld === 'home'
-                    ? $_('breadcrumbs.goHome')
-                    : $_('breadcrumbs.goArchive')}
+                  title={$_('breadcrumbs.goArchive')}
+                  aria-label={$_('breadcrumbs.goArchive')}
                   aria-expanded={worldDropdownOpen}
                 >
-                  {#if currentWorld === 'home'}
-                    <HomeIcon />
-                  {:else}
-                    <ArchiveIcon />
-                  {/if}
-                  <span class="world-caret">▾</span>
+                  ›
                 </button>
                 {#if worldDropdownOpen}
                   <div
@@ -211,6 +203,22 @@
                   </div>
                 {/if}
               </div>
+              <!-- Home/Archiveアイコン -->
+              <IconButton
+                onClick={crumb.action}
+                title={currentWorld === 'home'
+                  ? $_('breadcrumbs.goHome')
+                  : $_('breadcrumbs.goArchive')}
+                ariaLabel={currentWorld === 'home'
+                  ? $_('breadcrumbs.goHome')
+                  : $_('breadcrumbs.goArchive')}
+              >
+                {#if currentWorld === 'home'}
+                  <HomeIcon />
+                {:else}
+                  <ArchiveIcon />
+                {/if}
+              </IconButton>
             {:else}
               <IconButton
                 onClick={crumb.action}
@@ -411,41 +419,25 @@
     outline: none;
   }
 
-  /* ワールド切り替えドロップダウン */
-  .world-dropdown {
+  /* ワールド切り替えセパレータ（Homeの左に配置） */
+  .world-separator-dropdown {
     position: relative;
     display: flex;
     align-items: center;
   }
 
-  .world-button {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
+  .world-separator {
     background: none;
     border: none;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    cursor: pointer;
     color: var(--text-muted);
-    transition:
-      background 0.2s,
-      color 0.2s;
+    padding: 0 0.25rem;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: color 0.2s;
   }
 
-  .world-button:hover {
-    background: var(--surface-2);
+  .world-separator:hover {
     color: var(--accent);
-  }
-
-  .world-button :global(svg) {
-    width: 18px;
-    height: 18px;
-  }
-
-  .world-caret {
-    font-size: 0.7rem;
-    opacity: 0.6;
   }
 
   .world-menu {

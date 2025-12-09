@@ -903,8 +903,20 @@
     await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
     isDirty.set(true)
 
-    // ホームに戻る
-    goHome('left')
+    // 移動したノートを開いていた両ペインをホームに遷移
+    const checkPane = (paneToCheck: Pane) => {
+      const currentNote = paneToCheck === 'left' ? $leftNote : $rightNote
+      const currentLeaf = paneToCheck === 'left' ? $leftLeaf : $rightLeaf
+      if (
+        currentNote?.id === note.id ||
+        noteIds.has(currentNote?.id ?? '') ||
+        (currentLeaf && noteIds.has(currentLeaf.noteId))
+      ) {
+        goHome(paneToCheck)
+      }
+    }
+    checkPane('left')
+    checkPane('right')
     refreshBreadcrumbs()
     rebuildLeafStats($leaves, $notes)
   }
@@ -971,8 +983,15 @@
     await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
     isDirty.set(true)
 
-    // ホームに戻る
-    goHome('left')
+    // 移動したリーフを開いていた両ペインをホームに遷移
+    const checkPane = (paneToCheck: Pane) => {
+      const currentLeaf = paneToCheck === 'left' ? $leftLeaf : $rightLeaf
+      if (currentLeaf?.id === leaf.id) {
+        goHome(paneToCheck)
+      }
+    }
+    checkPane('left')
+    checkPane('right')
     refreshBreadcrumbs()
     rebuildLeafStats($leaves, $notes)
   }
