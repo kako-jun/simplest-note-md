@@ -62,6 +62,7 @@
     font-size: 1.5rem;
     margin: 0 0 16px 0;
     color: var(--fg);
+    white-space: pre-line;
   }
 
   .welcome-message {
@@ -104,7 +105,7 @@
   }
 
   .welcome-button.primary:hover {
-    background: var(--accent-hover);
+    opacity: 0.85;
   }
 
   .welcome-button.secondary {
@@ -114,7 +115,7 @@
   }
 
   .welcome-button.secondary:hover {
-    background: var(--card-hover);
+    opacity: 0.85;
   }
 
   .button-icon {
