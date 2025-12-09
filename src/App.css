@@ -21,6 +21,10 @@
   --surface-2: color-mix(in srgb, var(--bg) 86%, var(--text) 14%);
   --border: color-mix(in srgb, var(--text) 15%, var(--bg) 85%);
   --border-strong: color-mix(in srgb, var(--text) 25%, var(--bg) 75%);
+
+  /* QR code filter: black -> accent color */
+  --qr-filter: brightness(0) saturate(100%) invert(65%) sepia(44%) saturate(621%) hue-rotate(10deg)
+    brightness(96%) contrast(87%);
 }
 
 :root[data-theme='campus'] {
@@ -28,6 +32,8 @@
   --text: #1f2937;
   --accent: #2f56c6;
   --error: #b42318;
+  --qr-filter: brightness(0) saturate(100%) invert(28%) sepia(97%) saturate(1103%)
+    hue-rotate(211deg) brightness(89%) contrast(85%);
 }
 
 :root[data-theme='greenboard'] {
@@ -35,6 +41,8 @@
   --text: #e6f0e7;
   --accent: #96d46a;
   --error: #ff9f9f;
+  --qr-filter: brightness(0) saturate(100%) invert(75%) sepia(27%) saturate(578%) hue-rotate(55deg)
+    brightness(101%) contrast(83%);
 }
 
 :root[data-theme='whiteboard'] {
@@ -42,6 +50,8 @@
   --text: #1f2933;
   --accent: #3b82f6;
   --error: #b42318;
+  --qr-filter: brightness(0) saturate(100%) invert(42%) sepia(97%) saturate(2089%)
+    hue-rotate(210deg) brightness(100%) contrast(95%);
 }
 
 :root[data-theme='dotsD'] {
@@ -49,6 +59,8 @@
   --text: #e2ecff;
   --accent: #666666;
   --error: #f472b6;
+  --qr-filter: brightness(0) saturate(100%) invert(42%) sepia(0%) saturate(0%) hue-rotate(0deg)
+    brightness(96%) contrast(89%);
 }
 
 :root[data-theme='dotsF'] {
@@ -56,6 +68,8 @@
   --text: #ffffff;
   --accent: #5ca8ff;
   --error: #ff6666;
+  --qr-filter: brightness(0) saturate(100%) invert(59%) sepia(69%) saturate(1665%)
+    hue-rotate(193deg) brightness(102%) contrast(101%);
 }
 
 .text-ellipsis {

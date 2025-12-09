@@ -24,13 +24,10 @@
   }
 
   .qr-code-image {
-    width: 100px;
-    height: 100px;
+    width: 120px;
+    height: 120px;
     object-fit: contain;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    padding: 0.5rem;
-    background: white;
+    filter: var(--qr-filter);
   }
 
   .qr-code-description {
