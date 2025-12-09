@@ -31,9 +31,16 @@
   let inputElement: HTMLInputElement | null = null
   let openDropdownIndex: number | null = null
   let worldDropdownOpen = false
+  let justToggledWorld = false
 
-  function toggleWorldDropdown() {
+  function toggleWorldDropdown(e: MouseEvent) {
+    e.stopPropagation()
+    justToggledWorld = true
     worldDropdownOpen = !worldDropdownOpen
+    // フラグをリセット（次のイベントループで）
+    setTimeout(() => {
+      justToggledWorld = false
+    }, 0)
   }
 
   function handleWorldSelect(world: WorldType) {
@@ -97,7 +104,10 @@
   // ドロップダウン外クリックで閉じる
   function handleWindowClick() {
     closeDropdown()
-    worldDropdownOpen = false
+    // トグル直後でなければ閉じる
+    if (!justToggledWorld) {
+      worldDropdownOpen = false
+    }
   }
 
   // リーフ表示かどうかを判定
@@ -164,7 +174,7 @@
               <div class="world-separator-dropdown">
                 <button
                   class="world-separator clickable"
-                  on:click|stopPropagation={toggleWorldDropdown}
+                  on:click={toggleWorldDropdown}
                   title={$_('breadcrumbs.goArchive')}
                   aria-label={$_('breadcrumbs.goArchive')}
                   aria-expanded={worldDropdownOpen}
