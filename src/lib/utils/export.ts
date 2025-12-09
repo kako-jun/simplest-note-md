@@ -47,22 +47,35 @@ export interface ExportNotesResult {
 }
 
 /**
- * notes/ 配下の構造と metadata.json を含む ZIP を生成する。
+ * .agasteer/ 配下の構造（notes/ と archive/）と metadata.json を含む ZIP を生成する。
  * .git は含めない（履歴なしの作業ツリー相当）。
  */
 export async function buildNotesZip(
   notes: Note[],
   leaves: Leaf[],
   metadata: Metadata | undefined,
-  options: ExportNotesOptions
+  options: ExportNotesOptions,
+  archiveNotes: Note[] = [],
+  archiveLeaves: Leaf[] = [],
+  archiveMetadata: Metadata | undefined = undefined
 ): Promise<ExportNotesResult> {
-  if (notes.length === 0 && leaves.length === 0) {
+  if (
+    notes.length === 0 &&
+    leaves.length === 0 &&
+    archiveNotes.length === 0 &&
+    archiveLeaves.length === 0
+  ) {
     return { success: false, reason: 'empty' }
   }
 
   try {
     const zip = new JSZip()
-    const notesFolder = zip.folder('notes')
+    const agasteerFolder = zip.folder('.agasteer')
+    if (!agasteerFolder) {
+      throw new Error('Failed to create .agasteer folder in ZIP')
+    }
+
+    const notesFolder = agasteerFolder.folder('notes')
     if (!notesFolder) {
       throw new Error('Failed to create notes folder in ZIP')
     }
@@ -130,6 +143,77 @@ export async function buildNotesZip(
     }
 
     notesFolder.file('metadata.json', JSON.stringify(metadataToWrite, null, 2))
+
+    // アーカイブフォルダの作成
+    const archiveFolder = agasteerFolder.folder('archive')
+    if (!archiveFolder) {
+      throw new Error('Failed to create archive folder in ZIP')
+    }
+    archiveFolder.file('.gitkeep', '')
+
+    // アーカイブデータがある場合のみ追加
+    if (archiveNotes.length > 0 || archiveLeaves.length > 0) {
+      const archiveNoteMap = new Map<string, Note>(archiveNotes.map((n) => [n.id, n]))
+      const buildArchiveFolderPath = (note: Note): string => {
+        const segments: string[] = []
+        let current: Note | undefined | null = note
+        while (current) {
+          segments.unshift(current.name)
+          current = current.parentId ? archiveNoteMap.get(current.parentId) || null : null
+        }
+        return segments.join('/')
+      }
+
+      // アーカイブノートごとにディレクトリと.gitkeep
+      for (const note of archiveNotes) {
+        const folderPath = buildArchiveFolderPath(note)
+        if (folderPath) {
+          archiveFolder.folder(folderPath)
+          archiveFolder.file(`${folderPath}/.gitkeep`, '')
+        }
+      }
+
+      // アーカイブリーフを追加
+      const sortedArchiveLeaves = [...archiveLeaves].sort((a, b) => a.order - b.order)
+      for (const leaf of sortedArchiveLeaves) {
+        const note = archiveNoteMap.get(leaf.noteId) || null
+        const folderPath = note ? buildArchiveFolderPath(note) : ''
+        const path = folderPath ? `${folderPath}/${leaf.title}.md` : `${leaf.title}.md`
+        archiveFolder.file(path, leaf.content)
+      }
+
+      // アーカイブ用metadata.json
+      const archiveMetadataToWrite: Metadata = {
+        version: 1,
+        pushCount: archiveMetadata?.pushCount ?? 0,
+        notes: {},
+        leaves: {},
+      }
+
+      for (const note of archiveNotes) {
+        const folderPath = buildArchiveFolderPath(note)
+        const meta: Record<string, unknown> = { id: note.id, order: note.order }
+        if (note.badgeIcon !== undefined) meta.badgeIcon = note.badgeIcon
+        if (note.badgeColor !== undefined) meta.badgeColor = note.badgeColor
+        archiveMetadataToWrite.notes[folderPath] = meta as Metadata['notes'][string]
+      }
+
+      for (const leaf of archiveLeaves) {
+        const note = archiveNoteMap.get(leaf.noteId) || null
+        const folderPath = note ? buildArchiveFolderPath(note) : ''
+        const relativePath = folderPath ? `${folderPath}/${leaf.title}.md` : `${leaf.title}.md`
+        const meta: Record<string, unknown> = {
+          id: leaf.id,
+          updatedAt: leaf.updatedAt,
+          order: leaf.order,
+        }
+        if (leaf.badgeIcon !== undefined) meta.badgeIcon = leaf.badgeIcon
+        if (leaf.badgeColor !== undefined) meta.badgeColor = leaf.badgeColor
+        archiveMetadataToWrite.leaves[relativePath] = meta as Metadata['leaves'][string]
+      }
+
+      archiveFolder.file('metadata.json', JSON.stringify(archiveMetadataToWrite, null, 2))
+    }
 
     const infoLines = [
       options.gitPolicyLine,

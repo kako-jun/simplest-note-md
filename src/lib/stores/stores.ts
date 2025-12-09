@@ -4,16 +4,37 @@
  */
 
 import { writable, derived } from 'svelte/store'
-import type { Settings, Note, Leaf, Metadata, View } from '../types'
+import type { Settings, Note, Leaf, Metadata, View, WorldType } from '../types'
 import type { Pane } from '../navigation'
 // 循環参照回避: data/index.tsではなく、直接storageからインポート
 import { defaultSettings, saveSettings, saveNotes, saveLeaves } from '../data/storage'
 
-// 基本ストア
+// ============================================
+// 基本ストア（Home用）
+// ============================================
 export const settings = writable<Settings>(defaultSettings)
 export const notes = writable<Note[]>([])
 export const leaves = writable<Leaf[]>([])
 export const metadata = writable<Metadata>({ version: 1, notes: {}, leaves: {}, pushCount: 0 })
+
+// ============================================
+// アーカイブ用ストア
+// ============================================
+export const archiveNotes = writable<Note[]>([])
+export const archiveLeaves = writable<Leaf[]>([])
+export const archiveMetadata = writable<Metadata>({
+  version: 1,
+  notes: {},
+  leaves: {},
+  pushCount: 0,
+})
+/** アーカイブがGitHubからロード済みかどうか */
+export const isArchiveLoaded = writable<boolean>(false)
+
+// ============================================
+// 現在のワールド
+// ============================================
+export const currentWorld = writable<WorldType>('home')
 export const isDirty = writable<boolean>(false)
 // Pull成功時のリモートpushCountを保持（stale編集検出用）
 export const lastPulledPushCount = writable<number>(0)
@@ -75,4 +96,30 @@ export function updateLeaves(newLeaves: Leaf[]): void {
   saveLeaves(newLeaves).catch((err) => console.error('Failed to persist leaves:', err))
   // リーフの変更があったらダーティフラグを立てる
   isDirty.set(true)
+}
+
+// ============================================
+// アーカイブ用ヘルパー関数
+// ============================================
+
+export function updateArchiveNotes(newNotes: Note[]): void {
+  archiveNotes.set(newNotes)
+  // TODO: アーカイブ用のIndexedDB永続化を実装
+  isDirty.set(true)
+}
+
+export function updateArchiveLeaves(newLeaves: Leaf[]): void {
+  archiveLeaves.set(newLeaves)
+  // TODO: アーカイブ用のIndexedDB永続化を実装
+  isDirty.set(true)
+}
+
+/**
+ * アーカイブをリセット（Pull前に呼び出し）
+ */
+export function resetArchive(): void {
+  archiveNotes.set([])
+  archiveLeaves.set([])
+  archiveMetadata.set({ version: 1, notes: {}, leaves: {}, pushCount: 0 })
+  isArchiveLoaded.set(false)
 }

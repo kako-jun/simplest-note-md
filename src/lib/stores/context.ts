@@ -3,7 +3,7 @@
  * コンポーネント間でアクションを共有するために使用
  */
 
-import type { Note, Leaf, Breadcrumb } from '../types'
+import type { Note, Leaf, Breadcrumb, WorldType } from '../types'
 import type { Pane } from '../navigation'
 
 // Context キー
@@ -84,6 +84,13 @@ export interface PaneActions {
 
   // 無効なSaveボタンがクリックされたとき
   handleDisabledSaveClick: (reason: string) => void
+
+  // ワールド切り替え・アーカイブ
+  handleWorldChange: (world: WorldType) => void
+  archiveNote: (pane: Pane) => void
+  archiveLeaf: (pane: Pane) => void
+  restoreNote: (pane: Pane) => void
+  restoreLeaf: (pane: Pane) => void
 }
 
 /**
@@ -113,4 +120,8 @@ export interface PaneState {
   breadcrumbsRight: Breadcrumb[]
   showWelcome: boolean
   isLoadingUI: boolean
+  /** 現在のワールド（home/archive） */
+  currentWorld: WorldType
+  /** アーカイブがロード中か */
+  isArchiveLoading: boolean
 }

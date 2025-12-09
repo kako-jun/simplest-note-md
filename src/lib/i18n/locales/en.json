@@ -19,9 +19,12 @@
   },
   "breadcrumbs": {
     "goHome": "Go to home",
+    "goArchive": "Go to archive",
     "editNoteName": "Edit note name",
     "editLeafName": "Edit leaf name",
-    "showSiblings": "Show siblings"
+    "showSiblings": "Show siblings",
+    "worldHome": "Home",
+    "worldArchive": "Archive"
   },
   "share": {
     "title": "Share",
@@ -67,7 +70,10 @@
     "downloadSelection": "Download selection",
     "downloadImage": "Download as image",
     "preview": "Preview",
-    "edit": "Edit"
+    "edit": "Edit",
+    "move": "Move",
+    "archive": "Move to Archive",
+    "restore": "Restore to Home"
   },
   "settings": {
     "title": "Settings",
@@ -157,7 +163,7 @@
       "importDescription": "Import from major note app exports (text structure only).",
       "importNote": "Unsupported elements will be skipped; a summary is shown after import.",
       "importPlaceholder": "Import from major note apps will be added next.",
-      "supported": "Supported: SimpleNote (.json; .zip containing SimpleNote export)",
+      "supported": "Supported: Agasteer (.zip), SimpleNote (.json; .zip containing SimpleNote export)",
       "importStarting": "Importing SimpleNote export...",
       "importDone": "Import completed. Summary leaf added.",
       "importCloseHint": "Import just ran. If you need to review the results, cancel this Pull and check the imported note first.",
@@ -210,7 +216,11 @@
     "duplicateLeafHeading": "A leaf with the same name exists in this note. Use a different heading.",
     "noNestedSubNote": "Cannot create a sub-note under another sub-note.",
     "needInitialPull": "Operations are locked until the initial Pull completes. Please Pull from settings.",
-    "exitApp": "You have unsaved changes. Continue?"
+    "exitApp": "You have unsaved changes. Continue?",
+    "archiveNote": "Move this note to Archive?",
+    "archiveLeaf": "Move this leaf to Archive?",
+    "restoreNote": "Restore this note to Home?",
+    "restoreLeaf": "Restore this leaf to Home?"
   },
   "loading": {
     "pulling": "Pulling...",

@@ -19,9 +19,12 @@
   },
   "breadcrumbs": {
     "goHome": "ホームへ移動",
+    "goArchive": "アーカイブへ移動",
     "editNoteName": "ノート名を編集",
     "editLeafName": "リーフ名を編集",
-    "showSiblings": "同階層の一覧を表示"
+    "showSiblings": "同階層の一覧を表示",
+    "worldHome": "Home",
+    "worldArchive": "Archive"
   },
   "share": {
     "title": "シェア",
@@ -67,7 +70,10 @@
     "downloadSelection": "選択範囲をダウンロード",
     "downloadImage": "画像をダウンロード",
     "preview": "プレビュー",
-    "edit": "編集"
+    "edit": "編集",
+    "move": "移動",
+    "archive": "アーカイブに移動",
+    "restore": "Homeに復元"
   },
   "settings": {
     "title": "設定",
@@ -161,7 +167,7 @@
       "importDescription": "代表的なメモアプリのエクスポートからテキスト構造を取り込みます。",
       "importNote": "非サポート要素はスキップし、結果サマリーを表示します。",
       "importPlaceholder": "主要メモアプリからのインポートは順次追加します。",
-      "supported": "対応: SimpleNote (.json; それを含む .zip)",
+      "supported": "対応: Agasteer (.zip), SimpleNote (.json; それを含む .zip)",
       "importSuccess": "SimpleNote から {count} 件取り込み（スキップ {skipped} 件）",
       "importFailed": "インポートに失敗しました",
       "unsupportedFile": "サポートされていないファイルです。SimpleNote のエクスポート（.json またはそれを含む .zip）を選んでください",
@@ -211,7 +217,11 @@
     "duplicateLeafHeading": "同じノートに同名のリーフがあります。別の見出しにしてください。",
     "noNestedSubNote": "サブノートの下にはサブノートを作成できません。",
     "needInitialPull": "初回Pullが完了するまで操作できません。設定からPullしてください。",
-    "exitApp": "未保存の変更があります。続行しますか？"
+    "exitApp": "未保存の変更があります。続行しますか？",
+    "archiveNote": "このノートをアーカイブに移動しますか？",
+    "archiveLeaf": "このリーフをアーカイブに移動しますか？",
+    "restoreNote": "このノートをHomeに復元しますか？",
+    "restoreLeaf": "このリーフをHomeに復元しますか？"
   },
   "move": {
     "title": "移動先を選択",

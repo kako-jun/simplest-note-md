@@ -2,7 +2,7 @@
   import './App.css'
   import { onMount, tick, setContext } from 'svelte'
   import { writable, get } from 'svelte/store'
-  import type { Note, Leaf, Breadcrumb, View, Metadata } from './lib/types'
+  import type { Note, Leaf, Breadcrumb, View, Metadata, WorldType } from './lib/types'
   import * as nav from './lib/navigation'
   import type { Pane } from './lib/navigation'
 
@@ -33,6 +33,11 @@
     pullProgressStore,
     pullProgressInfo,
     offlineLeafStore,
+    archiveNotes,
+    archiveLeaves,
+    archiveMetadata,
+    isArchiveLoaded,
+    currentWorld,
   } from './lib/stores'
   import {
     clearAllData,
@@ -51,13 +56,14 @@
   import {
     executePush,
     executePull,
+    pullArchive,
     checkIfStaleEdit,
     translateGitHubMessage,
     canSync,
   } from './lib/api'
   import type { PullOptions, PullPriority, LeafSkeleton, RateLimitInfo } from './lib/api'
   import { initI18n, _ } from './lib/i18n'
-  import { processImportFile } from './lib/data'
+  import { processImportFile, isAgasteerZip, parseAgasteerZip } from './lib/data'
   import {
     pushToastState,
     pullToastState,
@@ -148,6 +154,7 @@
   let isImporting = false
   let importOccurredInSettings = false
   let isClosingSettingsPull = false
+  let isArchiveLoading = false // アーカイブをロード中
 
   // オフラインリーフの状態（ストアから取得、HMRでもリセットされない）
   let offlineSaveTimeoutId: ReturnType<typeof setTimeout> | null = null
@@ -284,6 +291,8 @@
     breadcrumbsRight: [],
     showWelcome: false,
     isLoadingUI: false,
+    currentWorld: 'home',
+    isArchiveLoading: false,
   })
 
   // Saveボタン無効理由を計算
@@ -314,6 +323,8 @@
     breadcrumbsRight,
     showWelcome,
     isLoadingUI,
+    currentWorld: $currentWorld,
+    isArchiveLoading,
   })
 
   // Context に設定
@@ -760,6 +771,210 @@
     if (message) {
       showPushToast(message)
     }
+  }
+
+  // ========================================
+  // ワールド切り替え・アーカイブ/リストア
+  // ========================================
+
+  async function handleWorldChange(world: WorldType) {
+    if (world === $currentWorld) return
+
+    // アーカイブに切り替える場合、未ロードならPull
+    if (world === 'archive' && !$isArchiveLoaded) {
+      isArchiveLoading = true
+      try {
+        const result = await pullArchive($settings)
+        if (result.success) {
+          archiveNotes.set(result.notes)
+          archiveLeaves.set(result.leaves)
+          archiveMetadata.set(result.metadata)
+          isArchiveLoaded.set(true)
+        } else {
+          showPullToast(translateGitHubMessage(result.message, $_, result.rateLimitInfo), 'error')
+          return
+        }
+      } catch (e) {
+        console.error('Archive pull failed:', e)
+        showPullToast($_('toast.pullFailed'), 'error')
+        return
+      } finally {
+        isArchiveLoading = false
+      }
+    }
+
+    // ワールドを切り替え
+    currentWorld.set(world)
+    // ホームに戻る
+    goHome('left')
+    refreshBreadcrumbs()
+  }
+
+  function archiveNote(pane: Pane) {
+    const note = pane === 'left' ? $leftNote : $rightNote
+    if (!note) return
+
+    // 確認ダイアログ
+    showConfirm($_('modal.archiveNote') || 'Archive this note?', async () => {
+      await moveNoteToWorld(note, 'archive')
+    })
+  }
+
+  function archiveLeaf(pane: Pane) {
+    const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
+    if (!leaf) return
+
+    showConfirm($_('modal.archiveLeaf') || 'Archive this leaf?', async () => {
+      await moveLeafToWorld(leaf, 'archive')
+    })
+  }
+
+  function restoreNote(pane: Pane) {
+    const note = pane === 'left' ? $leftNote : $rightNote
+    if (!note) return
+
+    showConfirm($_('modal.restoreNote') || 'Restore this note to Home?', async () => {
+      await moveNoteToWorld(note, 'home')
+    })
+  }
+
+  function restoreLeaf(pane: Pane) {
+    const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
+    if (!leaf) return
+
+    showConfirm($_('modal.restoreLeaf') || 'Restore this leaf to Home?', async () => {
+      await moveLeafToWorld(leaf, 'home')
+    })
+  }
+
+  async function moveNoteToWorld(note: Note, targetWorld: WorldType) {
+    const sourceWorld = $currentWorld
+    const sourceNotes = sourceWorld === 'home' ? $notes : $archiveNotes
+    const sourceLeaves = sourceWorld === 'home' ? $leaves : $archiveLeaves
+    const targetNotes = targetWorld === 'home' ? $notes : $archiveNotes
+    const targetLeaves = targetWorld === 'home' ? $leaves : $archiveLeaves
+
+    // 同じ名前のノートがあるかチェック
+    const rootTargetNotes = targetNotes.filter((n) => !n.parentId)
+    if (rootTargetNotes.some((n) => n.name === note.name)) {
+      await showAlert($_('modal.duplicateNoteDestination'))
+      return
+    }
+
+    // ノートとその子ノート、リーフを収集
+    const noteToMove = sourceNotes.find((n) => n.id === note.id)
+    if (!noteToMove) return
+
+    const childNotes = sourceNotes.filter((n) => n.parentId === note.id)
+    const notesToMove = [noteToMove, ...childNotes]
+    const noteIds = new Set(notesToMove.map((n) => n.id))
+    const leavesToMove = sourceLeaves.filter((l) => noteIds.has(l.noteId))
+
+    // ソースから削除
+    const newSourceNotes = sourceNotes.filter((n) => !noteIds.has(n.id))
+    const newSourceLeaves = sourceLeaves.filter((l) => !noteIds.has(l.noteId))
+
+    // ターゲットに追加（ルートノートとして配置、orderを再計算）
+    const maxOrder = Math.max(0, ...rootTargetNotes.map((n) => n.order))
+    const movedNote: Note = { ...noteToMove, parentId: undefined, order: maxOrder + 1 }
+    const movedChildNotes = childNotes.map((n) => ({ ...n }))
+    const newTargetNotes = [...targetNotes, movedNote, ...movedChildNotes]
+    const newTargetLeaves = [...targetLeaves, ...leavesToMove]
+
+    // ストアを更新
+    if (sourceWorld === 'home') {
+      updateNotes(newSourceNotes)
+      updateLeaves(newSourceLeaves)
+    } else {
+      archiveNotes.set(newSourceNotes)
+      archiveLeaves.set(newSourceLeaves)
+    }
+
+    if (targetWorld === 'home') {
+      updateNotes(newTargetNotes)
+      updateLeaves(newTargetLeaves)
+    } else {
+      archiveNotes.set(newTargetNotes)
+      archiveLeaves.set(newTargetLeaves)
+    }
+
+    // IndexedDBとdirtyフラグを更新
+    await saveNotes(sourceWorld === 'home' ? newSourceNotes : $notes)
+    await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
+    isDirty.set(true)
+
+    // ホームに戻る
+    goHome('left')
+    refreshBreadcrumbs()
+    rebuildLeafStats($leaves, $notes)
+  }
+
+  async function moveLeafToWorld(leaf: Leaf, targetWorld: WorldType) {
+    const sourceWorld = $currentWorld
+    const sourceNotes = sourceWorld === 'home' ? $notes : $archiveNotes
+    const sourceLeaves = sourceWorld === 'home' ? $leaves : $archiveLeaves
+    const targetNotes = targetWorld === 'home' ? $notes : $archiveNotes
+    const targetLeaves = targetWorld === 'home' ? $leaves : $archiveLeaves
+
+    // リーフの親ノートを見つける
+    const sourceNote = sourceNotes.find((n) => n.id === leaf.noteId)
+    if (!sourceNote) return
+
+    // ターゲットに同じパスのノートがあるかチェック
+    // 同じ名前のルートノートがなければ作成
+    let targetNote = targetNotes.find((n) => n.name === sourceNote.name && !n.parentId)
+    if (!targetNote) {
+      // 新しいノートを作成
+      const maxOrder = Math.max(0, ...targetNotes.filter((n) => !n.parentId).map((n) => n.order))
+      targetNote = {
+        id: crypto.randomUUID(),
+        name: sourceNote.name,
+        parentId: undefined,
+        order: maxOrder + 1,
+      }
+      if (targetWorld === 'home') {
+        updateNotes([...$notes, targetNote])
+      } else {
+        archiveNotes.set([...$archiveNotes, targetNote])
+      }
+    }
+
+    // 同じ名前のリーフがあるかチェック
+    const targetLeavesInNote = targetLeaves.filter((l) => l.noteId === targetNote!.id)
+    if (targetLeavesInNote.some((l) => l.title === leaf.title)) {
+      await showAlert($_('modal.duplicateLeafDestination'))
+      return
+    }
+
+    // ソースから削除
+    const newSourceLeaves = sourceLeaves.filter((l) => l.id !== leaf.id)
+
+    // ターゲットに追加
+    const maxOrder = Math.max(0, ...targetLeavesInNote.map((l) => l.order))
+    const movedLeaf: Leaf = { ...leaf, noteId: targetNote.id, order: maxOrder + 1 }
+    const newTargetLeaves = [...targetLeaves.filter((l) => l.id !== leaf.id), movedLeaf]
+
+    // ストアを更新
+    if (sourceWorld === 'home') {
+      updateLeaves(newSourceLeaves)
+    } else {
+      archiveLeaves.set(newSourceLeaves)
+    }
+
+    if (targetWorld === 'home') {
+      updateLeaves(newTargetLeaves)
+    } else {
+      archiveLeaves.set(newTargetLeaves)
+    }
+
+    // IndexedDBとdirtyフラグを更新
+    await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
+    isDirty.set(true)
+
+    // ホームに戻る
+    goHome('left')
+    refreshBreadcrumbs()
+    rebuildLeafStats($leaves, $notes)
   }
 
   function closeLeaf(pane: Pane) {
@@ -1446,7 +1661,7 @@
 
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = '.json,.zip'
+    input.accept = '.json,.zip,.txt'
     input.multiple = false
 
     input.onchange = async () => {
@@ -1456,6 +1671,14 @@
       isImporting = true
       try {
         showPushToast($_('settings.importExport.importStarting'), 'success')
+
+        // まずAgasteer形式かどうかをチェック
+        if (file.name.toLowerCase().endsWith('.zip') && (await isAgasteerZip(file))) {
+          await handleAgasteerImport(file)
+          return
+        }
+
+        // SimpleNote形式などの他のインポート
         const allNotes = get(notes)
         const allLeaves = get(leaves)
 
@@ -1489,6 +1712,42 @@
     }
 
     input.click()
+  }
+
+  /**
+   * Agasteer形式のzipをインポート（既存データを完全に置き換え）
+   */
+  async function handleAgasteerImport(file: File) {
+    try {
+      const result = await parseAgasteerZip(file)
+      if (!result) {
+        showPushToast($_('settings.importExport.unsupportedFile'), 'error')
+        return
+      }
+
+      // 既存データを完全に置き換え
+      updateNotes(result.notes)
+      updateLeaves(result.leaves)
+      metadata.set(result.metadata)
+
+      // アーカイブデータがあればストアに設定
+      if (result.archiveNotes.length > 0 || result.archiveLeaves.length > 0) {
+        archiveNotes.set(result.archiveNotes)
+        archiveLeaves.set(result.archiveLeaves)
+        if (result.archiveMetadata) {
+          archiveMetadata.set(result.archiveMetadata)
+        }
+        isArchiveLoaded.set(true)
+      }
+
+      importOccurredInSettings = true
+      showPushToast($_('settings.importExport.importDone'), 'success')
+    } catch (error) {
+      console.error('Agasteer import failed:', error)
+      showPushToast($_('settings.importExport.importFailed'), 'error')
+    } finally {
+      isImporting = false
+    }
   }
 
   // Markdownダウンロード（選択範囲があれば選択範囲をダウンロード）
@@ -1655,6 +1914,13 @@
 
     // 無効なSaveボタンがクリックされたとき
     handleDisabledSaveClick,
+
+    // ワールド切り替え・アーカイブ
+    handleWorldChange,
+    archiveNote,
+    archiveLeaf,
+    restoreNote,
+    restoreLeaf,
   }
 
   setContext('paneActions', paneActions)

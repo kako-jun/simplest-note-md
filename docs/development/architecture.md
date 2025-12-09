@@ -14,6 +14,7 @@ Agasteerは、**コンポーネントベースアーキテクチャ**を採用�
 - **即時性**: IndexedDB/LocalStorageによる自動保存、設定変更の即座反映
 - **モジュール性**: コンポーネント分割とユーティリティ関数の再利用による保守性の向上
 - **DRY原則**: 重複コードの徹底的な削減
+- **遅延ロード**: 必要なデータのみを取得（アーカイブの遅延Pull等）
 
 ### アーキテクチャパターン
 
@@ -81,6 +82,43 @@ import { basicSetup } from 'codemirror'
 - **prettier-plugin-svelte**: Svelteファイル対応
 - **svelte-check** (3.8.6): 型チェック
 - **Husky** (9.1.6): Gitフック管理
+
+---
+
+## GitHub構造
+
+Agasteerは、GitHubリポジトリを永続化ストレージとして使用します。データは`.agasteer/`ディレクトリ配下に保存されます。
+
+### フォルダ構造
+
+```
+.agasteer/
+├── notes/                    # 通常のノート・リーフ（Homeワールド）
+│   ├── metadata.json         # ノートのメタデータ（order, badge等）
+│   ├── Note1/
+│   │   ├── SubNote/          # サブノート（2階層まで）
+│   │   │   └── leaf.md
+│   │   └── leaf.md
+│   └── Note2/
+│       └── leaf.md
+└── archive/                  # アーカイブされたノート・リーフ
+    ├── metadata.json         # アーカイブのメタデータ
+    ├── ArchivedNote/
+    │   ├── SubNote/          # 階層構造は維持
+    │   └── leaf.md
+    └── standalone.md         # リーフ単体のアーカイブ
+```
+
+### ワールド（World）概念
+
+Agasteerは**Home**と**Archive**の2つのワールドを持ちます。
+
+| ワールド | パス                 | 説明                                           |
+| -------- | -------------------- | ---------------------------------------------- |
+| Home     | `.agasteer/notes/`   | 通常のノート・リーフ。Pull時に常にロード       |
+| Archive  | `.agasteer/archive/` | アーカイブ済みデータ。遅延ロード（必要時のみ） |
+
+**遅延ロード**: Archiveワールドは、ユーザーがArchiveに切り替えた時点で初めてPullされます。これにより通常のPull操作を高速に保ちます。
 
 ---
 
@@ -276,7 +314,14 @@ agasteer/
 
 **型定義:**
 
-- `types.ts`: TypeScript型定義（Settings, Note, Leaf, View, Pane等）
+- `types.ts`: TypeScript型定義（Settings, Note, Leaf, View, Pane, WorldType等）
+
+**WorldType:**
+
+```typescript
+// ワールド（Home/Archive）の識別子
+type WorldType = 'home' | 'archive'
+```
 
 #### `src/main.ts`
 
@@ -437,12 +482,20 @@ export default defineConfig({
 **責務**: アプリケーション全体の状態管理
 
 ```typescript
-// Writable stores
+// Writable stores（Home用）
 export const settings = writable<Settings>(defaultSettings)
 export const notes = writable<Note[]>([])
 export const leaves = writable<Leaf[]>([])
 export const isDirty = writable<boolean>(false)
 export const toast = writable<Toast | null>(null)
+
+// Archive用ストア
+export const archiveNotes = writable<Note[]>([])
+export const archiveLeaves = writable<Leaf[]>([])
+export const isArchiveLoaded = writable<boolean>(false)
+
+// 現在のワールド
+export const currentWorld = writable<WorldType>('home')
 
 // Derived stores（最小限に削減）
 export const allNotes = derived(notes, ($notes) => $notes.sort((a, b) => a.order - b.order))
@@ -587,11 +640,12 @@ Agasteerは、Svelteのリアクティブシステムとコンポーネントベ
 
 **主要な特徴:**
 
-- 約8,100行のコード（56ファイル、38コンポーネント、14モジュール）
+- 約8,400行のコード（59ファイル、45コンポーネント、14モジュール）
 - 完全なブラウザベース実装
 - GitHub API直接統合
 - IndexedDB/LocalStorageによる永続化
 - 2ペイン表示対応
+- **Home/Archiveワールド分離**（遅延ロードによる高速Pull）
 - カスタムフォント・背景画像機能
 - 国際化対応（日本語・英語）
 - 徹底的なコード重複削減（DRY原則）

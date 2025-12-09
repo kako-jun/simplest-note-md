@@ -11,6 +11,9 @@ export type Locale = 'ja' | 'en'
 
 export type View = 'home' | 'settings' | 'edit' | 'note' | 'preview'
 
+/** ワールド（Home/Archive）の識別子 */
+export type WorldType = 'home' | 'archive'
+
 export interface Settings {
   token: string
   repoName: string

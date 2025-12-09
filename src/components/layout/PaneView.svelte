@@ -91,6 +91,9 @@
   isPreview={currentView === 'preview'}
   getHasSelection={() => actions.getHasSelection(pane)}
   onSelectSibling={(id, type) => actions.selectSiblingFromBreadcrumb(id, type, pane)}
+  currentWorld={$state.currentWorld}
+  onWorldChange={actions.handleWorldChange}
+  isArchiveLoading={$state.isArchiveLoading}
 />
 
 <main class="main-pane">
@@ -203,6 +206,9 @@
     saveDisabled={!$state.canPush}
     saveDisabledReason={$state.saveDisabledReason}
     onDisabledSaveClick={actions.handleDisabledSaveClick}
+    currentWorld={$state.currentWorld}
+    onArchive={() => actions.archiveNote(pane)}
+    onRestore={() => actions.restoreNote(pane)}
   />
 {:else if currentView === 'edit' && currentLeaf}
   <EditorFooter
@@ -218,6 +224,9 @@
     onDisabledSaveClick={actions.handleDisabledSaveClick}
     hideDeleteMove={isOfflineLeaf(currentLeaf.id)}
     getHasSelection={() => actions.getHasSelection(pane)}
+    currentWorld={$state.currentWorld}
+    onArchive={() => actions.archiveLeaf(pane)}
+    onRestore={() => actions.restoreLeaf(pane)}
   />
 {:else if currentView === 'preview' && currentLeaf}
   <PreviewFooter
@@ -232,6 +241,9 @@
     onDisabledSaveClick={actions.handleDisabledSaveClick}
     hideEditButton={isPriorityLeaf(currentLeaf.id)}
     hideMoveButton={isPriorityLeaf(currentLeaf.id) || isOfflineLeaf(currentLeaf.id)}
+    currentWorld={$state.currentWorld}
+    onArchive={() => actions.archiveLeaf(pane)}
+    onRestore={() => actions.restoreLeaf(pane)}
   />
 {/if}
 

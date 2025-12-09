@@ -3,8 +3,37 @@
  * GitHubへのファイル保存とSHA取得を担当
  */
 
-import type { Leaf, Note, Settings, Metadata } from '../types'
+import type { Leaf, Note, Settings, Metadata, WorldType } from '../types'
 import { PRIORITY_LEAF_ID } from '../utils'
+
+// ============================================
+// パス定数
+// ============================================
+
+/** Home用パス（通常のノート・リーフ） */
+export const NOTES_PATH = '.agasteer/notes'
+export const NOTES_METADATA_PATH = '.agasteer/notes/metadata.json'
+
+/** Archive用パス */
+export const ARCHIVE_PATH = '.agasteer/archive'
+export const ARCHIVE_METADATA_PATH = '.agasteer/archive/metadata.json'
+
+/** 旧形式パス（移行用） */
+export const LEGACY_NOTES_PATH = 'notes'
+
+/**
+ * ワールドに応じたベースパスを取得
+ */
+export function getBasePath(world: WorldType): string {
+  return world === 'home' ? NOTES_PATH : ARCHIVE_PATH
+}
+
+/**
+ * ワールドに応じたメタデータパスを取得
+ */
+export function getMetadataPath(world: WorldType): string {
+  return world === 'home' ? NOTES_METADATA_PATH : ARCHIVE_METADATA_PATH
+}
 
 /**
  * レート制限エラー情報
@@ -211,21 +240,23 @@ function getFolderPath(note: Note, allNotes: Note[]): string {
 }
 
 /**
- * ノートのフルパスを取得（notes/配下のディレクトリパス）
+ * ノートのフルパスを取得（.agasteer/notes/または.agasteer/archive/配下のディレクトリパス）
  */
-function getNotePath(note: Note, allNotes: Note[]): string {
-  return `notes/${getFolderPath(note, allNotes)}`
+function getNotePath(note: Note, allNotes: Note[], world: WorldType = 'home'): string {
+  const basePath = getBasePath(world)
+  return `${basePath}/${getFolderPath(note, allNotes)}`
 }
 
-function buildPath(leaf: Leaf, notes: Note[]): string {
+function buildPath(leaf: Leaf, notes: Note[], world: WorldType = 'home'): string {
   const note = notes.find((f) => f.id === leaf.noteId)
+  const basePath = getBasePath(world)
   if (!note) {
     console.warn('[buildPath] Note not found for leaf:', leaf.title, 'noteId:', leaf.noteId)
-    return `notes/${leaf.title}.md`
+    return `${basePath}/${leaf.title}.md`
   }
 
   const folderPath = getFolderPath(note, notes)
-  const path = `notes/${folderPath}/${leaf.title}.md`
+  const path = `${basePath}/${folderPath}/${leaf.title}.md`
   return path
 }
 
@@ -316,17 +347,57 @@ export async function saveToGitHub(
 }
 
 /**
+ * Push用のオプション
+ */
+export interface PushOptions {
+  /** Homeのリーフ */
+  leaves: Leaf[]
+  /** Homeのノート */
+  notes: Note[]
+  /** 設定 */
+  settings: Settings
+  /** Homeのローカルメタデータ */
+  localMetadata?: Metadata
+  /** アーカイブのリーフ（ロード済みの場合のみ指定） */
+  archiveLeaves?: Leaf[]
+  /** アーカイブのノート（ロード済みの場合のみ指定） */
+  archiveNotes?: Note[]
+  /** アーカイブのローカルメタデータ（ロード済みの場合のみ指定） */
+  archiveMetadata?: Metadata
+  /** アーカイブがロード済みかどうか */
+  isArchiveLoaded?: boolean
+}
+
+/**
  * Git Tree APIを使って全リーフを1コミットでPush
  *
- * notes/以下を完全に再構築することで削除・リネームを確実に処理
- * notes/以外のファイル（README等）は保持される
+ * .agasteer/notes/と.agasteer/archive/を完全に再構築することで削除・リネームを確実に処理
+ * .agasteer/以外のファイル（README等）は保持される
+ * 旧形式(notes/)からの移行: 旧notes/ディレクトリは削除される
  */
 export async function pushAllWithTreeAPI(
   leaves: Leaf[],
   notes: Note[],
   settings: Settings,
   localMetadata?: Metadata
+): Promise<SaveResult>
+export async function pushAllWithTreeAPI(options: PushOptions): Promise<SaveResult>
+export async function pushAllWithTreeAPI(
+  leavesOrOptions: Leaf[] | PushOptions,
+  notesArg?: Note[],
+  settingsArg?: Settings,
+  localMetadataArg?: Metadata
 ): Promise<SaveResult> {
+  // オーバーロードの解決
+  const isOptionsArg = !Array.isArray(leavesOrOptions)
+  const leaves = isOptionsArg ? leavesOrOptions.leaves : leavesOrOptions
+  const notes = isOptionsArg ? leavesOrOptions.notes : notesArg!
+  const settings = isOptionsArg ? leavesOrOptions.settings : settingsArg!
+  const localMetadata = isOptionsArg ? leavesOrOptions.localMetadata : localMetadataArg
+  const archiveLeaves = isOptionsArg ? leavesOrOptions.archiveLeaves : undefined
+  const archiveNotes = isOptionsArg ? leavesOrOptions.archiveNotes : undefined
+  const archiveMetadata = isOptionsArg ? leavesOrOptions.archiveMetadata : undefined
+  const isArchiveLoaded = isOptionsArg ? leavesOrOptions.isArchiveLoaded : false
   const decodeBase64ToString = (base64: string): string => {
     const clean = base64.replace(/\n/g, '')
     const binary = atob(clean)
@@ -450,24 +521,31 @@ export async function pushAllWithTreeAPI(
       return { success: false, message: 'github.rateLimited', rateLimitInfo: existingTreeRateLimit }
     }
     const preserveItems: Array<{ path: string; mode: string; type: string; sha: string }> = []
-    const existingNotesFiles = new Map<string, string>() // path -> sha
+    const existingNotesFiles = new Map<string, string>() // path -> sha (for .agasteer/notes/)
+    const existingArchiveFiles = new Map<string, string>() // path -> sha (for .agasteer/archive/)
     if (existingTreeRes.ok) {
       const existingTreeData = await existingTreeRes.json()
       const entries: { path: string; mode: string; type: string; sha: string }[] =
         existingTreeData.tree || []
       for (const entry of entries) {
         if (entry.type === 'blob') {
-          if (!entry.path.startsWith('notes/')) {
-            // notes/以外のファイルを全て保持
+          if (entry.path.startsWith(`${NOTES_PATH}/`)) {
+            // .agasteer/notes/以下のファイルのSHAを記録
+            existingNotesFiles.set(entry.path, entry.sha)
+          } else if (entry.path.startsWith(`${ARCHIVE_PATH}/`)) {
+            // .agasteer/archive/以下のファイルのSHAを記録
+            existingArchiveFiles.set(entry.path, entry.sha)
+          } else if (entry.path.startsWith(`${LEGACY_NOTES_PATH}/`)) {
+            // 旧形式(notes/)は移行のため削除される（保持しない）
+            // 何もしない - Tree再構築時に含まれないため削除される
+          } else {
+            // .agasteer/以外かつ旧notes/以外のファイルを全て保持
             preserveItems.push({
               path: entry.path,
               mode: entry.mode,
               type: entry.type,
               sha: entry.sha,
             })
-          } else {
-            // notes/以下のファイルのSHAを記録
-            existingNotesFiles.set(entry.path, entry.sha)
           }
         }
       }
@@ -490,15 +568,25 @@ export async function pushAllWithTreeAPI(
     // .gitkeep用の空コンテンツのSHA（常に同じ）
     const emptyGitkeepSha = await calculateGitBlobSha('')
 
-    // 既存のmetadata.jsonからpushCountを取得
+    // 既存のmetadata.jsonからpushCountを取得（新形式→旧形式の順でフォールバック）
     let currentPushCount = 0
     let existingMetadata: Metadata = { version: 1, notes: {}, leaves: {}, pushCount: 0 }
+    let existingArchiveMetadata: Metadata = { version: 1, notes: {}, leaves: {}, pushCount: 0 }
     try {
-      const metadataRes = await fetchGitHubContents(
-        'notes/metadata.json',
+      // まず新形式(.agasteer/notes/metadata.json)を試す
+      let metadataRes = await fetchGitHubContents(
+        NOTES_METADATA_PATH,
         settings.repoName,
         settings.token
       )
+      // 新形式がなければ旧形式(notes/metadata.json)にフォールバック
+      if (!metadataRes.ok) {
+        metadataRes = await fetchGitHubContents(
+          `${LEGACY_NOTES_PATH}/metadata.json`,
+          settings.repoName,
+          settings.token
+        )
+      }
       if (metadataRes.ok) {
         const metadataData = await metadataRes.json()
         if (metadataData.content) {
@@ -509,6 +597,24 @@ export async function pushAllWithTreeAPI(
       }
     } catch (e) {
       // エラーは無視（初回Pushの場合）
+    }
+
+    // アーカイブのmetadata.jsonを取得
+    try {
+      const archiveMetadataRes = await fetchGitHubContents(
+        ARCHIVE_METADATA_PATH,
+        settings.repoName,
+        settings.token
+      )
+      if (archiveMetadataRes.ok) {
+        const metadataData = await archiveMetadataRes.json()
+        if (metadataData.content) {
+          const decoded = decodeBase64ToString(metadataData.content)
+          existingArchiveMetadata = JSON.parse(decoded)
+        }
+      }
+    } catch (e) {
+      // エラーは無視
     }
 
     // metadata.jsonを生成（pushCountはまだインクリメントしない）
@@ -533,7 +639,9 @@ export async function pushAllWithTreeAPI(
 
     // リーフのメタ情報を追加（undefinedは含めない）
     for (const leaf of leaves) {
-      const path = buildPath(leaf, notes).replace(/^notes\//, '') // "notes/"を除去
+      const fullPath = buildPath(leaf, notes, 'home')
+      // ベースパス(.agasteer/notes/)を除去して相対パスにする
+      const path = fullPath.replace(new RegExp(`^${NOTES_PATH}/`), '')
       const meta: Record<string, unknown> = {
         id: leaf.id,
         updatedAt: leaf.updatedAt,
@@ -559,8 +667,8 @@ export async function pushAllWithTreeAPI(
       }
     }
 
-    // notes/.gitkeep を追加（notesディレクトリが空でも削除されないように）
-    const notesGitkeepPath = 'notes/.gitkeep'
+    // .agasteer/notes/.gitkeep を追加（notesディレクトリが空でも削除されないように）
+    const notesGitkeepPath = `${NOTES_PATH}/.gitkeep`
     const notesGitkeepExisting = existingNotesFiles.get(notesGitkeepPath)
     treeItems.push({
       path: notesGitkeepPath,
@@ -573,7 +681,7 @@ export async function pushAllWithTreeAPI(
 
     // 全ノートに対して.gitkeepを配置（リーフがなくてもディレクトリを保持）
     for (const note of notes) {
-      const notePath = getNotePath(note, notes)
+      const notePath = getNotePath(note, notes, 'home')
       const gitkeepPath = `${notePath}/.gitkeep`
       const gitkeepExisting = existingNotesFiles.get(gitkeepPath)
       treeItems.push({
@@ -588,7 +696,7 @@ export async function pushAllWithTreeAPI(
 
     // 全リーフをTreeに追加（変化していないファイルは既存SHAを使用）
     for (const leaf of leaves) {
-      const path = buildPath(leaf, notes)
+      const path = buildPath(leaf, notes, 'home')
       const existingSha = existingNotesFiles.get(path)
 
       if (existingSha) {
@@ -634,11 +742,118 @@ export async function pushAllWithTreeAPI(
     const metadataContent = JSON.stringify(metadataToWrite, null, 2)
 
     treeItems.push({
-      path: 'notes/metadata.json',
+      path: NOTES_METADATA_PATH,
       mode: '100644',
       type: 'blob',
       content: metadataContent,
     })
+
+    // アーカイブの処理
+    if (isArchiveLoaded && archiveNotes && archiveLeaves) {
+      // アーカイブがロード済みの場合は、アーカイブデータも書き込む
+      const archiveMeta: Metadata = {
+        version: 1,
+        notes: {},
+        leaves: {},
+        pushCount: 0, // アーカイブ側のpushCountは使わない
+      }
+
+      // アーカイブノートのメタ情報
+      for (const note of archiveNotes) {
+        const folderPath = getFolderPath(note, archiveNotes)
+        const meta: Record<string, unknown> = {
+          id: note.id,
+          order: note.order,
+        }
+        if (note.badgeIcon !== undefined) meta.badgeIcon = note.badgeIcon
+        if (note.badgeColor !== undefined) meta.badgeColor = note.badgeColor
+        archiveMeta.notes[folderPath] = meta as Metadata['notes'][string]
+      }
+
+      // アーカイブリーフのメタ情報
+      for (const leaf of archiveLeaves) {
+        const fullPath = buildPath(leaf, archiveNotes, 'archive')
+        const path = fullPath.replace(new RegExp(`^${ARCHIVE_PATH}/`), '')
+        const meta: Record<string, unknown> = {
+          id: leaf.id,
+          updatedAt: leaf.updatedAt,
+          order: leaf.order,
+        }
+        if (leaf.badgeIcon !== undefined) meta.badgeIcon = leaf.badgeIcon
+        if (leaf.badgeColor !== undefined) meta.badgeColor = leaf.badgeColor
+        archiveMeta.leaves[path] = meta as Metadata['leaves'][string]
+      }
+
+      // アーカイブの.gitkeep
+      const archiveGitkeepPath = `${ARCHIVE_PATH}/.gitkeep`
+      const archiveGitkeepExisting = existingArchiveFiles.get(archiveGitkeepPath)
+      treeItems.push({
+        path: archiveGitkeepPath,
+        mode: '100644',
+        type: 'blob',
+        ...(archiveGitkeepExisting === emptyGitkeepSha
+          ? { sha: archiveGitkeepExisting }
+          : { content: '' }),
+      })
+
+      // アーカイブノートの.gitkeep
+      for (const note of archiveNotes) {
+        const notePath = getNotePath(note, archiveNotes, 'archive')
+        const gitkeepPath = `${notePath}/.gitkeep`
+        const gitkeepExisting = existingArchiveFiles.get(gitkeepPath)
+        treeItems.push({
+          path: gitkeepPath,
+          mode: '100644',
+          type: 'blob',
+          ...(gitkeepExisting === emptyGitkeepSha ? { sha: gitkeepExisting } : { content: '' }),
+        })
+      }
+
+      // アーカイブリーフ
+      for (const leaf of archiveLeaves) {
+        const path = buildPath(leaf, archiveNotes, 'archive')
+        const existingSha = existingArchiveFiles.get(path)
+
+        if (existingSha) {
+          const localSha = await calculateGitBlobSha(leaf.content)
+          if (localSha === existingSha) {
+            treeItems.push({
+              path,
+              mode: '100644',
+              type: 'blob',
+              sha: existingSha,
+            })
+            continue
+          }
+        }
+
+        treeItems.push({
+          path,
+          mode: '100644',
+          type: 'blob',
+          content: leaf.content,
+        })
+      }
+
+      // アーカイブのmetadata.json
+      const archiveMetaContent = JSON.stringify(archiveMeta, null, 2)
+      treeItems.push({
+        path: ARCHIVE_METADATA_PATH,
+        mode: '100644',
+        type: 'blob',
+        content: archiveMetaContent,
+      })
+    } else {
+      // アーカイブがロードされていない場合は、既存のアーカイブファイルを保持
+      for (const [path, sha] of existingArchiveFiles) {
+        treeItems.push({
+          path,
+          mode: '100644',
+          type: 'blob',
+          sha,
+        })
+      }
+    }
 
     // 6. 新しいTreeを作成（base_treeなし、全ファイルを明示的に指定）
     const newTreeRes = await fetch(`https://api.github.com/repos/${settings.repoName}/git/trees`, {
@@ -802,14 +1017,11 @@ export async function pullFromGitHub(
     const repoData = await repoRes.json()
     const defaultBranch = repoData.default_branch || 'main'
 
-    // tree取得とmetadata取得を並列実行
-    const [treeRes, metadataRes] = await Promise.all([
-      fetch(
-        `https://api.github.com/repos/${settings.repoName}/git/trees/${defaultBranch}?recursive=1`,
-        { headers }
-      ),
-      fetchGitHubContents('notes/metadata.json', settings.repoName, settings.token),
-    ])
+    // tree取得
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${settings.repoName}/git/trees/${defaultBranch}?recursive=1`,
+      { headers }
+    )
 
     // レート制限チェック（tree）
     const treeRateLimit = parseRateLimitResponse(treeRes)
@@ -836,9 +1048,18 @@ export async function pullFromGitHub(
     const treeData = await treeRes.json()
     const entries: { path: string; type: string }[] = treeData.tree || []
 
-    // metadata.jsonをパース
+    // 新形式(.agasteer/)と旧形式(notes/)の両方をチェック
+    const hasNewFormat = entries.some((e) => e.path.startsWith(`${NOTES_PATH}/`))
+    const hasLegacyFormat = entries.some((e) => e.path.startsWith(`${LEGACY_NOTES_PATH}/`))
+
+    // 使用するベースパスを決定（新形式優先）
+    const basePath = hasNewFormat ? NOTES_PATH : LEGACY_NOTES_PATH
+    const metadataPath = hasNewFormat ? NOTES_METADATA_PATH : `${LEGACY_NOTES_PATH}/metadata.json`
+
+    // metadata.jsonを取得してパース
     let metadata: Metadata = { version: 1, notes: {}, leaves: {}, pushCount: 0 }
     try {
+      const metadataRes = await fetchGitHubContents(metadataPath, settings.repoName, settings.token)
       if (metadataRes.ok) {
         const metadataData = await metadataRes.json()
         if (metadataData.content) {
@@ -854,7 +1075,7 @@ export async function pullFromGitHub(
         }
       }
     } catch (e) {
-      console.warn('notes/metadata.json not found or invalid, using defaults')
+      console.warn(`${metadataPath} not found or invalid, using defaults`)
     }
 
     const noteMap = new Map<string, Note>()
@@ -894,17 +1115,23 @@ export async function pullFromGitHub(
       return parentId || ''
     }
 
+    // ベースパスのプレフィックスを作成（末尾スラッシュ付き）
+    const basePathPrefix = `${basePath}/`
+    const basePathGitkeep = `${basePath}/.gitkeep`
+
     // まず.gitkeepファイルから空ノートを復元
     const gitkeepPaths = entries.filter(
       (e) =>
         e.type === 'blob' &&
-        e.path.startsWith('notes/') &&
+        e.path.startsWith(basePathPrefix) &&
         e.path.endsWith('.gitkeep') &&
-        e.path !== 'notes/.gitkeep' // notes/.gitkeepは除外（ルートディレクトリ用）
+        e.path !== basePathGitkeep // ルートの.gitkeepは除外
     )
 
     for (const entry of gitkeepPaths) {
-      const relativePath = entry.path.replace(/^notes\//, '').replace(/\/\.gitkeep$/, '')
+      const relativePath = entry.path
+        .replace(new RegExp(`^${basePath}/`), '')
+        .replace(/\/\.gitkeep$/, '')
       const parts = collapseToTwoLevels(relativePath.split('/').filter(Boolean))
       if (parts.length === 0) continue
 
@@ -916,21 +1143,21 @@ export async function pullFromGitHub(
     const notePaths = entries.filter(
       (e) =>
         e.type === 'blob' &&
-        e.path.startsWith('notes/') &&
+        e.path.startsWith(basePathPrefix) &&
         e.path.toLowerCase().endsWith('.md') &&
         !e.path.endsWith('.gitkeep') // .gitkeepは除外
     )
 
     // コンテンツ取得用のターゲットを事前に作成（メタデータ取得はここで済ませる）
     const leafTargets = notePaths.map((entry, idx) => {
-      const relativePath = entry.path.replace(/^notes\//, '')
+      const relativePath = entry.path.replace(new RegExp(`^${basePath}/`), '')
       const allParts = relativePath.split('/').filter(Boolean)
       // ファイル名を先に分離してから、ノートパス部分だけをcollapseする
       const fileName = allParts.pop() || ''
       const noteParts = collapseToTwoLevels(allParts)
       const title = fileName.replace(/\.md$/i, '') || 'Untitled'
       const noteId = ensureNotePath(noteParts)
-      const leafPathOriginal = entry.path.replace(/^notes\//, '')
+      const leafPathOriginal = entry.path.replace(new RegExp(`^${basePath}/`), '')
       const leafPathCollapsed = [...noteParts, fileName].join('/')
       const leafMeta = metadata.leaves[leafPathCollapsed] ||
         metadata.leaves[leafPathOriginal] || {
@@ -1068,11 +1295,20 @@ export async function fetchRemotePushCount(settings: Settings): Promise<number> 
   }
 
   try {
-    const metadataRes = await fetchGitHubContents(
-      'notes/metadata.json',
+    // まず新形式を試す
+    let metadataRes = await fetchGitHubContents(
+      NOTES_METADATA_PATH,
       settings.repoName,
       settings.token
     )
+    // 新形式がなければ旧形式にフォールバック
+    if (!metadataRes.ok) {
+      metadataRes = await fetchGitHubContents(
+        `${LEGACY_NOTES_PATH}/metadata.json`,
+        settings.repoName,
+        settings.token
+      )
+    }
     if (metadataRes.ok) {
       const metadataData = await metadataRes.json()
       if (metadataData.content) {
@@ -1151,4 +1387,288 @@ const collapseToTwoLevels = (parts: string[]): string[] => {
   const first = sanitizePathPart(parts[0])
   const second = sanitizePathPart(parts.slice(1).join('/'))
   return [first, second]
+}
+
+/**
+ * アーカイブ用のPull結果
+ */
+export interface ArchivePullResult {
+  success: boolean
+  message: string
+  notes: Note[]
+  leaves: Leaf[]
+  metadata: Metadata
+  rateLimitInfo?: RateLimitInfo
+}
+
+/**
+ * GitHubからアーカイブをPull（遅延ローディング用）
+ *
+ * Homeとは別にアーカイブのみを取得する。
+ * ユーザーがArchiveビューに切り替えた時に呼び出される。
+ */
+export async function pullArchive(settings: Settings): Promise<ArchivePullResult> {
+  const defaultMetadata: Metadata = { version: 1, notes: {}, leaves: {}, pushCount: 0 }
+
+  const validation = validateGitHubSettings(settings)
+  if (!validation.valid) {
+    return {
+      success: false,
+      message: `❌ ${validation.error}`,
+      notes: [],
+      leaves: [],
+      metadata: defaultMetadata,
+    }
+  }
+
+  const headers = {
+    Authorization: `Bearer ${settings.token}`,
+  }
+
+  try {
+    // リポジトリ情報を取得
+    const repoRes = await fetch(`https://api.github.com/repos/${settings.repoName}`, { headers })
+    if (repoRes.status === 404) {
+      return {
+        success: false,
+        message: 'github.repoNotFound',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+      }
+    }
+    const repoRateLimit = parseRateLimitResponse(repoRes)
+    if (repoRateLimit.isRateLimited) {
+      return {
+        success: false,
+        message: 'github.rateLimited',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+        rateLimitInfo: repoRateLimit,
+      }
+    }
+    if (!repoRes.ok) {
+      return {
+        success: false,
+        message: 'github.repoFetchFailed',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+      }
+    }
+
+    const repoData = await repoRes.json()
+    const defaultBranch = repoData.default_branch || 'main'
+
+    // tree取得
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${settings.repoName}/git/trees/${defaultBranch}?recursive=1`,
+      { headers }
+    )
+
+    const treeRateLimit = parseRateLimitResponse(treeRes)
+    if (treeRateLimit.isRateLimited) {
+      return {
+        success: false,
+        message: 'github.rateLimited',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+        rateLimitInfo: treeRateLimit,
+      }
+    }
+    if (!treeRes.ok) {
+      return {
+        success: false,
+        message: 'github.treeFetchFailed',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+      }
+    }
+
+    const treeData = await treeRes.json()
+    const entries: { path: string; type: string }[] = treeData.tree || []
+
+    // アーカイブパスのエントリがあるか確認
+    const hasArchive = entries.some((e) => e.path.startsWith(`${ARCHIVE_PATH}/`))
+    if (!hasArchive) {
+      // アーカイブが存在しない場合は空を返す
+      return {
+        success: true,
+        message: 'github.pullOk',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+      }
+    }
+
+    // アーカイブのmetadata.jsonを取得
+    let metadata: Metadata = { version: 1, notes: {}, leaves: {}, pushCount: 0 }
+    try {
+      const metadataRes = await fetchGitHubContents(
+        ARCHIVE_METADATA_PATH,
+        settings.repoName,
+        settings.token
+      )
+      if (metadataRes.ok) {
+        const metadataData = await metadataRes.json()
+        if (metadataData.content) {
+          const base64 = metadataData.content.replace(/\n/g, '')
+          const jsonText = decodeURIComponent(escape(atob(base64)))
+          const parsed = JSON.parse(jsonText)
+          metadata = {
+            version: parsed.version || 1,
+            notes: parsed.notes || {},
+            leaves: parsed.leaves || {},
+            pushCount: parsed.pushCount || 0,
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`${ARCHIVE_METADATA_PATH} not found or invalid, using defaults`)
+    }
+
+    const noteMap = new Map<string, Note>()
+
+    const collapseToTwoLevelsLocal = (parts: string[]): string[] => {
+      if (parts.length <= 2) return parts.map((p) => sanitizePathPart(p))
+      return [sanitizePathPart(parts[0]), sanitizePathPart(parts.slice(1).join('/'))]
+    }
+
+    const ensureNotePath = (pathParts: string[]): string => {
+      const collapsed = collapseToTwoLevelsLocal(pathParts)
+      let parentId: string | undefined
+      for (let i = 0; i < collapsed.length; i++) {
+        const partial = collapsed.slice(0, i + 1).join('/')
+        if (noteMap.has(partial)) {
+          parentId = noteMap.get(partial)!.id
+          continue
+        }
+        const meta = metadata.notes[partial] || {
+          id: crypto.randomUUID(),
+          order: noteMap.size,
+          badgeIcon: undefined,
+          badgeColor: undefined,
+        }
+        const note: Note = {
+          id: meta.id,
+          name: collapsed[i],
+          parentId,
+          order: meta.order,
+          badgeIcon: meta.badgeIcon,
+          badgeColor: meta.badgeColor,
+        }
+        noteMap.set(partial, note)
+        parentId = note.id
+      }
+      return parentId || ''
+    }
+
+    const basePathPrefix = `${ARCHIVE_PATH}/`
+    const basePathGitkeep = `${ARCHIVE_PATH}/.gitkeep`
+
+    // .gitkeepファイルから空ノートを復元
+    const gitkeepPaths = entries.filter(
+      (e) =>
+        e.type === 'blob' &&
+        e.path.startsWith(basePathPrefix) &&
+        e.path.endsWith('.gitkeep') &&
+        e.path !== basePathGitkeep
+    )
+
+    for (const entry of gitkeepPaths) {
+      const relativePath = entry.path
+        .replace(new RegExp(`^${ARCHIVE_PATH}/`), '')
+        .replace(/\/\.gitkeep$/, '')
+      const parts = collapseToTwoLevelsLocal(relativePath.split('/').filter(Boolean))
+      if (parts.length === 0) continue
+      ensureNotePath(parts)
+    }
+
+    // .mdファイル（リーフ）を復元
+    const leafPaths = entries.filter(
+      (e) =>
+        e.type === 'blob' &&
+        e.path.startsWith(basePathPrefix) &&
+        e.path.toLowerCase().endsWith('.md') &&
+        !e.path.endsWith('.gitkeep')
+    )
+
+    const leafTargets = leafPaths.map((entry, idx) => {
+      const relativePath = entry.path.replace(new RegExp(`^${ARCHIVE_PATH}/`), '')
+      const allParts = relativePath.split('/').filter(Boolean)
+      const fileName = allParts.pop() || ''
+      const noteParts = collapseToTwoLevelsLocal(allParts)
+      const title = fileName.replace(/\.md$/i, '') || 'Untitled'
+      const noteId = ensureNotePath(noteParts)
+      const leafPathOriginal = entry.path.replace(new RegExp(`^${ARCHIVE_PATH}/`), '')
+      const leafPathCollapsed = [...noteParts, fileName].join('/')
+      const leafMeta = metadata.leaves[leafPathCollapsed] ||
+        metadata.leaves[leafPathOriginal] || {
+          id: crypto.randomUUID(),
+          updatedAt: Date.now(),
+          order: idx,
+          badgeIcon: undefined,
+          badgeColor: undefined,
+        }
+      return {
+        entry,
+        title,
+        noteId,
+        leafMeta,
+        relativePath: leafPathCollapsed,
+      }
+    })
+
+    // リーフを並列取得
+    const leaves = await runWithConcurrency(
+      leafTargets,
+      CONTENT_FETCH_CONCURRENCY,
+      async (target) => {
+        const contentRes = await fetchGitHubContents(
+          target.entry.path,
+          settings.repoName,
+          settings.token,
+          { raw: true }
+        )
+        if (!contentRes.ok) return null
+        const content = await contentRes.text()
+
+        const leaf: Leaf = {
+          id: target.leafMeta.id,
+          title: target.title,
+          noteId: target.noteId,
+          content,
+          updatedAt: target.leafMeta.updatedAt,
+          order: target.leafMeta.order,
+          badgeIcon: target.leafMeta.badgeIcon,
+          badgeColor: target.leafMeta.badgeColor,
+        }
+
+        return leaf
+      }
+    )
+
+    const sortedNotes = Array.from(noteMap.values()).sort((a, b) => a.order - b.order)
+    const sortedLeaves = leaves.sort((a, b) => a.order - b.order)
+
+    return {
+      success: true,
+      message: 'github.pullOk',
+      notes: sortedNotes,
+      leaves: sortedLeaves,
+      metadata,
+    }
+  } catch (error) {
+    console.error('GitHub archive pull error:', error)
+    return {
+      success: false,
+      message: 'github.networkError',
+      notes: [],
+      leaves: [],
+      metadata: defaultMetadata,
+    }
+  }
 }

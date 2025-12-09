@@ -1,4 +1,5 @@
 import JSZip from 'jszip'
+import type { Note, Leaf, Metadata } from '../types'
 
 export interface ImportedLeafData {
   title: string
@@ -291,5 +292,225 @@ export async function processImportFile(
       importedLeaves,
       errors: parsed.errors,
     },
+  }
+}
+
+// ============================================
+// Agasteer形式のインポート
+// ============================================
+
+export interface AgasteerImportResult {
+  notes: Note[]
+  leaves: Leaf[]
+  metadata: Metadata
+  archiveNotes: Note[]
+  archiveLeaves: Leaf[]
+  archiveMetadata: Metadata | undefined
+}
+
+/**
+ * Agasteerエクスポートzipをパースする
+ * 新形式（.agasteer/）と旧形式（notes/）の両方をサポート
+ */
+export async function parseAgasteerZip(file: File): Promise<AgasteerImportResult | null> {
+  try {
+    const buffer = await file.arrayBuffer()
+    const zip = await JSZip.loadAsync(buffer)
+
+    // 形式を判定
+    const hasNewFormat = zip.file('.agasteer/notes/metadata.json') !== null
+    const hasOldFormat = zip.file('notes/metadata.json') !== null
+
+    if (!hasNewFormat && !hasOldFormat) {
+      return null
+    }
+
+    if (hasNewFormat) {
+      return parseNewAgasteerFormat(zip)
+    } else {
+      return parseOldAgasteerFormat(zip)
+    }
+  } catch (e) {
+    console.error('Failed to parse Agasteer zip:', e)
+    return null
+  }
+}
+
+/**
+ * 新形式（.agasteer/notes/ と .agasteer/archive/）をパース
+ */
+async function parseNewAgasteerFormat(zip: JSZip): Promise<AgasteerImportResult> {
+  // Home（notes）の読み込み
+  const { notes, leaves, metadata } = await parseWorldFromZip(zip, '.agasteer/notes')
+
+  // Archive の読み込み
+  let archiveNotes: Note[] = []
+  let archiveLeaves: Leaf[] = []
+  let archiveMetadata: Metadata | undefined = undefined
+
+  const archiveMetadataFile = zip.file('.agasteer/archive/metadata.json')
+  if (archiveMetadataFile) {
+    const result = await parseWorldFromZip(zip, '.agasteer/archive')
+    archiveNotes = result.notes
+    archiveLeaves = result.leaves
+    archiveMetadata = result.metadata
+  }
+
+  return {
+    notes,
+    leaves,
+    metadata,
+    archiveNotes,
+    archiveLeaves,
+    archiveMetadata,
+  }
+}
+
+/**
+ * 旧形式（notes/）をパース → 新形式として.agasteer/notes/に移行
+ */
+async function parseOldAgasteerFormat(zip: JSZip): Promise<AgasteerImportResult> {
+  const { notes, leaves, metadata } = await parseWorldFromZip(zip, 'notes')
+
+  return {
+    notes,
+    leaves,
+    metadata,
+    archiveNotes: [],
+    archiveLeaves: [],
+    archiveMetadata: undefined,
+  }
+}
+
+/**
+ * 指定されたパス配下のワールドデータをパース
+ */
+async function parseWorldFromZip(
+  zip: JSZip,
+  basePath: string
+): Promise<{ notes: Note[]; leaves: Leaf[]; metadata: Metadata }> {
+  const notes: Note[] = []
+  const leaves: Leaf[] = []
+  let metadata: Metadata = { version: 1, pushCount: 0, notes: {}, leaves: {} }
+
+  // metadata.json を読み込み
+  const metadataFile = zip.file(`${basePath}/metadata.json`)
+  if (metadataFile) {
+    try {
+      const metadataContent = await metadataFile.async('string')
+      metadata = JSON.parse(metadataContent)
+    } catch (e) {
+      console.error('Failed to parse metadata.json:', e)
+    }
+  }
+
+  // ノートの復元（.gitkeepファイルからディレクトリ構造を読み取り）
+  const notePathSet = new Set<string>()
+  const files = Object.values(zip.files)
+
+  for (const file of files) {
+    if (!file.name.startsWith(`${basePath}/`)) continue
+    if (file.name === `${basePath}/metadata.json`) continue
+    if (file.name === `${basePath}/.gitkeep`) continue
+
+    const relativePath = file.name.slice(`${basePath}/`.length)
+
+    if (file.name.endsWith('.gitkeep')) {
+      // .gitkeepからノートパスを抽出
+      const notePath = relativePath.replace(/\/.gitkeep$/, '')
+      if (notePath) {
+        notePathSet.add(notePath)
+      }
+    } else if (file.name.endsWith('.md') && !file.dir) {
+      // .mdファイルからノートパスを抽出
+      const parts = relativePath.split('/')
+      if (parts.length > 1) {
+        // リーフがある場合、その親ディレクトリをノートとして認識
+        const notePath = parts.slice(0, -1).join('/')
+        notePathSet.add(notePath)
+
+        // サブノートの場合、親ノートも追加
+        if (parts.length > 2) {
+          notePathSet.add(parts[0])
+        }
+      }
+    }
+  }
+
+  // ノートを作成
+  const noteByPath = new Map<string, Note>()
+  const sortedPaths = Array.from(notePathSet).sort(
+    (a, b) => a.split('/').length - b.split('/').length
+  )
+
+  for (const notePath of sortedPaths) {
+    const parts = notePath.split('/')
+    const name = parts[parts.length - 1]
+    const parentPath = parts.length > 1 ? parts.slice(0, -1).join('/') : null
+
+    const metaEntry = metadata.notes[notePath]
+    const note: Note = {
+      id: metaEntry?.id || crypto.randomUUID(),
+      name,
+      order: metaEntry?.order ?? notes.length,
+      parentId: parentPath ? noteByPath.get(parentPath)?.id : undefined,
+      badgeIcon: metaEntry?.badgeIcon,
+      badgeColor: metaEntry?.badgeColor,
+    }
+
+    notes.push(note)
+    noteByPath.set(notePath, note)
+  }
+
+  // リーフを読み込み
+  for (const file of files) {
+    if (!file.name.startsWith(`${basePath}/`)) continue
+    if (!file.name.endsWith('.md')) continue
+    if (file.dir) continue
+
+    const relativePath = file.name.slice(`${basePath}/`.length)
+    const parts = relativePath.split('/')
+    const leafFileName = parts[parts.length - 1]
+    const leafTitle = leafFileName.replace(/\.md$/, '')
+    const notePath = parts.length > 1 ? parts.slice(0, -1).join('/') : ''
+
+    const content = await file.async('string')
+    const metaEntry = metadata.leaves[relativePath]
+
+    const leaf: Leaf = {
+      id: metaEntry?.id || crypto.randomUUID(),
+      title: leafTitle,
+      noteId: noteByPath.get(notePath)?.id || '',
+      content,
+      updatedAt: metaEntry?.updatedAt ?? Date.now(),
+      order: metaEntry?.order ?? leaves.length,
+      badgeIcon: metaEntry?.badgeIcon,
+      badgeColor: metaEntry?.badgeColor,
+    }
+
+    // noteIdが空でない場合のみ追加（ノートに属さないリーフは無視）
+    if (leaf.noteId || notePath === '') {
+      // ルート直下のリーフはnoteIdが空でも許可（ただし通常はノート必須）
+      if (notePath !== '' || leaf.noteId) {
+        leaves.push(leaf)
+      }
+    }
+  }
+
+  return { notes, leaves, metadata }
+}
+
+/**
+ * ファイルがAgasteer形式かどうかを判定
+ */
+export async function isAgasteerZip(file: File): Promise<boolean> {
+  try {
+    const buffer = await file.arrayBuffer()
+    const zip = await JSZip.loadAsync(buffer)
+    return (
+      zip.file('.agasteer/notes/metadata.json') !== null || zip.file('notes/metadata.json') !== null
+    )
+  } catch {
+    return false
   }
 }

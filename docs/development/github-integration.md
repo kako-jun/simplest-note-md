@@ -19,12 +19,38 @@ const headers = {
 
 全リーフを1コミットでPushする実装。Git Tree APIを使用することで、削除・リネームを確実に処理し、APIリクエスト数を最小化（約8回）。
 
+### ワールド別Push処理
+
+Push時は`.agasteer/notes/`と`.agasteer/archive/`の両方を処理します。
+
+| 条件              | 処理                                 |
+| ----------------- | ------------------------------------ |
+| Archiveロード済み | Home + Archive 両方を再構築          |
+| Archiveロード前   | Homeのみ再構築、既存のarchive/を保持 |
+
+**重要**: Archiveがロードされていない場合、既存の`archive/`ディレクトリを保持します。これにより、ユーザーがArchiveを見ていない状態でPushしても、アーカイブデータが消失しません。
+
+```typescript
+// 既存ツリーから.agasteer/以外のファイルと.agasteer/archive/を保持
+for (const item of existingTree.tree) {
+  if (!item.path.startsWith('.agasteer/notes/')) {
+    if (item.path.startsWith('.agasteer/archive/') && !$isArchiveLoaded) {
+      // Archiveがロードされていない場合は既存のSHAを保持
+      preserveItems.push(item)
+    } else if (!item.path.startsWith('.agasteer/')) {
+      // .agasteer/以外のファイル（README.md等）を保持
+      preserveItems.push(item)
+    }
+  }
+}
+```
+
 ### 処理フロー
 
 1. デフォルトブランチを取得
 2. 現在のブランチのHEADを取得
 3. 現在のコミットからTreeのSHAを取得
-4. 既存ツリーを取得（notes/以外のファイルとnotes/以下のSHAを記録）
+4. 既存ツリーを取得（`.agasteer/`以外のファイルと必要に応じて`archive/`のSHAを記録）
 5. 新しいTreeを構築（全ファイルを明示的に指定）
 6. 新しいTreeを作成
 7. 新しいコミットを作成
@@ -185,6 +211,33 @@ metadata.pushCount = currentPushCount + 1
 ## Pull処理
 
 GitHubから全データをPull。
+
+### ワールド別Pull処理
+
+AgasteerはHome/Archiveの2つのワールドを持ち、それぞれ異なるPull戦略を使用します。
+
+| ワールド | Pull対象             | タイミング                    | 関数               |
+| -------- | -------------------- | ----------------------------- | ------------------ |
+| Home     | `.agasteer/notes/`   | アプリ起動時、手動Pull        | `pullFromGitHub()` |
+| Archive  | `.agasteer/archive/` | ユーザーがArchiveに切り替え時 | `pullArchive()`    |
+
+**遅延Pull**:
+
+- 通常のPull（起動時、手動）では`.agasteer/notes/`のみ取得
+- Archiveに初めて切り替えた時に`.agasteer/archive/`をPull
+- 一度ロードしたArchiveは`isArchiveLoaded`フラグで管理
+
+```typescript
+// Archiveへの切り替え時
+async function switchToArchive() {
+  if (!$isArchiveLoaded) {
+    // 初回アクセス時のみPull
+    await pullArchive($settings)
+    isArchiveLoaded.set(true)
+  }
+  currentWorld.set('archive')
+}
+```
 
 ### 優先度ベースの段階的ローディング（2025-11）
 
@@ -381,13 +434,28 @@ async function fetchGitHubContents(path: string, repoName: string, token: string
 
 ノート階層に基づいてGitHub上のパスを生成。
 
+### パス定数
+
 ```typescript
-function buildPath(leaf: Leaf, notes: Note[]): string {
+// Home用パス
+const NOTES_PATH = '.agasteer/notes'
+const NOTES_METADATA_PATH = '.agasteer/notes/metadata.json'
+
+// Archive用パス
+const ARCHIVE_PATH = '.agasteer/archive'
+const ARCHIVE_METADATA_PATH = '.agasteer/archive/metadata.json'
+```
+
+### パス生成関数
+
+```typescript
+function buildPath(leaf: Leaf, notes: Note[], world: WorldType = 'home'): string {
+  const basePath = world === 'home' ? NOTES_PATH : ARCHIVE_PATH
   const note = notes.find((f) => f.id === leaf.noteId)
-  if (!note) return `notes/${leaf.title}.md`
+  if (!note) return `${basePath}/${leaf.title}.md`
 
   const folderPath = getFolderPath(note, notes)
-  return `notes/${folderPath}/${leaf.title}.md`
+  return `${basePath}/${folderPath}/${leaf.title}.md`
 }
 
 function getFolderPath(note: Note, allNotes: Note[]): string {
@@ -402,8 +470,9 @@ function getFolderPath(note: Note, allNotes: Note[]): string {
 
 **例:**
 
-- ルートノート「仕事」のリーフ → `notes/仕事/リーフ1.md`
-- サブノート「仕事/会議」のリーフ → `notes/仕事/会議/議事録.md`
+- ルートノート「仕事」のリーフ → `.agasteer/notes/仕事/リーフ1.md`
+- サブノート「仕事/会議」のリーフ → `.agasteer/notes/仕事/会議/議事録.md`
+- アーカイブされたリーフ → `.agasteer/archive/旧仕事/メモ.md`
 
 ---
 

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
-  import type { Breadcrumb, BreadcrumbSibling } from '../../lib/types'
+  import type { Breadcrumb, BreadcrumbSibling, WorldType } from '../../lib/types'
   import IconButton from '../buttons/IconButton.svelte'
   import ShareButton from '../buttons/ShareButton.svelte'
   import HomeIcon from '../icons/HomeIcon.svelte'
   import EditIcon from '../icons/EditIcon.svelte'
+  import ArchiveIcon from '../icons/ArchiveIcon.svelte'
   import { isOfflineLeaf, isPriorityLeaf } from '../../lib/utils'
 
   export let breadcrumbs: Breadcrumb[]
@@ -19,10 +20,28 @@
   export let isPreview: boolean = false
   export let getHasSelection: (() => boolean) | null = null
   export let onSelectSibling: ((id: string, type: 'note' | 'leaf') => void) | null = null
+  /** 現在のワールド */
+  export let currentWorld: WorldType = 'home'
+  /** ワールド切り替え時のコールバック */
+  export let onWorldChange: ((world: WorldType) => void) | null = null
+  /** アーカイブがロード中かどうか */
+  export let isArchiveLoading: boolean = false
 
   let inputValue = ''
   let inputElement: HTMLInputElement | null = null
   let openDropdownIndex: number | null = null
+  let worldDropdownOpen = false
+
+  function toggleWorldDropdown() {
+    worldDropdownOpen = !worldDropdownOpen
+  }
+
+  function handleWorldSelect(world: WorldType) {
+    if (world !== currentWorld && onWorldChange) {
+      onWorldChange(world)
+    }
+    worldDropdownOpen = false
+  }
 
   function handleStartEdit(crumb: Breadcrumb) {
     if (crumb.type === 'home' || crumb.type === 'settings') return
@@ -78,6 +97,7 @@
   // ドロップダウン外クリックで閉じる
   function handleWindowClick() {
     closeDropdown()
+    worldDropdownOpen = false
   }
 
   // リーフ表示かどうかを判定
@@ -138,13 +158,68 @@
           />
         {:else}
           {#if index === 0}
-            <IconButton
-              onClick={crumb.action}
-              title={$_('breadcrumbs.goHome')}
-              ariaLabel={$_('breadcrumbs.goHome')}
-            >
-              <HomeIcon />
-            </IconButton>
+            <!-- Home/Archive切り替えドロップダウン -->
+            {#if onWorldChange}
+              <div class="world-dropdown">
+                <button
+                  class="world-button"
+                  on:click|stopPropagation={toggleWorldDropdown}
+                  title={currentWorld === 'home'
+                    ? $_('breadcrumbs.goHome')
+                    : $_('breadcrumbs.goArchive')}
+                  aria-label={currentWorld === 'home'
+                    ? $_('breadcrumbs.goHome')
+                    : $_('breadcrumbs.goArchive')}
+                  aria-expanded={worldDropdownOpen}
+                >
+                  {#if currentWorld === 'home'}
+                    <HomeIcon />
+                  {:else}
+                    <ArchiveIcon />
+                  {/if}
+                  <span class="world-caret">▾</span>
+                </button>
+                {#if worldDropdownOpen}
+                  <div
+                    class="world-menu"
+                    role="menu"
+                    tabindex="-1"
+                    on:click|stopPropagation
+                    on:keydown|stopPropagation
+                  >
+                    <button
+                      class="world-item"
+                      class:current={currentWorld === 'home'}
+                      on:click={() => handleWorldSelect('home')}
+                    >
+                      <span class="world-icon"><HomeIcon /></span>
+                      {$_('breadcrumbs.worldHome')}
+                    </button>
+                    <button
+                      class="world-item"
+                      class:current={currentWorld === 'archive'}
+                      class:loading={isArchiveLoading}
+                      on:click={() => handleWorldSelect('archive')}
+                      disabled={isArchiveLoading}
+                    >
+                      <span class="world-icon"><ArchiveIcon /></span>
+                      {$_('breadcrumbs.worldArchive')}
+                      {#if isArchiveLoading}
+                        <span class="loading-indicator">...</span>
+                      {/if}
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <IconButton
+                onClick={crumb.action}
+                title={$_('breadcrumbs.goHome')}
+                ariaLabel={$_('breadcrumbs.goHome')}
+              >
+                <HomeIcon />
+              </IconButton>
+            {/if}
           {:else}
             <button
               class="breadcrumb-button text-ellipsis"
@@ -334,5 +409,114 @@
     color: var(--text);
     font-size: 0.9rem;
     outline: none;
+  }
+
+  /* ワールド切り替えドロップダウン */
+  .world-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .world-button {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: none;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition:
+      background 0.2s,
+      color 0.2s;
+  }
+
+  .world-button:hover {
+    background: var(--surface-2);
+    color: var(--accent);
+  }
+
+  .world-button :global(svg) {
+    width: 18px;
+    height: 18px;
+  }
+
+  .world-caret {
+    font-size: 0.7rem;
+    opacity: 0.6;
+  }
+
+  .world-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 140px;
+    z-index: 200;
+    margin-top: 4px;
+  }
+
+  .world-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 0.85rem;
+    transition: background 0.15s;
+  }
+
+  .world-item:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+
+  .world-item.current {
+    background: var(--accent);
+    color: white;
+    font-weight: 500;
+  }
+
+  .world-item.current:hover {
+    background: var(--accent);
+  }
+
+  .world-item:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .world-icon {
+    display: flex;
+    align-items: center;
+  }
+
+  .world-icon :global(svg) {
+    width: 16px;
+    height: 16px;
+  }
+
+  .loading-indicator {
+    margin-left: auto;
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
   }
 </style>

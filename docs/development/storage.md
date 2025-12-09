@@ -53,8 +53,10 @@ const SETTINGS_KEY = 'agasteer/settings'
 
 ### オブジェクトストア
 
-- `notes`: ノートデータ
-- `leaves`: リーフデータ
+- `notes`: ノートデータ（Home用）
+- `leaves`: リーフデータ（Home用）
+- `archiveNotes`: ノートデータ（Archive用）
+- `archiveLeaves`: リーフデータ（Archive用）
 - `fonts`: カスタムフォントデータ
 - `backgrounds`: カスタム背景画像データ
 
@@ -190,42 +192,57 @@ interface CustomBackground {
 
 ### 保存対象
 
-- 全ノート
+- 全ノート（Home + Archive）
 - 全リーフのMarkdownファイル
 - メタデータファイル（`metadata.json`）
 
 ### ファイルパス構造
 
 ```
-notes/
-  ├── metadata.json  ← メタデータファイル
-  ├── .gitkeep
-  ├── ノート名1/
+.agasteer/
+  ├── notes/                     ← Homeワールド
+  │   ├── metadata.json          ← メタデータファイル
   │   ├── .gitkeep
-  │   ├── サブノート名/
+  │   ├── ノート名1/
   │   │   ├── .gitkeep
+  │   │   ├── サブノート名/
+  │   │   │   ├── .gitkeep
+  │   │   │   └── リーフタイトル.md
   │   │   └── リーフタイトル.md
-  │   └── リーフタイトル.md
-  └── ノート名2/
+  │   └── ノート名2/
+  │       ├── .gitkeep
+  │       └── リーフタイトル.md
+  └── archive/                   ← Archiveワールド
+      ├── metadata.json          ← アーカイブ用メタデータ
       ├── .gitkeep
-      └── リーフタイトル.md
+      ├── アーカイブノート/
+      │   ├── .gitkeep
+      │   └── リーフタイトル.md
+      └── standalone.md          ← リーフ単体のアーカイブ
 ```
 
 **例:**
 
 ```
-notes/
-  ├── metadata.json
-  ├── .gitkeep
-  ├── 仕事/
+.agasteer/
+  ├── notes/
+  │   ├── metadata.json
   │   ├── .gitkeep
-  │   ├── プロジェクトA/
+  │   ├── 仕事/
   │   │   ├── .gitkeep
-  │   │   └── 会議メモ.md
-  │   └── TODO.md
-  └── プライベート/
+  │   │   ├── プロジェクトA/
+  │   │   │   ├── .gitkeep
+  │   │   │   └── 会議メモ.md
+  │   │   └── TODO.md
+  │   └── プライベート/
+  │       ├── .gitkeep
+  │       └── 買い物リスト.md
+  └── archive/
+      ├── metadata.json
       ├── .gitkeep
-      └── 買い物リスト.md
+      └── 旧プロジェクト/
+          ├── .gitkeep
+          └── 古いメモ.md
 ```
 
 ### metadata.json の構造
