@@ -55,7 +55,7 @@
 | **スマホ・PC両対応**   | PCはVimモードで高速編集、スマホはタッチで快適  |
 | **かわいくできる**     | テーマ、罫線モード、カスタムフォント、背景画像 |
 
-→ 詳細は[ユーザーガイド](./docs/user-guide/index.md)へ
+→ 詳細は[ユーザーガイド](./docs/user-guide/ja/index.md)へ
 
 ---
 
@@ -114,7 +114,7 @@ Agasteerで、シンプルで透明なノート体験を始めましょう。
 
 AI時代は、子どもも大人もおねーさんもGitHubを持っておくと楽しいです。
 
-→ [初期設定ガイド](./docs/user-guide/getting-started.md)
+→ [初期設定ガイド](./docs/user-guide/ja/getting-started.md)
 
 ---
 
@@ -122,7 +122,7 @@ AI時代は、子どもも大人もおねーさんもGitHubを持っておくと
 
 ### ユーザー向け
 
-→ **[ユーザーガイド](./docs/user-guide/index.md)** - 初期設定、基本操作、応用機能、カスタマイズ
+→ **[ユーザーガイド](./docs/user-guide/ja/index.md)** - 初期設定、基本操作、応用機能、カスタマイズ
 
 ### 開発者向け
 

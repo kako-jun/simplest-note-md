@@ -1,14 +1,19 @@
 <script lang="ts">
-  import { _ } from '../../lib/i18n'
+  import { _, locale } from '../../lib/i18n'
+
+  const USER_GUIDE_BASE = 'https://github.com/kako-jun/agasteer/blob/main/docs/user-guide'
+
+  function openUserGuide() {
+    const lang = $locale?.startsWith('ja') ? 'ja' : 'en'
+    const url = `${USER_GUIDE_BASE}/${lang}/index.md`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
 </script>
 
 <div class="help-links">
-  <a
-    href="https://github.com/kako-jun/agasteer#readme"
-    target="_blank"
-    rel="noopener noreferrer"
-    class="help-link"
-  >
+  <!-- svelte-ignore a11y-click-events-have-key-keys -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div class="help-link" on:click={openUserGuide}>
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -24,7 +29,7 @@
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </svg>
     <span>{$_('settings.help.text')}</span>
-  </a>
+  </div>
   <a
     href="https://www.youtube.com/watch?v=example"
     target="_blank"

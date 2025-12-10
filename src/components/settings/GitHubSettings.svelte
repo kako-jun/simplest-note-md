@@ -22,6 +22,16 @@
     const url = `${SETUP_GUIDE_BASE}/${lang}/github-setup.md`
     window.open(url, '_blank', 'noopener,noreferrer')
   }
+
+  function openTokenGuide() {
+    const lang = $locale?.startsWith('ja') ? 'ja' : 'en'
+    const anchor =
+      lang === 'ja'
+        ? '#2-personal-access-token%E3%82%92%E5%8F%96%E5%BE%97%E3%81%99%E3%82%8B'
+        : '#2-get-a-personal-access-token'
+    const url = `${SETUP_GUIDE_BASE}/${lang}/github-setup.md${anchor}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
 </script>
 
 <div class="github-settings">
@@ -94,7 +104,11 @@
         >
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <span class="help-icon" on:click={openSetupGuide} title="How to setup GitHub">
+        <span
+          class="help-icon"
+          on:click={openTokenGuide}
+          title="How to get a Personal Access Token"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="18"
