@@ -2,6 +2,70 @@
 
 Agasteerのデータ保護関連機能の実装詳細について説明します。
 
+## 全体フローチャート
+
+### Push処理フロー
+
+```mermaid
+flowchart TD
+    subgraph Push["Push処理"]
+        PS1[Pushボタン/Ctrl+S/自動Push] --> PS2{Push可能?}
+        PS2 -->|No: Pull中| PS3[スキップ]
+        PS2 -->|Yes| PS4{stale?}
+        PS4 -->|Yes| PS5[確認ダイアログ]
+        PS4 -->|No| PS6[Push実行]
+        PS5 -->|OK| PS6
+        PS5 -->|Cancel| PS7[キャンセル]
+        PS6 --> PS8{成功?}
+        PS8 -->|Yes| PS9[ダーティクリア\nlastPushTime更新]
+        PS8 -->|No| PS10[エラー通知]
+    end
+```
+
+### Pull処理フロー
+
+```mermaid
+flowchart TD
+    subgraph Pull["Pull処理"]
+        PL1[Pullボタン] --> PL2{Pull可能?}
+        PL2 -->|No: Push中| PL3[スキップ]
+        PL2 -->|Yes| PL4{ダーティ?}
+        PL4 -->|Yes| PL5[確認ダイアログ]
+        PL4 -->|No| PL6{リモート変更?}
+        PL5 -->|OK| PL7[Pull実行]
+        PL5 -->|Cancel| PL8[キャンセル]
+        PL6 -->|No| PL9[スキップ通知]
+        PL6 -->|Yes| PL7
+        PL7 --> PL10[優先Pull完了]
+        PL10 --> PL11{Pull中に編集?}
+        PL11 -->|Yes| PL12[編集内容を保持]
+        PL11 -->|No| PL13[ダーティクリア]
+    end
+```
+
+### 自動Push処理フロー
+
+```mermaid
+flowchart TD
+    subgraph AutoPush["自動Push (30秒ごとにチェック)"]
+        AP1[タイマー発火] --> AP2{アクティブ?}
+        AP2 -->|No: バックグラウンド| AP3[スキップ]
+        AP2 -->|Yes| AP4{GitHub設定済?}
+        AP4 -->|No| AP3
+        AP4 -->|Yes| AP5{Push/Pull中?}
+        AP5 -->|Yes| AP3
+        AP5 -->|No| AP6{ダーティ?}
+        AP6 -->|No| AP3
+        AP6 -->|Yes| AP7{5分経過?}
+        AP7 -->|No| AP3
+        AP7 -->|Yes| AP8{stale?}
+        AP8 -->|Yes| AP9[Pullボタンに赤丸\n通知表示]
+        AP8 -->|No| AP10[自動Push実行]
+    end
+```
+
+---
+
 ## Push回数カウント機能
 
 ### 概要
