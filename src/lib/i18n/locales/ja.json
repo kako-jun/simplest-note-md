@@ -9,7 +9,8 @@
   "header": {
     "settings": "設定を開く",
     "pull": "Pullする",
-    "swapPanes": "君の名は"
+    "swapPanes": "君の名は",
+    "staleRemote": "リモートに新しい変更があります"
   },
   "search": {
     "placeholder": "検索...",
@@ -206,7 +207,8 @@
     "imageDownloaded": "画像をダウンロードしました",
     "imageDownloadFailed": "画像ダウンロードに失敗しました",
     "longBackgroundWarning": "アプリが長時間バックグラウンドにあったため、再読み込みが必要です。未保存の変更を保存してからリロードしてください。",
-    "noRemoteChanges": "リモートに変更はありません"
+    "noRemoteChanges": "リモートに変更はありません",
+    "staleAutoSave": "他のデバイスで変更があります。先にPullしてください。"
   },
   "modal": {
     "staleEdit": "リモートに新しい変更があります。このまま保存すると上書きされます。続行しますか？",

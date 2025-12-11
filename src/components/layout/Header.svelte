@@ -14,6 +14,7 @@
   export let onSettingsClick: () => void
   export let onPull: () => void
   export let pullDisabled: boolean = false
+  export let isStale: boolean = false // リモートに新しい変更がある場合
   /** Pull進捗情報、nullなら非表示 */
   export let pullProgress: { percent: number; fetched: number; total: number } | null = null
   export let onPullProgressClick: () => void = () => {}
@@ -42,20 +43,26 @@
         }
       }}>{title}</a
     >
-    <div class="pull-button">
-      <IconButton
-        onClick={onPull}
-        title={$_('header.pull')}
-        ariaLabel={$_('header.pull')}
-        disabled={pullDisabled}
-        iconWidth={32}
-        iconHeight={20}
-      >
-        <OctocatPullIcon />
-      </IconButton>
-      {#if pullProgress !== null}
-        <button class="pull-progress" on:click={onPullProgressClick}>{pullProgress.percent}%</button
+    <div class="pull-button-wrapper">
+      <div class="pull-button">
+        <IconButton
+          onClick={onPull}
+          title={$_('header.pull')}
+          ariaLabel={$_('header.pull')}
+          disabled={pullDisabled}
+          iconWidth={32}
+          iconHeight={20}
         >
+          <OctocatPullIcon />
+        </IconButton>
+        {#if pullProgress !== null}
+          <button class="pull-progress" on:click={onPullProgressClick}
+            >{pullProgress.percent}%</button
+          >
+        {/if}
+      </div>
+      {#if isStale}
+        <span class="notification-badge" title={$_('header.staleRemote')}></span>
       {/if}
     </div>
   </div>
@@ -164,6 +171,10 @@
     background: #ef4444;
     border-radius: 50%;
     pointer-events: none;
+  }
+
+  .pull-button-wrapper {
+    position: relative;
   }
 
   .pull-button {

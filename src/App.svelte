@@ -21,6 +21,8 @@
     getPersistedDirtyFlag,
     isNoteDirty,
     lastPulledPushCount,
+    isStale,
+    lastPushTime,
     updateSettings,
     updateNotes,
     updateLeaves,
@@ -629,12 +631,58 @@
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
+    // 自動Push機能（前回Pushから5分経過 + ダーティありの場合）
+    const AUTO_PUSH_INTERVAL_MS = 5 * 60 * 1000 // 5分
+    const AUTO_PUSH_CHECK_INTERVAL_MS = 30 * 1000 // 30秒ごとにチェック
+
+    const autoPushIntervalId = setInterval(async () => {
+      // バックグラウンドでは実行しない
+      if (document.visibilityState !== 'visible') return
+
+      // GitHub設定がなければスキップ
+      if (!$githubConfigured) return
+
+      // Push/Pull中はスキップ
+      if ($isPulling || $isPushing) return
+
+      // ダーティがなければスキップ
+      if (!get(hasAnyChanges)) return
+
+      // 前回Pushから5分経過していなければスキップ
+      const now = Date.now()
+      const lastPush = get(lastPushTime)
+      if (lastPush > 0 && now - lastPush < AUTO_PUSH_INTERVAL_MS) return
+
+      // 初回Pullが完了していなければスキップ
+      if (!isFirstPriorityFetched) return
+
+      console.log('Auto-push triggered')
+
+      // staleチェックを実行
+      try {
+        const stale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
+        if (stale) {
+          // staleの場合はPullボタンに赤丸を表示してPushしない
+          isStale.set(true)
+          showPushToast($_('toast.staleAutoSave'), 'error')
+          return
+        }
+      } catch (e) {
+        // チェック失敗時はPushを続行
+        console.warn('Stale check failed, continuing with auto-push:', e)
+      }
+
+      // 自動Push実行
+      await handleSaveToGitHub()
+    }, AUTO_PUSH_CHECK_INTERVAL_MS)
+
     return () => {
       window.removeEventListener('popstate', handlePopState)
       window.removeEventListener('resize', updateDualPane)
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      clearInterval(autoPushIntervalId)
     }
   })
 
@@ -1659,6 +1707,7 @@
       // Push成功時にダーティフラグをクリアし、pushCountを更新
       if (result.variant === 'success') {
         clearAllChanges()
+        lastPushTime.set(Date.now()) // 自動Push用に最終Push時刻を記録
         // 実際にPushが行われた場合のみpushCountを+1（noChangesでスキップ時は更新しない）
         // changedLeafCount > 0 または metadataOnlyChanged の場合にPushが実際に行われた
         const actuallyPushed =
@@ -2147,6 +2196,7 @@
       // tick()で待機し、リアクティブ更新が完全に完了してからクリアする
       await tick()
       clearAllChanges()
+      isStale.set(false) // Pullしたのでstale状態を解除
     } else {
       // Pull失敗時: バックアップからデータを復元
       if (hasBackupData) {
@@ -2251,6 +2301,7 @@
       }}
       onPull={() => handlePull(false)}
       pullDisabled={!canPull}
+      isStale={$isStale}
       pullProgress={$pullProgressInfo}
       onPullProgressClick={() => {
         if ($pullProgressInfo) {

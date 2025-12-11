@@ -104,6 +104,12 @@ export function clearAllChanges(): void {
 // Pull成功時のリモートpushCountを保持（stale編集検出用）
 export const lastPulledPushCount = writable<number>(0)
 
+// stale状態（リモートに新しい変更がある）- Pullボタンに赤丸表示用
+export const isStale = writable<boolean>(false)
+
+// 最後にPush成功した時刻
+export const lastPushTime = writable<number>(0)
+
 // ペイン状態ストア
 export const leftNote = writable<Note | null>(null)
 export const rightNote = writable<Note | null>(null)
