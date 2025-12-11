@@ -190,8 +190,38 @@ GitHubにPushされていない変更がある状態で、データを失う可�
 GitHubにPushされていない変更があるかどうかを追跡する`isDirty`ストア（`stores.ts`）。
 
 ```typescript
-export const isDirty = writable<boolean>(false)
+// isDirtyをLocalStorageに永続化するカスタムストア
+// PWA強制終了後も未保存状態を検出可能にする
+const IS_DIRTY_KEY = 'agasteer_isDirty'
+
+function createIsDirtyStore() {
+  // LocalStorageから初期値を読み込み
+  const stored = localStorage.getItem(IS_DIRTY_KEY)
+  const initial = stored === 'true'
+
+  const { subscribe, set: originalSet, update } = writable<boolean>(initial)
+
+  return {
+    subscribe,
+    set: (value: boolean) => {
+      originalSet(value)
+      // LocalStorageに永続化
+      if (value) {
+        localStorage.setItem(IS_DIRTY_KEY, 'true')
+      } else {
+        localStorage.removeItem(IS_DIRTY_KEY)
+      }
+    },
+    update,
+  }
+}
+
+export const isDirty = createIsDirtyStore()
 ```
+
+**LocalStorage永続化の目的:**
+
+PWAがOSによってバックグラウンドで強制終了された場合、`beforeunload`イベントが発火しません。この場合、メモリ上の`isDirty`フラグは失われますが、LocalStorageに永続化することで、再起動後も未保存状態を検出できます。
 
 #### ダーティフラグが立つタイミング
 
@@ -258,7 +288,54 @@ export const isDirty = writable<boolean>(false)
 
 ### 確認ダイアログの表示
 
-#### 1. Pull実行時（既存モーダル）
+#### 1. アプリ起動時（PWA強制終了対策）
+
+PWA強制終了後の再起動時、LocalStorageに`isDirty=true`が残っている場合、初回Pull前に確認ダイアログを表示。
+
+```typescript
+// onMount内
+if (isConfigured) {
+  // PWA強制終了等で未保存の変更が残っている場合は確認
+  if (get(isDirty)) {
+    showConfirm(
+      $_('modal.unsavedChangesOnStartup'),
+      // OK: Pullを実行（ローカルの変更は破棄）
+      async () => {
+        await handlePull(true)
+      },
+      // Cancel: Pullスキップ、IndexedDBから読み込んで操作可能に
+      async () => {
+        try {
+          const savedNotes = await loadNotes()
+          const savedLeaves = await loadLeaves()
+          notes.set(savedNotes)
+          leaves.set(savedLeaves)
+          isFirstPriorityFetched = true
+          restoreStateFromUrl(false)
+        } catch (error) {
+          console.error('Failed to load from IndexedDB:', error)
+          await handlePull(true)
+        }
+      }
+    )
+  } else {
+    await handlePull(true)
+  }
+}
+```
+
+- **ダイアログタイプ**: Modal.svelteベースの既存モーダル
+- **メッセージ**: 「前回の編集内容がGitHubに保存されていません。Pullすると失われます。Pullしますか？」
+- **OK**: Pullを実行（GitHubのデータでIndexedDBを上書き）
+- **キャンセル**: Pullをスキップし、IndexedDBからデータを読み込んで操作可能にする
+
+**キャンセル時の重要な処理:**
+
+- `isFirstPriorityFetched = true` を設定して操作ロックを解除
+- IndexedDBからノート・リーフを読み込んでストアに設定
+- URLから状態を復元
+
+#### 2. Pull実行時（既存モーダル）
 
 未保存の変更がある状態でPullを実行しようとすると確認ダイアログを表示。
 
@@ -277,11 +354,11 @@ async function handlePull(isInitial = false) {
 ```
 
 - **ダイアログタイプ**: Modal.svelteベースの既存モーダル
-- **メッセージ**: 「未保存の変更があります。Pullを実行しますか？」
+- **メッセージ**: 「未保存の変更があります。Pullすると上書きされます。続行しますか？」
 - **OK**: Pullを実行（GitHubのデータでIndexedDBを上書き）
 - **キャンセル**: Pullをキャンセル
 
-#### 2. ページ離脱時（ブラウザ標準ダイアログ）
+#### 3. ページ離脱時（ブラウザ標準ダイアログ）
 
 タブを閉じる、リロード、外部サイトへの移動時に確認ダイアログを表示。
 
@@ -357,10 +434,26 @@ window.addEventListener('beforeunload', handleBeforeUnload)
 
 ### 動作フロー
 
-1. **リーフを編集** → `isDirty.set(true)` → 保存ボタンに赤い丸印表示
-2. **Pushボタンをクリック** → Push実行 → 成功時に `isDirty.set(false)` → 赤い丸印消える
+#### 通常フロー
+
+1. **リーフを編集** → `isDirty.set(true)` → LocalStorageに永続化 → 保存ボタンに赤い丸印表示
+2. **Pushボタンをクリック** → Push実行 → 成功時に `isDirty.set(false)` → LocalStorageから削除 → 赤い丸印消える
 3. **未保存の状態でPullボタンをクリック** → 確認ダイアログ表示
 4. **未保存の状態でタブを閉じる** → ブラウザ標準の確認ダイアログ表示
+
+#### PWA強制終了フロー
+
+```
+PWA強制終了 (isDirty=true のままLocalStorageに残る)
+    ↓
+PWA再起動
+    ↓
+onMount: LocalStorageからisDirty=trueを検出
+    ↓
+確認ダイアログ表示
+    ├─ OK → Pull実行（GitHubの最新に上書き、ローカル変更は破棄）
+    └─ キャンセル → IndexedDBから読み込み、操作可能に（Pushすればローカル変更を保存可能）
+```
 
 ---
 
