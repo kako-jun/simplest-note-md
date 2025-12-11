@@ -183,6 +183,7 @@
           {note}
           dragOver={dragOverNoteId === note.id}
           isSelected={isActive && index + specialLeafCount === selectedIndex}
+          isDirty={allLeaves.some((l) => l.noteId === note.id && l.isDirty)}
           onSelect={() => onSelectNote(note)}
           onDragStart={() => onDragStart(note)}
           onDragEnd={() => onDragEnd()}

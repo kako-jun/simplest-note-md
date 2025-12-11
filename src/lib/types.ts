@@ -69,6 +69,7 @@ export interface Leaf {
   order: number
   badgeIcon?: string
   badgeColor?: string
+  isDirty?: boolean // 未Pushの変更があるかどうか
 }
 
 export interface BreadcrumbSibling {

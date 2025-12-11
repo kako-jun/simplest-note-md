@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { _ } from '../../lib/i18n'
   import type { Note } from '../../lib/types'
   import BadgeButton from '../badges/BadgeButton.svelte'
 
   export let note: Note
   export let dragOver: boolean = false
   export let isSelected: boolean = false
+  export let isDirty: boolean = false // ノート配下にダーティなリーフがあるか
   export let onSelect: () => void
   export let onDragStart: () => void
   export let onDragEnd: () => void
@@ -35,7 +37,12 @@
   on:click={onSelect}
 >
   <BadgeButton icon={badgeIcon} color={badgeColor} onChange={onBadgeChange} />
-  <strong class="text-ellipsis">{note.name}</strong>
+  <strong class="text-ellipsis">
+    {note.name}
+    {#if isDirty}
+      <span class="dirty-indicator" title={$_('note.hasUnsavedLeaves')}></span>
+    {/if}
+  </strong>
   <div class="card-meta">
     {#each items as item}
       <small class="note-item text-ellipsis">{item}</small>
@@ -98,5 +105,16 @@
     border-color: var(--accent);
     background: var(--surface-2);
     box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  /* ダーティインジケーター（未保存の変更マーク） */
+  .dirty-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    margin-left: 4px;
+    vertical-align: middle;
   }
 </style>

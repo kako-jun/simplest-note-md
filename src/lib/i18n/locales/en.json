@@ -59,7 +59,11 @@
   "note": {
     "updated": "Updated",
     "noItems": "No sub-notes or leaves yet.\nYou can add them using the button at the bottom left.",
-    "noLeaves": "No leaves yet.\nYou can add them using the button at the bottom left."
+    "noLeaves": "No leaves yet.\nYou can add them using the button at the bottom left.",
+    "hasUnsavedLeaves": "Has unsaved leaves"
+  },
+  "leaf": {
+    "unsaved": "Unsaved changes"
   },
   "footer": {
     "newNote": "New note",

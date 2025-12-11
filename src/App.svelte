@@ -13,7 +13,13 @@
     rootNotes,
     githubConfigured,
     metadata,
-    isDirty,
+    hasAnyChanges,
+    hasAnyDirty,
+    isStructureDirty,
+    setLeafDirty,
+    clearAllChanges,
+    getPersistedDirtyFlag,
+    isNoteDirty,
     lastPulledPushCount,
     updateSettings,
     updateNotes,
@@ -509,7 +515,7 @@
       const isConfigured = loadedSettings.token && loadedSettings.repoName
       if (isConfigured) {
         // PWA強制終了等で未保存の変更が残っている場合は確認
-        if (get(isDirty)) {
+        if (getPersistedDirtyFlag()) {
           showConfirm(
             $_('modal.unsavedChangesOnStartup'),
             // OK: Pullを実行（ローカルの変更は破棄）
@@ -562,7 +568,7 @@
         pushExitGuard()
 
         // 未保存の変更がある場合は確認ダイアログを表示
-        if (get(isDirty)) {
+        if (get(hasAnyChanges)) {
           showConfirm($_('modal.exitApp'), () => {
             // ユーザーが終了を選択：ガードを削除してもう一度戻る
             history.go(-2) // ガード + 1つ前のエントリを削除
@@ -579,7 +585,7 @@
     // ページ離脱時の確認（未保存の変更がある場合）
     // ブラウザ標準のダイアログを使用
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (get(isDirty)) {
+      if (get(hasAnyChanges)) {
         e.preventDefault()
         e.returnValue = '' // Chrome requires returnValue to be set
       }
@@ -604,7 +610,7 @@
         if (elapsed > BACKGROUND_THRESHOLD_MS) {
           console.log(`PWA was in background for ${Math.round(elapsed / 1000)}s, reloading...`)
           // 未保存の変更がある場合は確認
-          if (get(isDirty)) {
+          if (get(hasAnyChanges)) {
             // 確認ダイアログを表示せずに、ユーザーに通知だけする
             showPushToast(
               $_('toast.longBackgroundWarning') ||
@@ -948,7 +954,7 @@
     // IndexedDBとdirtyフラグを更新
     await saveNotes(sourceWorld === 'home' ? newSourceNotes : $notes)
     await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
-    isDirty.set(true)
+    isStructureDirty.set(true)
 
     // 移動したノートを開いていた両ペインをホームに遷移
     const checkPane = (paneToCheck: Pane) => {
@@ -1028,7 +1034,7 @@
 
     // IndexedDBとdirtyフラグを更新
     await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
-    isDirty.set(true)
+    isStructureDirty.set(true)
 
     // 移動したリーフを開いていた両ペインをホームに遷移
     const checkPane = (paneToCheck: Pane) => {
@@ -1498,8 +1504,8 @@
       }
       return { ...m, leaves: newLeaves }
     })
-    // isDirtyを設定して保存が必要な状態にする
-    isDirty.set(true)
+    // 構造変更フラグを立てて保存が必要な状態にする
+    isStructureDirty.set(true)
   }
 
   // ドラッグ&ドロップ（リーフ）
@@ -1652,7 +1658,7 @@
 
       // Push成功時にダーティフラグをクリアし、pushCountを更新
       if (result.variant === 'success') {
-        isDirty.set(false)
+        clearAllChanges()
         // 実際にPushが行われた場合のみpushCountを+1（noChangesでスキップ時は更新しない）
         // changedLeafCount > 0 または metadataOnlyChanged の場合にPushが実際に行われた
         const actuallyPushed =
@@ -2029,7 +2035,7 @@
     }
 
     // 初回Pull以外で未保存の変更がある場合は確認
-    if (!isInitial && get(isDirty)) {
+    if (!isInitial && get(hasAnyChanges)) {
       let message = $_('modal.unsavedChanges')
       if (isClosingSettingsPull && importOccurredInSettings) {
         message += `\n\n${$_('settings.importExport.importCloseHint')}`
@@ -2140,7 +2146,7 @@
       // Pull成功時はGitHubと同期したのでダーティフラグをクリア
       // tick()で待機し、リアクティブ更新が完全に完了してからクリアする
       await tick()
-      isDirty.set(false)
+      clearAllChanges()
     } else {
       // Pull失敗時: バックアップからデータを復元
       if (hasBackupData) {

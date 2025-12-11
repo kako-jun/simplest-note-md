@@ -36,33 +36,71 @@ export const isArchiveLoaded = writable<boolean>(false)
 // ============================================
 export const currentWorld = writable<WorldType>('home')
 
-// isDirtyをLocalStorageに永続化するカスタムストア
-// PWA強制終了後も未保存状態を検出可能にする
+// ============================================
+// ダーティフラグ管理（リーフごと + 全体）
+// ============================================
 const IS_DIRTY_KEY = 'agasteer_isDirty'
 
-function createIsDirtyStore() {
-  // LocalStorageから初期値を読み込み
-  const stored = localStorage.getItem(IS_DIRTY_KEY)
-  const initial = stored === 'true'
+// リーフごとのisDirtyから全体のダーティ状態を派生
+export const hasAnyDirty = derived(leaves, ($leaves) => $leaves.some((l) => l.isDirty))
 
-  const { subscribe, set: originalSet, update } = writable<boolean>(initial)
-
-  return {
-    subscribe,
-    set: (value: boolean) => {
-      originalSet(value)
-      // LocalStorageに永続化
-      if (value) {
-        localStorage.setItem(IS_DIRTY_KEY, 'true')
-      } else {
-        localStorage.removeItem(IS_DIRTY_KEY)
-      }
-    },
-    update,
+// LocalStorage永続化（hasAnyDirtyの変更を監視）
+// 注意: このsubscribeはモジュール読み込み時に実行される
+hasAnyDirty.subscribe((value) => {
+  if (value) {
+    localStorage.setItem(IS_DIRTY_KEY, 'true')
+  } else {
+    localStorage.removeItem(IS_DIRTY_KEY)
   }
+})
+
+// 後方互換性のためのエイリアス（読み取り専用）
+export const isDirty = hasAnyDirty
+
+// 起動時のLocalStorageチェック用（PWA強制終了対策）
+export function getPersistedDirtyFlag(): boolean {
+  return localStorage.getItem(IS_DIRTY_KEY) === 'true'
 }
 
-export const isDirty = createIsDirtyStore()
+// 特定のリーフをダーティに設定
+export function setLeafDirty(leafId: string, dirty: boolean = true): void {
+  leaves.update(($leaves) => $leaves.map((l) => (l.id === leafId ? { ...l, isDirty: dirty } : l)))
+}
+
+// 全リーフのダーティをクリア
+export function clearAllDirty(): void {
+  leaves.update(($leaves) => $leaves.map((l) => ({ ...l, isDirty: false })))
+}
+
+// 特定ノート配下のリーフがダーティかどうか
+export function isNoteDirty(noteId: string, $leaves: Leaf[]): boolean {
+  return $leaves.some((l) => l.noteId === noteId && l.isDirty)
+}
+
+// ノート構造変更フラグ（作成/削除/名前変更など、リーフ以外の変更）
+export const isStructureDirty = writable<boolean>(false)
+
+// 全体のダーティ判定（リーフ変更 or 構造変更）
+export const hasAnyChanges = derived(
+  [hasAnyDirty, isStructureDirty],
+  ([$hasAnyDirty, $isStructureDirty]) => $hasAnyDirty || $isStructureDirty
+)
+
+// 構造変更フラグもLocalStorageに永続化
+isStructureDirty.subscribe((value) => {
+  // hasAnyDirtyと合わせて管理（どちらかがtrueならLocalStorageに保存）
+  // hasAnyDirtyのsubscribeで既に管理しているので、ここでは構造変更時のみ追加
+  if (value) {
+    localStorage.setItem(IS_DIRTY_KEY, 'true')
+  }
+})
+
+// 全変更をクリア
+export function clearAllChanges(): void {
+  clearAllDirty()
+  isStructureDirty.set(false)
+}
+
 // Pull成功時のリモートpushCountを保持（stale編集検出用）
 export const lastPulledPushCount = writable<number>(0)
 
@@ -113,16 +151,17 @@ export function updateSettings(newSettings: Settings): void {
 export function updateNotes(newNotes: Note[]): void {
   notes.set(newNotes)
   saveNotes(newNotes).catch((err) => console.error('Failed to persist notes:', err))
-  // ノートの変更があったらダーティフラグを立てる
-  isDirty.set(true)
+  // ノート構造の変更があったらダーティフラグを立てる
+  isStructureDirty.set(true)
 }
 
 export function updateLeaves(newLeaves: Leaf[]): void {
   leaves.set(newLeaves)
   // 非同期で永続化（失敗してもUIをブロックしない）
   saveLeaves(newLeaves).catch((err) => console.error('Failed to persist leaves:', err))
-  // リーフの変更があったらダーティフラグを立てる
-  isDirty.set(true)
+  // 注: リーフのisDirtyは各リーフに設定されているのでここでは何もしない
+  // リーフの追加/削除は構造変更としてマーク
+  isStructureDirty.set(true)
 }
 
 // ============================================
@@ -132,13 +171,13 @@ export function updateLeaves(newLeaves: Leaf[]): void {
 export function updateArchiveNotes(newNotes: Note[]): void {
   archiveNotes.set(newNotes)
   // TODO: アーカイブ用のIndexedDB永続化を実装
-  isDirty.set(true)
+  isStructureDirty.set(true)
 }
 
 export function updateArchiveLeaves(newLeaves: Leaf[]): void {
   archiveLeaves.set(newLeaves)
   // TODO: アーカイブ用のIndexedDB永続化を実装
-  isDirty.set(true)
+  isStructureDirty.set(true)
 }
 
 /**

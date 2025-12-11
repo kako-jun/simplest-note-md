@@ -147,6 +147,7 @@
           note={subNote}
           dragOver={dragOverNoteId === subNote.id}
           isSelected={isActive && index === selectedIndex}
+          isDirty={allLeaves.some((l) => l.noteId === subNote.id && l.isDirty)}
           onSelect={() => onSelectNote(subNote)}
           onDragStart={() => onDragStartNote(subNote)}
           onDragEnd={() => onDragEndNote()}
@@ -198,7 +199,12 @@
               color={item.leaf.badgeColor || ''}
               onChange={(icon, color) => onUpdateLeafBadge(item.leaf.id, icon, color)}
             />
-            <strong class="text-ellipsis">{item.leaf.title}</strong>
+            <strong class="text-ellipsis">
+              {item.leaf.title}
+              {#if item.leaf.isDirty}
+                <span class="dirty-indicator" title={$_('leaf.unsaved')}></span>
+              {/if}
+            </strong>
             <div class="card-meta">
               {#if item.leaf.content}
                 <small class="note-stats">
@@ -263,6 +269,17 @@
     text-overflow: ellipsis;
     line-height: 1.3;
     max-height: 2.6em;
+  }
+
+  /* ダーティインジケーター（未保存の変更マーク） */
+  .dirty-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    margin-left: 4px;
+    vertical-align: middle;
   }
 
   /* リーフは角丸を外してノートと区別する、高さ固定でレイアウト安定 */

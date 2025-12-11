@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import type { ThemeType } from '../../lib/types'
   import type { Pane } from '../../lib/navigation'
-  import { isDirty } from '../../lib/stores'
+  import { setLeafDirty } from '../../lib/stores'
   import { isOfflineLeaf, isPriorityLeaf } from '../../lib/utils'
 
   export let content: string
@@ -333,7 +333,7 @@
           onChange(newContent)
           // オフラインリーフとプライオリティリーフはGitHub同期しないのでダーティにしない
           if (!isOfflineLeaf(leafId) && !isPriorityLeaf(leafId)) {
-            isDirty.set(true)
+            setLeafDirty(leafId)
           }
         }
       }),
