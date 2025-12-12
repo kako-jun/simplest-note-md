@@ -32,6 +32,25 @@ export interface PullResult {
 }
 
 /**
+ * Push操作のオプション
+ */
+export interface ExecutePushOptions {
+  leaves: Leaf[]
+  notes: Note[]
+  settings: Settings
+  isOperationsLocked: boolean
+  localMetadata?: Metadata
+  /** アーカイブのリーフ（ロード済みの場合のみ） */
+  archiveLeaves?: Leaf[]
+  /** アーカイブのノート（ロード済みの場合のみ） */
+  archiveNotes?: Note[]
+  /** アーカイブのメタデータ（ロード済みの場合のみ） */
+  archiveMetadata?: Metadata
+  /** アーカイブがロード済みかどうか */
+  isArchiveLoaded?: boolean
+}
+
+/**
  * 全リーフをGitHubにPush（Git Tree APIを使用）
  *
  * Git Tree APIにより、1コミットで全変更を反映：
@@ -39,20 +58,22 @@ export interface PullResult {
  * - APIリクエスト数を最小化（約6回）
  * - IndexedDBには一切触らない（メモリ上のみで処理）
  *
- * @param leaves - Push対象のリーフ配列
- * @param notes - ノート配列（パス構築に必要）
- * @param settings - GitHub設定
- * @param isOperationsLocked - 操作ロック状態
- * @param localMetadata - ローカルのmetadata（仮想リーフのバッジ情報など）
+ * @param options - Push操作のオプション
  * @returns Push結果
  */
-export async function executePush(
-  leaves: Leaf[],
-  notes: Note[],
-  settings: Settings,
-  isOperationsLocked: boolean,
-  localMetadata?: Metadata
-): Promise<PushResult> {
+export async function executePush(options: ExecutePushOptions): Promise<PushResult> {
+  const {
+    leaves,
+    notes,
+    settings,
+    isOperationsLocked,
+    localMetadata,
+    archiveLeaves,
+    archiveNotes,
+    archiveMetadata,
+    isArchiveLoaded,
+  } = options
+
   // 操作ロック中はエラー
   if (isOperationsLocked) {
     return {
@@ -71,8 +92,17 @@ export async function executePush(
     }
   }
 
-  // Git Tree APIで一括Push
-  const result = await pushAllWithTreeAPI(leaves, notes, settings, localMetadata)
+  // Git Tree APIで一括Push（アーカイブデータも含む）
+  const result = await pushAllWithTreeAPI({
+    leaves,
+    notes,
+    settings,
+    localMetadata,
+    archiveLeaves,
+    archiveNotes,
+    archiveMetadata,
+    isArchiveLoaded,
+  })
 
   return {
     success: result.success,

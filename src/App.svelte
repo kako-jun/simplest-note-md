@@ -958,6 +958,34 @@
   }
 
   async function moveNoteToWorld(note: Note, targetWorld: WorldType) {
+    // アーカイブへの移動時、アーカイブがロードされていない場合は先にPull
+    if (targetWorld === 'archive' && !$isArchiveLoaded) {
+      if ($settings.token && $settings.repoName) {
+        isArchiveLoading = true
+        try {
+          const result = await pullArchive($settings)
+          if (result.success) {
+            archiveNotes.set(result.notes)
+            archiveLeaves.set(result.leaves)
+            archiveMetadata.set(result.metadata)
+            isArchiveLoaded.set(true)
+          } else {
+            // Pull失敗時は空のアーカイブとして扱う
+            isArchiveLoaded.set(true)
+          }
+        } catch (e) {
+          console.error('Archive pull failed before move:', e)
+          // エラー時も空のアーカイブとして扱う
+          isArchiveLoaded.set(true)
+        } finally {
+          isArchiveLoading = false
+        }
+      } else {
+        // トークンがない場合は空のアーカイブとして扱う
+        isArchiveLoaded.set(true)
+      }
+    }
+
     const sourceWorld = $currentWorld
     const sourceNotes = sourceWorld === 'home' ? $notes : $archiveNotes
     const sourceLeaves = sourceWorld === 'home' ? $leaves : $archiveLeaves
@@ -1013,6 +1041,21 @@
     await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
     isStructureDirty.set(true)
 
+    // スケルトンマップから移動したリーフを削除（Homeからアーカイブ時のみ）
+    if (sourceWorld === 'home') {
+      const leafIdsToRemove = leavesToMove.map((l) => l.id)
+      let hasChanges = false
+      for (const id of leafIdsToRemove) {
+        if (leafSkeletonMap.has(id)) {
+          leafSkeletonMap.delete(id)
+          hasChanges = true
+        }
+      }
+      if (hasChanges) {
+        leafSkeletonMap = new Map(leafSkeletonMap) // リアクティブ更新をトリガー
+      }
+    }
+
     // 移動したノートを開いていた両ペインをホームに遷移
     const checkPane = (paneToCheck: Pane) => {
       const currentNote = paneToCheck === 'left' ? $leftNote : $rightNote
@@ -1032,6 +1075,34 @@
   }
 
   async function moveLeafToWorld(leaf: Leaf, targetWorld: WorldType) {
+    // アーカイブへの移動時、アーカイブがロードされていない場合は先にPull
+    if (targetWorld === 'archive' && !$isArchiveLoaded) {
+      if ($settings.token && $settings.repoName) {
+        isArchiveLoading = true
+        try {
+          const result = await pullArchive($settings)
+          if (result.success) {
+            archiveNotes.set(result.notes)
+            archiveLeaves.set(result.leaves)
+            archiveMetadata.set(result.metadata)
+            isArchiveLoaded.set(true)
+          } else {
+            // Pull失敗時は空のアーカイブとして扱う
+            isArchiveLoaded.set(true)
+          }
+        } catch (e) {
+          console.error('Archive pull failed before move:', e)
+          // エラー時も空のアーカイブとして扱う
+          isArchiveLoaded.set(true)
+        } finally {
+          isArchiveLoading = false
+        }
+      } else {
+        // トークンがない場合は空のアーカイブとして扱う
+        isArchiveLoaded.set(true)
+      }
+    }
+
     const sourceWorld = $currentWorld
     const sourceNotes = sourceWorld === 'home' ? $notes : $archiveNotes
     const sourceLeaves = sourceWorld === 'home' ? $leaves : $archiveLeaves
@@ -1042,24 +1113,55 @@
     const sourceNote = sourceNotes.find((n) => n.id === leaf.noteId)
     if (!sourceNote) return
 
-    // ターゲットに同じパスのノートがあるかチェック
-    // 同じ名前のルートノートがなければ作成
-    let targetNote = targetNotes.find((n) => n.name === sourceNote.name && !n.parentId)
-    if (!targetNote) {
-      // 新しいノートを作成
-      const maxOrder = Math.max(0, ...targetNotes.filter((n) => !n.parentId).map((n) => n.order))
-      targetNote = {
-        id: crypto.randomUUID(),
-        name: sourceNote.name,
-        parentId: undefined,
-        order: maxOrder + 1,
+    // ソースノートのパス（祖先ノートのリスト）を構築
+    const getNotePath = (note: Note): Note[] => {
+      const path: Note[] = []
+      let current: Note | undefined = note
+      while (current) {
+        path.unshift(current)
+        current = current.parentId ? sourceNotes.find((n) => n.id === current!.parentId) : undefined
       }
-      if (targetWorld === 'home') {
-        updateNotes([...$notes, targetNote])
+      return path
+    }
+    const sourceNotePath = getNotePath(sourceNote)
+
+    // ターゲット側で同じパス構造を見つけるか作成する
+    let currentTargetNotes = targetWorld === 'home' ? [...$notes] : [...$archiveNotes]
+    let targetNote: Note | undefined
+    let parentId: string | undefined
+
+    for (const pathNote of sourceNotePath) {
+      // 同じ階層で同じ名前のノートを探す
+      const existing = currentTargetNotes.find(
+        (n) => n.name === pathNote.name && n.parentId === parentId
+      )
+      if (existing) {
+        targetNote = existing
+        parentId = existing.id
       } else {
-        archiveNotes.set([...$archiveNotes, targetNote])
+        // 新しいノートを作成
+        const siblingsAtLevel = currentTargetNotes.filter((n) => n.parentId === parentId)
+        const maxOrder = Math.max(0, ...siblingsAtLevel.map((n) => n.order))
+        const newNote: Note = {
+          id: crypto.randomUUID(),
+          name: pathNote.name,
+          parentId,
+          order: maxOrder + 1,
+        }
+        currentTargetNotes = [...currentTargetNotes, newNote]
+        targetNote = newNote
+        parentId = newNote.id
+
+        // ストアを更新
+        if (targetWorld === 'home') {
+          updateNotes(currentTargetNotes)
+        } else {
+          archiveNotes.set(currentTargetNotes)
+        }
       }
     }
+
+    if (!targetNote) return
 
     // 同じ名前のリーフがあるかチェック
     const targetLeavesInNote = targetLeaves.filter((l) => l.noteId === targetNote!.id)
@@ -1092,6 +1194,12 @@
     // IndexedDBとdirtyフラグを更新
     await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
     isStructureDirty.set(true)
+
+    // スケルトンマップから移動したリーフを削除（Homeからアーカイブ時のみ）
+    if (sourceWorld === 'home' && leafSkeletonMap.has(leaf.id)) {
+      leafSkeletonMap.delete(leaf.id)
+      leafSkeletonMap = new Map(leafSkeletonMap) // リアクティブ更新をトリガー
+    }
 
     // 移動したリーフを開いていた両ペインをホームに遷移
     const checkPane = (paneToCheck: Pane) => {
@@ -1696,13 +1804,18 @@
       // ホーム直下のリーフ・仮想ノートを除外してからPush
       const saveableNotes = $notes.filter((n) => isNoteSaveable(n))
       const saveableLeaves = $leaves.filter((l) => isLeafSaveable(l, saveableNotes))
-      const result = await executePush(
-        saveableLeaves,
-        saveableNotes,
-        $settings,
-        !isFirstPriorityFetched,
-        $metadata
-      )
+      const result = await executePush({
+        leaves: saveableLeaves,
+        notes: saveableNotes,
+        settings: $settings,
+        isOperationsLocked: !isFirstPriorityFetched,
+        localMetadata: $metadata,
+        // アーカイブがロード済みの場合のみアーカイブデータを渡す
+        archiveLeaves: $isArchiveLoaded ? $archiveLeaves : undefined,
+        archiveNotes: $isArchiveLoaded ? $archiveNotes : undefined,
+        archiveMetadata: $isArchiveLoaded ? $archiveMetadata : undefined,
+        isArchiveLoaded: $isArchiveLoaded,
+      })
 
       // 結果を通知（GitHub APIのメッセージキーを翻訳、変更件数を含める）
       const translatedMessage = translateGitHubMessage(
