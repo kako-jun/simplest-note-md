@@ -970,19 +970,22 @@
             archiveMetadata.set(result.metadata)
             isArchiveLoaded.set(true)
           } else {
-            // Pull失敗時は空のアーカイブとして扱う
-            isArchiveLoaded.set(true)
+            // Pull失敗時はアーカイブ操作を中止（データ損失防止）
+            showPullToast(translateGitHubMessage(result.message, $_, result.rateLimitInfo), 'error')
+            return
           }
         } catch (e) {
           console.error('Archive pull failed before move:', e)
-          // エラー時も空のアーカイブとして扱う
-          isArchiveLoaded.set(true)
+          // エラー時はアーカイブ操作を中止
+          showPullToast($_('toast.pullFailed'), 'error')
+          return
         } finally {
           isArchiveLoading = false
         }
       } else {
-        // トークンがない場合は空のアーカイブとして扱う
-        isArchiveLoaded.set(true)
+        // トークンがない場合はアーカイブ操作不可
+        showPullToast($_('toast.noGitHubSettings'), 'error')
+        return
       }
     }
 
@@ -1087,19 +1090,22 @@
             archiveMetadata.set(result.metadata)
             isArchiveLoaded.set(true)
           } else {
-            // Pull失敗時は空のアーカイブとして扱う
-            isArchiveLoaded.set(true)
+            // Pull失敗時はアーカイブ操作を中止（データ損失防止）
+            showPullToast(translateGitHubMessage(result.message, $_, result.rateLimitInfo), 'error')
+            return
           }
         } catch (e) {
           console.error('Archive pull failed before move:', e)
-          // エラー時も空のアーカイブとして扱う
-          isArchiveLoaded.set(true)
+          // エラー時はアーカイブ操作を中止
+          showPullToast($_('toast.pullFailed'), 'error')
+          return
         } finally {
           isArchiveLoading = false
         }
       } else {
-        // トークンがない場合は空のアーカイブとして扱う
-        isArchiveLoaded.set(true)
+        // トークンがない場合はアーカイブ操作不可
+        showPullToast($_('toast.noGitHubSettings'), 'error')
+        return
       }
     }
 
