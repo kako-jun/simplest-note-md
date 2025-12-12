@@ -31,7 +31,7 @@ export default defineConfig({
         short_name: 'Agasteer',
         description: 'A simple markdown note-taking app with GitHub sync',
         theme_color: '#1a1a1a',
-        background_color: '#1a1a1a',
+        background_color: '#46B278',
         display: 'standalone',
         start_url: '/',
         icons: [
