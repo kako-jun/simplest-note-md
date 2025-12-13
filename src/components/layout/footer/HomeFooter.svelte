@@ -21,18 +21,21 @@
   <svelte:fragment slot="left">
     <!-- アーカイブ内では新規作成不可 -->
     {#if currentWorld === 'home'}
-      <IconButton
-        onClick={() => onCreateNote('')}
-        title={$_('footer.newNote')}
-        ariaLabel={$_('footer.newNote')}
-        {disabled}
-      >
-        <FolderPlusIcon />
-      </IconButton>
+      <span id="tour-create-note">
+        <IconButton
+          onClick={() => onCreateNote('')}
+          title={$_('footer.newNote')}
+          ariaLabel={$_('footer.newNote')}
+          {disabled}
+        >
+          <FolderPlusIcon />
+        </IconButton>
+      </span>
     {/if}
   </svelte:fragment>
   <svelte:fragment slot="right">
     <SaveButton
+      id="tour-save"
       {onSave}
       {isDirty}
       disabled={saveDisabled}

@@ -78,14 +78,16 @@
         </IconButton>
       {/if}
 
-      <IconButton
-        onClick={() => onCreateLeaf('')}
-        title={$_('footer.newLeaf')}
-        ariaLabel={$_('footer.newLeaf')}
-        {disabled}
-      >
-        <FilePlusIcon />
-      </IconButton>
+      <span id="tour-create-leaf">
+        <IconButton
+          onClick={() => onCreateLeaf('')}
+          title={$_('footer.newLeaf')}
+          ariaLabel={$_('footer.newLeaf')}
+          {disabled}
+        >
+          <FilePlusIcon />
+        </IconButton>
+      </span>
     {/if}
   </svelte:fragment>
   <svelte:fragment slot="right">

@@ -75,6 +75,7 @@
   } from './lib/api'
   import type { PullOptions, PullPriority, LeafSkeleton, RateLimitInfo } from './lib/api'
   import { initI18n, _ } from './lib/i18n'
+  import { isTourShown, startTour } from './lib/tour'
   import { processImportFile, isAgasteerZip, parseAgasteerZip } from './lib/data'
   import {
     pushToastState,
@@ -2384,6 +2385,12 @@
         clearAllChanges()
       }
       isStale.set(false) // Pullしたのでstale状態を解除
+
+      // 初回Pull成功時にツアーを表示（まだ表示されていない場合）
+      if (isInitial && !isTourShown()) {
+        // UIが落ち着いてからツアーを開始
+        setTimeout(() => startTour(), 500)
+      }
     } else {
       // Pull失敗時: バックアップからデータを復元
       if (hasBackupData) {

@@ -43,7 +43,7 @@
         }
       }}>{title}</a
     >
-    <div class="pull-button-wrapper">
+    <div class="pull-button-wrapper" id="tour-pull">
       <div class="pull-button">
         <IconButton
           onClick={onPull}
@@ -85,7 +85,7 @@
     >
       <SearchIcon />
     </IconButton>
-    <div class="settings-button-wrapper">
+    <div class="settings-button-wrapper" id="tour-settings">
       <IconButton
         onClick={onSettingsClick}
         title={$_('header.settings')}

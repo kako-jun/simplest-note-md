@@ -274,5 +274,46 @@
     "message2": "Please set up your repository and token in settings.",
     "openSettings": "Open Settings",
     "later": "Later"
+  },
+  "tour": {
+    "next": "Next",
+    "prev": "Back",
+    "done": "Done",
+    "welcome": {
+      "title": "Welcome to Agasteer!",
+      "description": "Let's learn the basics."
+    },
+    "createNote": {
+      "title": "Create a Note",
+      "description": "Start by creating a note. Notes are folders that organize your leaves."
+    },
+    "createLeaf": {
+      "title": "Create a Leaf",
+      "description": "Create a leaf inside a note. Leaves are pages where you actually write."
+    },
+    "save": {
+      "title": "Push (Save)",
+      "description": "Push to save your work to GitHub. You can also use Ctrl+S / Cmd+S."
+    },
+    "pull": {
+      "title": "Pull (Sync)",
+      "description": "Pull runs automatically on startup to sync changes from other devices."
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Customize themes and fonts to your liking. You'll also find a link to the manual here."
+    },
+    "offline": {
+      "title": "Offline Leaf",
+      "description": "The Offline leaf on home is for offline use or quick notes. It doesn't sync with GitHub."
+    },
+    "priority": {
+      "title": "Priority Leaf",
+      "description": "The Priority leaf auto-collects paragraphs with [1]~[5] markers from all leaves. Read-only."
+    },
+    "finish": {
+      "title": "You're Ready!",
+      "description": "Start writing your notes! If you need help, check the manual link in settings."
+    }
   }
 }

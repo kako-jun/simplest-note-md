@@ -9,6 +9,8 @@
   export let disabledReason: string = ''
   /** 無効時のクリックハンドラ */
   export let onDisabledClick: ((reason: string) => void) | null = null
+  /** DOM ID（ツアー用） */
+  export let id: string = ''
 
   function handleClick() {
     if (disabled) {
@@ -21,7 +23,7 @@
   }
 </script>
 
-<div class="save-button-wrapper">
+<div class="save-button-wrapper" id={id || undefined}>
   <button
     type="button"
     class="save-button"
