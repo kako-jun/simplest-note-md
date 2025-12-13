@@ -2,19 +2,28 @@ import './App.css'
 import App from './App.svelte'
 import { registerSW } from 'virtual:pwa-register'
 
-// PWA更新を初回Pullより先にチェック
-// 新しいSWがあれば即座にリロード（API制限の節約）
-const updateSW = registerSW({
-  immediate: true,
-  onRegistered(swRegistration) {
-    swRegistration?.update()
-  },
-  onNeedRefresh() {
-    // 新しいSWが検知された場合、即座にリロード
-    // これにより、App.svelteのonMountでの初回Pullより先に更新が適用される
-    console.log('New version available, reloading...')
-    updateSW(true) // true = immediate reload
-  },
+// PWA更新チェック完了を待つためのPromise
+// App.svelteのonMountで初回Pullより先にこのPromiseをawaitする
+export const waitForSwCheck: Promise<void> = new Promise((resolve) => {
+  const updateSW = registerSW({
+    immediate: true,
+    onRegistered(swRegistration) {
+      // SW登録完了 → 更新チェック
+      swRegistration?.update()
+      // 更新がなければここで完了
+      resolve()
+    },
+    onNeedRefresh() {
+      // 新しいSWが検知された場合、即座にリロード
+      // リロード後は新しいコードで初回Pullが走る
+      console.log('New version available, reloading...')
+      updateSW(true) // true = immediate reload
+      // resolveは呼ばない（リロードするので不要）
+    },
+  })
+
+  // タイムアウト: SWがサポートされていない環境や登録に時間がかかる場合
+  setTimeout(resolve, 500)
 })
 
 const app = new App({

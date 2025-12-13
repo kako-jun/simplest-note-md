@@ -15,6 +15,76 @@ const headers = {
 
 ---
 
+## 接続テスト
+
+設定画面の「接続テスト」ボタンは、実際のPullを行わずにGitHub接続が可能かどうかだけを確認します。
+
+### 目的
+
+- トークンが有効か確認
+- リポジトリにアクセス可能か確認
+- **実際のデータはPullしない**（設定画面で「ローカルの方が進んでいる」等のメッセージを出さないため）
+
+### 実装
+
+```typescript
+export async function testGitHubConnection(settings: Settings): Promise<{
+  success: boolean
+  message: string
+  rateLimitInfo?: { remaining: number; resetMinutes: number }
+}> {
+  // 1. 設定値のバリデーション
+  const validation = validateGitHubSettings(settings)
+  if (!validation.valid) {
+    return { success: false, message: validation.message }
+  }
+
+  // 2. ユーザー情報取得（トークン検証）
+  const userRes = await fetchGitHubUser(settings.token)
+  if (!userRes.ok) {
+    // 401: 無効なトークン, 403: Rate limit等
+    return { success: false, message: 'github.invalidToken' }
+  }
+
+  // 3. リポジトリ存在確認
+  const repoRes = await fetchGitHubRepo(settings.repoName, settings.token)
+  if (!repoRes.ok) {
+    if (repoRes.status === 404) {
+      return { success: false, message: 'github.repoNotFound' }
+    }
+    if (repoRes.status === 403) {
+      return { success: false, message: 'github.noPermission' }
+    }
+    return { success: false, message: 'github.repoFetchFailed' }
+  }
+
+  return { success: true, message: 'github.connectionOk' }
+}
+```
+
+### UIフロー
+
+```
+設定画面
+    ↓
+「接続テスト」ボタンをクリック
+    ↓
+testGitHubConnection()実行
+    ↓
+    ├─ 成功 → 「接続OK（認証・リポジトリ参照に成功）」
+    └─ 失敗 → エラーメッセージ（トークン無効、リポジトリ不明等）
+```
+
+### Pull/Pushとの違い
+
+| 機能       | 実行内容                 | データ取得 |
+| ---------- | ------------------------ | ---------- |
+| 接続テスト | 認証・リポジトリ存在確認 | なし       |
+| Pull       | 接続テスト + データ取得  | あり       |
+| Push       | 接続テスト + データ送信  | あり       |
+
+---
+
 ## Push処理（Git Tree API）
 
 全リーフを1コミットでPushする実装。Git Tree APIを使用することで、削除・リネームを確実に処理し、APIリクエスト数を最小化（約8回）。

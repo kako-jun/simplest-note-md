@@ -4,8 +4,8 @@
 
   export let settings: Settings
   export let onSettingsChange: (payload: Partial<Settings>) => void
-  export let isLoadingUI: boolean = false
-  export let onPull: (isInitial?: boolean) => void
+  export let isTesting: boolean = false
+  export let onTestConnection: () => void
 
   type TextSettingKey = 'repoName' | 'token'
 
@@ -136,10 +136,18 @@
     </div>
   </div>
   <div class="test-actions">
-    <button type="button" class="test-button" on:click={() => onPull(false)} disabled={isLoadingUI}>
+    <button type="button" class="test-button" on:click={onTestConnection} disabled={isTesting}>
       <svg class="test-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path
-          d="M12 3v12m0 0-4-4m4 4 4-4M5 17h14"
+          d="M22 11.08V12a10 10 0 1 1-5.93-9.14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <polyline
+          points="22 4 12 14.01 9 11.01"
           fill="none"
           stroke="currentColor"
           stroke-width="2"
@@ -147,7 +155,7 @@
           stroke-linejoin="round"
         />
       </svg>
-      {isLoadingUI ? $_('settings.github.pulling') : $_('settings.github.pullTest')}
+      {isTesting ? $_('settings.github.testing') : $_('settings.github.testConnection')}
     </button>
   </div>
 </div>

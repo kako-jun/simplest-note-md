@@ -105,8 +105,8 @@
       "usernamePlaceholder": "your-name",
       "email": "コミットメールアドレス",
       "emailPlaceholder": "you@example.com",
-      "pullTest": "Pullテスト",
-      "pulling": "Pull中…"
+      "testConnection": "接続テスト",
+      "testing": "テスト中…"
     },
     "extras": {
       "title": "おまけ",

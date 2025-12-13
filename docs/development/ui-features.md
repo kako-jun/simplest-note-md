@@ -1422,10 +1422,77 @@ convert -size 512x512 xc:'#2196F3' -fill white -font DejaVu-Sans-Bold \
 - **静的アセット**: `precache`（ビルド時に全て登録）
 - **GitHub API**: `NetworkFirst`（ネットワーク優先、5分キャッシュ）
 
+### PWA更新フロー
+
+新しいバージョンがデプロイされた場合、初回Pullより先に更新を適用します。これにより、API制限の節約と古いコードでのPull実行を回避できます。
+
+#### 実装（main.ts）
+
+```typescript
+import { registerSW } from 'virtual:pwa-register'
+
+// PWA更新を初回Pullより先にチェック
+// 新しいSWがあれば即座にリロード（API制限の節約）
+const updateSW = registerSW({
+  immediate: true,
+  onRegistered(swRegistration) {
+    swRegistration?.update()
+  },
+  onNeedRefresh() {
+    // 新しいSWが検知された場合、即座にリロード
+    // これにより、App.svelteのonMountでの初回Pullより先に更新が適用される
+    console.log('New version available, reloading...')
+    updateSW(true) // true = immediate reload
+  },
+})
+```
+
+#### フロー
+
+```
+アプリ起動
+    ↓
+main.ts: registerSW (immediate: true) → waitForSwCheckをexport
+    ↓
+App.svelte onMount
+    ↓
+await waitForSwCheck ← ここでSWチェック完了を待つ
+    ↓
+    ├─ 新しいSWあり → onNeedRefresh → 即座にリロード（Pullなし）
+    │                    ↓
+    │               リロード後に再起動 → 新しいコードでPull実行
+    │
+    └─ 新しいSWなし or タイムアウト(500ms) → handlePull(true)
+```
+
+#### 実装（App.svelte）
+
+```typescript
+import { waitForSwCheck } from './main'
+
+onMount(() => {
+  ;(async () => {
+    // ... 初期化処理 ...
+
+    // PWA更新チェック完了を待つ（更新があればリロードされる）
+    await waitForSwCheck
+
+    // GitHub設定チェック → handlePull(true)
+  })()
+})
+```
+
+**設計のポイント:**
+
+- `waitForSwCheck`: main.tsからexportされるPromise
+- App.svelteで`await`することで、SWチェック完了を確実に待つ
+- タイムアウト500ms: SWがサポートされていない環境でも動作
+- 更新があればリロードされ、Pullは走らない
+
 ### 仕様
 
 - **オフライン動作**: 限定的（初回Pullが必須のため）
-- **自動更新**: Service Workerは自動更新
+- **自動更新**: Service Workerは自動更新、新バージョン検知で即座にリロード
 - **プラットフォーム**: iOS Safari, Android Chrome, Desktop Chrome対応
 
 ---

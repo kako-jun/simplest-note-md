@@ -4,12 +4,12 @@
 
   export let show: boolean
   export let settings: Settings
-  export let isLoadingUI: boolean
+  export let isTesting: boolean
   export let exporting: boolean
   export let importing: boolean
   export let onThemeChange: (theme: string) => void
   export let onSettingsChange: (payload: Partial<Settings>) => void
-  export let onPull: () => void
+  export let onTestConnection: () => void
   export let onExportZip: () => void
   export let onImport: () => void
   export let onClose: () => void
@@ -85,8 +85,8 @@
         {settings}
         {onThemeChange}
         {onSettingsChange}
-        {isLoadingUI}
-        {onPull}
+        {isTesting}
+        {onTestConnection}
         {onExportZip}
         {onImport}
         {exporting}

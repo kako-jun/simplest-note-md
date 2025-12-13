@@ -1,5 +1,6 @@
 <script lang="ts">
   import './App.css'
+  import { waitForSwCheck } from './main'
   import { onMount, tick, setContext } from 'svelte'
   import { writable, get } from 'svelte/store'
   import type { Note, Leaf, Breadcrumb, View, Metadata, WorldType, SearchMatch } from './lib/types'
@@ -68,6 +69,7 @@
     executePull,
     pullArchive,
     checkIfStaleEdit,
+    testGitHubConnection,
     translateGitHubMessage,
     canSync,
   } from './lib/api'
@@ -162,6 +164,7 @@
   let showWelcome = false // ウェルカムモーダル表示フラグ
   let isExportingZip = false
   let isImporting = false
+  let isTesting = false
   let importOccurredInSettings = false
   let isClosingSettingsPull = false
   let isArchiveLoading = false // アーカイブをロード中
@@ -513,37 +516,28 @@
       // Pull成功時にIndexedDBは全削除→全作成される
       // Pull成功後、URLから状態を復元（handlePull内で実行）
 
+      // PWA更新チェック完了を待つ（更新があればリロードされる）
+      await waitForSwCheck
+
       // GitHub設定チェック
       const isConfigured = loadedSettings.token && loadedSettings.repoName
       if (isConfigured) {
-        // PWA強制終了等で未保存の変更が残っている場合は確認
-        if (getPersistedDirtyFlag()) {
-          showConfirm(
-            $_('modal.unsavedChangesOnStartup'),
-            // OK: Pullを実行（ローカルの変更は破棄）
-            async () => {
-              await handlePull(true)
-            },
-            // Cancel: Pullスキップ、IndexedDBから読み込んで操作可能に
-            async () => {
-              try {
-                const savedNotes = await loadNotes()
-                const savedLeaves = await loadLeaves()
-                notes.set(savedNotes)
-                leaves.set(savedLeaves)
-                isFirstPriorityFetched = true
-                restoreStateFromUrl(false)
-              } catch (error) {
-                console.error('Failed to load from IndexedDB:', error)
-                // 失敗した場合はPullを実行
-                await handlePull(true)
-              }
-            }
-          )
-        } else {
-          // 設定済みで未保存の変更がない場合は通常通り初回Pullを実行
-          await handlePull(true)
-        }
+        // 初回Pull実行（handlePull内でdirtyチェック、staleチェックを行う）
+        // キャンセル時はIndexedDBから読み込んで操作可能にする
+        await handlePull(true, async () => {
+          try {
+            const savedNotes = await loadNotes()
+            const savedLeaves = await loadLeaves()
+            notes.set(savedNotes)
+            leaves.set(savedLeaves)
+            isFirstPriorityFetched = true
+            restoreStateFromUrl(false)
+          } catch (error) {
+            console.error('Failed to load from IndexedDB:', error)
+            // 失敗した場合はPullを実行
+            await handlePull(true)
+          }
+        })
       } else {
         // 未設定の場合はウェルカムモーダルを表示
         showWelcome = true
@@ -2239,31 +2233,34 @@
     isClosingSettingsPull = false
   }
 
-  async function handlePull(isInitialStartup = false) {
-    // まだ一度もPullしていない場合は全チェックをスキップして必ずPull実行
-    // （Pull test、Pullボタン、初回Pullは本質的に同じ処理）
-    if (!isFirstPriorityFetched) {
-      await executePullInternal(isInitialStartup)
-      return
+  async function handleTestConnection() {
+    isTesting = true
+    try {
+      const result = await testGitHubConnection($settings)
+      const message = translateGitHubMessage(result.message, $_, result.rateLimitInfo)
+      showPullToast(message, result.success ? 'success' : 'error')
+    } catch (e) {
+      showPullToast($_('github.networkError'), 'error')
+    } finally {
+      isTesting = false
     }
+  }
 
-    // 以下は2回目以降のPull時のみ実行
-
+  async function handlePull(isInitialStartup = false, onCancel?: () => void) {
     // 交通整理: Pull/Push中は不可
     if (!canSync($isPulling, $isPushing).canPull) return
 
-    // 未保存の変更がある場合は確認
-    if (get(hasAnyChanges)) {
-      let message = $_('modal.unsavedChanges')
-      if (isClosingSettingsPull && importOccurredInSettings) {
-        message += `\n\n${$_('settings.importExport.importCloseHint')}`
-        importOccurredInSettings = false
-      }
-      showConfirm(message, () => executePullInternal(isInitialStartup))
+    // 未保存の変更がある場合は確認（PWA強制終了後の再起動も考慮）
+    if (get(hasAnyChanges) || getPersistedDirtyFlag()) {
+      const message = isInitialStartup
+        ? $_('modal.unsavedChangesOnStartup')
+        : $_('modal.unsavedChanges')
+      showConfirm(message, () => executePullInternal(isInitialStartup), onCancel)
       return
     }
 
-    // リモートに変更がなければスキップ
+    // staleチェック（比較対象は常にある：初期値0 vs リモート）
+    // 空リポジトリ(metadata.jsonなし)の場合は-1が返り、stale=trueになる
     const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
     if (!isStale) {
       showPullToast($_('github.noRemoteChanges'), 'success')
@@ -2554,12 +2551,12 @@
     <SettingsModal
       show={showSettings}
       settings={$settings}
-      {isLoadingUI}
+      {isTesting}
       exporting={isExportingZip}
       importing={isImporting}
       onThemeChange={handleThemeChange}
       onSettingsChange={handleSettingsChange}
-      onPull={handlePull}
+      onTestConnection={handleTestConnection}
       onExportZip={exportNotesAsZip}
       onImport={handleImportFromOtherApps}
       onClose={closeSettings}

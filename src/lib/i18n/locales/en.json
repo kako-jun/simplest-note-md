@@ -105,8 +105,8 @@
       "usernamePlaceholder": "your-name",
       "email": "Commit Email",
       "emailPlaceholder": "you@example.com",
-      "pullTest": "Test Pull",
-      "pulling": "Pulling..."
+      "testConnection": "Test Connection",
+      "testing": "Testing..."
     },
     "extras": {
       "title": "Extras",

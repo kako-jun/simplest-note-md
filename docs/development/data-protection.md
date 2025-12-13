@@ -24,25 +24,35 @@ flowchart TD
 
 ### Pull処理フロー
 
+初回PullとPullボタンは完全に同じロジックで動作します。起動時は「自動的にPullボタンを押す」のと同じです。
+
 ```mermaid
 flowchart TD
-    subgraph Pull["Pull処理"]
-        PL1[Pullボタン] --> PL2{Pull可能?}
-        PL2 -->|No: Push中| PL3[スキップ]
+    subgraph Pull["Pull処理（初回もPullボタンも同じ）"]
+        PL1[Pullボタン/初回Pull] --> PL2{Pull可能?}
+        PL2 -->|No: Pull/Push中| PL3[スキップ]
         PL2 -->|Yes| PL4{ダーティ?}
         PL4 -->|Yes| PL5[確認ダイアログ]
-        PL4 -->|No| PL6{リモート変更チェック}
+        PL4 -->|No| PL6{staleチェック}
         PL5 -->|OK| PL7[Pull実行]
-        PL5 -->|Cancel| PL8[キャンセル]
-        PL6 -->|チェック不可| PL7
-        PL6 -->|変更なし| PL9[スキップ通知]
-        PL6 -->|変更あり| PL7
+        PL5 -->|Cancel: 初回| PL8A[IndexedDBから読み込み]
+        PL5 -->|Cancel: 通常| PL8B[何もしない]
+        PL6 -->|stale: チェック不可| PL7
+        PL6 -->|stale: 変更あり| PL7
+        PL6 -->|not stale| PL9[変更なし通知]
         PL7 --> PL10[優先Pull完了]
         PL10 --> PL11{Pull中に編集?}
         PL11 -->|Yes| PL12[編集内容を保持]
         PL11 -->|No| PL13[ダーティクリア]
     end
 ```
+
+**staleチェックの判定:**
+
+- 空リポジトリ（metadata.jsonなし）→ チェック不可（-1）→ stale扱い → Pull実行
+- 設定無効・認証エラー・ネットワークエラー → チェック不可（-1）→ stale扱い → Pull実行（適切なエラー表示）
+- リモートpushCount > ローカル → stale → Pull実行
+- リモートpushCount <= ローカル → not stale → 「変更なし」通知
 
 ### 自動Push処理フロー
 
@@ -354,75 +364,81 @@ PWAがOSによってバックグラウンドで強制終了された場合、`be
 
 ### 確認ダイアログの表示
 
-#### 1. アプリ起動時（PWA強制終了対策）
+#### 1. アプリ起動時（初回Pull）
 
-PWA強制終了後の再起動時、LocalStorageに`isDirty=true`が残っている場合、初回Pull前に確認ダイアログを表示。
+アプリ起動時は「自動的にPullボタンを押す」のと同じです。handlePull内でダーティチェック、staleチェックが行われます。
 
 ```typescript
 // onMount内
 if (isConfigured) {
-  // PWA強制終了等で未保存の変更が残っている場合は確認
-  if (get(isDirty)) {
-    showConfirm(
-      $_('modal.unsavedChangesOnStartup'),
-      // OK: Pullを実行（ローカルの変更は破棄）
-      async () => {
-        await handlePull(true)
-      },
-      // Cancel: Pullスキップ、IndexedDBから読み込んで操作可能に
-      async () => {
-        try {
-          const savedNotes = await loadNotes()
-          const savedLeaves = await loadLeaves()
-          notes.set(savedNotes)
-          leaves.set(savedLeaves)
-          isFirstPriorityFetched = true
-          restoreStateFromUrl(false)
-        } catch (error) {
-          console.error('Failed to load from IndexedDB:', error)
-          await handlePull(true)
-        }
-      }
-    )
-  } else {
-    await handlePull(true)
-  }
+  // 初回Pull実行（handlePull内でdirtyチェック、staleチェックを行う）
+  // キャンセル時はIndexedDBから読み込んで操作可能にする
+  await handlePull(true, async () => {
+    try {
+      const savedNotes = await loadNotes()
+      const savedLeaves = await loadLeaves()
+      notes.set(savedNotes)
+      leaves.set(savedLeaves)
+      isFirstPriorityFetched = true
+      restoreStateFromUrl(false)
+    } catch (error) {
+      console.error('Failed to load from IndexedDB:', error)
+      await handlePull(true)
+    }
+  })
 }
 ```
 
-- **ダイアログタイプ**: Modal.svelteベースの既存モーダル
-- **メッセージ**: 「前回の編集内容がGitHubに保存されていません。Pullすると失われます。Pullしますか？」
-- **OK**: Pullを実行（GitHubのデータでIndexedDBを上書き）
-- **キャンセル**: Pullをスキップし、IndexedDBからデータを読み込んで操作可能にする
+handlePull関数のシグネチャ:
 
-**キャンセル時の重要な処理:**
+```typescript
+async function handlePull(isInitialStartup = false, onCancel?: () => void)
+```
+
+- **isInitialStartup**: trueの場合、確認ダイアログのメッセージが起動時用に変わる
+- **onCancel**: 確認ダイアログでキャンセルした時に呼ばれるコールバック
+
+**起動時のキャンセル動作:**
 
 - `isFirstPriorityFetched = true` を設定して操作ロックを解除
 - IndexedDBからノート・リーフを読み込んでストアに設定
 - URLから状態を復元
+- これにより、PWA強制終了後でもローカルの変更を保持して継続編集が可能
 
-#### 2. Pull実行時（既存モーダル）
+#### 2. Pullボタンクリック時
 
-未保存の変更がある状態でPullを実行しようとすると確認ダイアログを表示。
+Pullボタンと初回Pullは同じhandlePull関数を使用します。ダーティチェックとstaleチェックを行い、必要に応じて確認ダイアログを表示します。
 
 ```typescript
-async function handlePull(isInitial = false) {
-  // 初回Pull以外で未保存の変更がある場合は確認
-  if (!isInitial && get(isDirty)) {
-    showConfirm('未保存の変更があります。Pullを実行しますか？', () =>
-      executePullInternal(isInitial)
-    )
+async function handlePull(isInitialStartup = false, onCancel?: () => void) {
+  // 交通整理: Pull/Push中は不可
+  if (!canSync($isPulling, $isPushing).canPull) return
+
+  // 未保存の変更がある場合は確認
+  if (get(hasAnyChanges) || getPersistedDirtyFlag()) {
+    const message = isInitialStartup
+      ? $_('modal.unsavedChangesOnStartup')
+      : $_('modal.unsavedChanges')
+    showConfirm(message, () => executePullInternal(isInitialStartup), onCancel)
     return
   }
 
-  await executePullInternal(isInitial)
+  // staleチェック（比較対象は常にある：初期値0 vs リモート）
+  const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
+  if (!isStale) {
+    showPullToast($_('github.noRemoteChanges'), 'success')
+    return
+  }
+
+  await executePullInternal(isInitialStartup)
 }
 ```
 
 - **ダイアログタイプ**: Modal.svelteベースの既存モーダル
-- **メッセージ**: 「未保存の変更があります。Pullすると上書きされます。続行しますか？」
-- **OK**: Pullを実行（GitHubのデータでIndexedDBを上書き）
-- **キャンセル**: Pullをキャンセル
+- **メッセージ（通常）**: 「未保存の変更があります。Pullすると上書きされます。続行しますか？」
+- **メッセージ（起動時）**: 「前回の編集内容がGitHubに保存されていません。Pullすると失われます。Pullしますか？」
+- **OK**: Pullを実行
+- **キャンセル**: onCancelコールバックがあれば実行、なければ何もしない
 
 #### 3. ページ離脱時（ブラウザ標準ダイアログ）
 
@@ -967,33 +983,47 @@ if (!get(hasAnyChanges)) {
 }
 ```
 
-### handlePullのチェック順序
+### handlePullのチェック順序（統一ロジック）
 
-ダーティ状態の確認は、リモート変更チェックより先に行います。これにより、ローカル変更を破棄してリモートに合わせたい場合でもPullが可能になります。
+初回PullとPullボタンは完全に同じロジックで動作します。チェック順序:
+
+1. **交通整理**: Pull/Push中は不可
+2. **ダーティチェック**: 未保存変更があれば確認ダイアログ
+3. **staleチェック**: リモートに変更がなければスキップ
+4. **Pull実行**
 
 ```typescript
-async function handlePull(isInitial = false) {
-  // 1. 交通整理
-  if (!isInitial && !canSync().canPull) return
+async function handlePull(isInitialStartup = false, onCancel?: () => void) {
+  // 1. 交通整理: Pull/Push中は不可
+  if (!canSync($isPulling, $isPushing).canPull) return
 
-  // 2. 未保存の変更がある場合は確認（リモート変更チェックより先）
-  if (!isInitial && get(hasAnyChanges)) {
-    showConfirm(message, () => executePullInternal(isInitial))
+  // 2. 未保存の変更がある場合は確認
+  if (get(hasAnyChanges) || getPersistedDirtyFlag()) {
+    const message = isInitialStartup
+      ? $_('modal.unsavedChangesOnStartup')
+      : $_('modal.unsavedChanges')
+    showConfirm(message, () => executePullInternal(isInitialStartup), onCancel)
     return
   }
 
-  // 3. リモートに変更がなければスキップ（未保存変更がない場合のみ）
-  if (!isInitial) {
-    const isStale = await checkIfStaleEdit(...)
-    if (!isStale) {
-      showPullToast('リモートに変更がありません')
-      return
-    }
+  // 3. staleチェック（比較対象は常にある：初期値0 vs リモート）
+  // 空リポジトリ(metadata.jsonなし)の場合は-1が返り、stale=trueになる
+  const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
+  if (!isStale) {
+    showPullToast($_('github.noRemoteChanges'), 'success')
+    return
   }
 
-  await executePullInternal(isInitial)
+  // 4. Pull実行
+  await executePullInternal(isInitialStartup)
 }
 ```
+
+**設計のポイント:**
+
+- 初回Pullでも通常Pullでも同じチェックを通る
+- 空リポジトリ初回アクセス時は、metadata.jsonがないためstale判定（-1）→ Pull実行 → UI初期化
+- キャンセル時の動作は呼び出し元がonCancelで制御
 
 ### 動作フロー
 
