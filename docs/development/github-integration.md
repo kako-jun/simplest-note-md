@@ -309,6 +309,58 @@ async function switchToArchive() {
 }
 ```
 
+### 空リポジトリの処理
+
+初回コミットがない空のリポジトリに対応。GitHub APIは空リポジトリに対して特殊なレスポンスを返す。
+
+#### APIレスポンス
+
+| エンドポイント        | ステータス | メッセージ                  |
+| --------------------- | ---------- | --------------------------- |
+| `/contents/...`       | 404        | "This repository is empty." |
+| `/git/trees/{branch}` | 409        | "Git Repository is empty."  |
+
+#### 処理フロー
+
+```
+空リポジトリへのPull
+    ↓
+metadata.json取得 → 404
+    ↓
+fetchRemotePushCount → -1（チェック不可）
+    ↓
+staleチェック → true（Pullせよ）
+    ↓
+tree取得 → 409 Conflict
+    ↓
+空リポジトリとして正常処理
+    ↓
+onStructure([], defaultMetadata, [])
+onPriorityComplete()
+    ↓
+isFirstPriorityFetched = true
+    ↓
+UI活性化（ノート作成可能）
+```
+
+#### 実装
+
+```typescript
+// tree取得後の処理
+if (treeRes.status === 404 || treeRes.status === 409) {
+  // 空のリポジトリ → 空のデータで成功扱い
+  options?.onStructure?.([], defaultMetadata, [])
+  options?.onPriorityComplete?.()
+  return {
+    success: true,
+    message: 'github.pullOk',
+    notes: [],
+    leaves: [],
+    metadata: defaultMetadata,
+  }
+}
+```
+
 ### 優先度ベースの段階的ローディング（2025-11）
 
 200件以上のリーフがある場合、全件取得には10秒以上かかります。ユーザー体験を改善するため、URLで指定されたコンテンツを優先的に取得し、UIを早期に解放する仕組みを実装。

@@ -561,7 +561,7 @@ export const lastPulledPushCount = writable<number>(0)
 
 ```typescript
 // リモートのpushCountを取得
-// 戻り値: pushCount（チェック不可の場合は-1、空リポジトリは0）
+// 戻り値: pushCount（成功時）、-1（チェック不可：空リポジトリ、認証エラー、ネットワークエラー等）
 export async function fetchRemotePushCount(settings: Settings): Promise<number> {
   const validation = validateGitHubSettings(settings)
   if (!validation.valid) {
@@ -579,15 +579,16 @@ export async function fetchRemotePushCount(settings: Settings): Promise<number> 
       // ... Base64デコードしてpushCountを取得
       return metadata.pushCount || 0
     }
-    // 404等の場合（空リポジトリ）は0を返す
+    // 404の場合（空リポジトリ）は-1を返す
+    // 「リモートに変更がありません」ではなく、Pullを実行させる
     if (metadataRes.status === 404) {
-      return 0
+      return -1
     }
-    // 認証エラーや権限エラーは-1（チェック不可）
+    // 認証エラーや権限エラーも-1（チェック不可）
     if (metadataRes.status === 401 || metadataRes.status === 403) {
       return -1
     }
-    return 0
+    return -1
   } catch (e) {
     // ネットワークエラー等は-1（チェック不可）
     return -1
@@ -618,7 +619,11 @@ export async function checkIfStaleEdit(
 
 **チェック不可の場合:**
 
-設定が無効、認証エラー、ネットワークエラーなどでリモートの状態を確認できない場合、`checkIfStaleEdit`は`true`を返します。これにより、Pull/Push処理が続行され、適切なエラーメッセージ（例: 「トークンが無効です」「リポジトリが見つかりません」）が表示されます。以前は`0`を返していたため、設定が間違っていても「リモートに変更はありません」と表示されるバグがありました。
+設定が無効、認証エラー、ネットワークエラー、空リポジトリ（初回コミットなし）などでリモートの状態を確認できない場合、`fetchRemotePushCount`は`-1`を返し、`checkIfStaleEdit`は`true`を返します。これにより、Pull/Push処理が続行され、適切なエラーメッセージ（例: 「トークンが無効です」「リポジトリが見つかりません」）が表示されるか、空リポジトリの場合は正常に初期化されます。
+
+**空リポジトリの扱い:**
+
+metadata.jsonが存在しない（404）場合は`-1`を返します。これにより「リモートに変更はありません」ではなく、Pullが実行され、空リポジトリとして正常に処理されます（github-integration.md参照）。
 
 ### Push時の確認フロー
 
