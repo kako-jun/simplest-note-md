@@ -31,11 +31,12 @@ flowchart TD
         PL2 -->|No: Push中| PL3[スキップ]
         PL2 -->|Yes| PL4{ダーティ?}
         PL4 -->|Yes| PL5[確認ダイアログ]
-        PL4 -->|No| PL6{リモート変更?}
+        PL4 -->|No| PL6{リモート変更チェック}
         PL5 -->|OK| PL7[Pull実行]
         PL5 -->|Cancel| PL8[キャンセル]
-        PL6 -->|No| PL9[スキップ通知]
-        PL6 -->|Yes| PL7
+        PL6 -->|チェック不可| PL7
+        PL6 -->|変更なし| PL9[スキップ通知]
+        PL6 -->|変更あり| PL7
         PL7 --> PL10[優先Pull完了]
         PL10 --> PL11{Pull中に編集?}
         PL11 -->|Yes| PL12[編集内容を保持]
@@ -58,9 +59,10 @@ flowchart TD
         AP6 -->|No| AP3
         AP6 -->|Yes| AP7{5分経過?}
         AP7 -->|No| AP3
-        AP7 -->|Yes| AP8{stale?}
-        AP8 -->|Yes| AP9[Pullボタンに赤丸\n通知表示]
-        AP8 -->|No| AP10[自動Push実行]
+        AP7 -->|Yes| AP8{staleチェック}
+        AP8 -->|stale| AP9[Pullボタンに赤丸\n通知表示]
+        AP8 -->|チェック不可| AP9
+        AP8 -->|最新| AP10[自動Push実行]
     end
 ```
 
@@ -543,32 +545,64 @@ export const lastPulledPushCount = writable<number>(0)
 
 ```typescript
 // リモートのpushCountを取得
+// 戻り値: pushCount（チェック不可の場合は-1、空リポジトリは0）
 export async function fetchRemotePushCount(settings: Settings): Promise<number> {
-  const metadataRes = await fetchGitHubContents(
-    'notes/metadata.json',
-    settings.repoName,
-    settings.token
-  )
-  if (!metadataRes.ok) return 0
-  const data = await metadataRes.json()
-  // ... Base64デコードしてpushCountを取得
-  return metadata.pushCount || 0
+  const validation = validateGitHubSettings(settings)
+  if (!validation.valid) {
+    // 設定が無効な場合は-1を返す（チェック不可）
+    return -1
+  }
+
+  try {
+    const metadataRes = await fetchGitHubContents(
+      'notes/metadata.json',
+      settings.repoName,
+      settings.token
+    )
+    if (metadataRes.ok) {
+      // ... Base64デコードしてpushCountを取得
+      return metadata.pushCount || 0
+    }
+    // 404等の場合（空リポジトリ）は0を返す
+    if (metadataRes.status === 404) {
+      return 0
+    }
+    // 認証エラーや権限エラーは-1（チェック不可）
+    if (metadataRes.status === 401 || metadataRes.status === 403) {
+      return -1
+    }
+    return 0
+  } catch (e) {
+    // ネットワークエラー等は-1（チェック不可）
+    return -1
+  }
 }
 
 // stale編集かどうかを判定
+// 戻り値: staleならtrue、チェック不可（設定無効、ネットワークエラー等）の場合もtrue
 export async function checkIfStaleEdit(
   settings: Settings,
   lastPulledPushCount: number
 ): Promise<boolean> {
   const remotePushCount = await fetchRemotePushCount(settings)
+  // -1はチェック不可（設定無効、認証エラー、ネットワークエラー等）
+  // この場合はPull/Pushを進めて適切なエラーメッセージを表示
+  if (remotePushCount === -1) {
+    return true
+  }
   return remotePushCount > lastPulledPushCount
 }
 ```
 
 **判定ロジック:**
 
+- `remotePushCount === -1` → チェック不可（Pull/Pushを進めてエラー表示）
 - `remotePushCount > lastPulledPushCount` → stale（リモートに新しい変更がある）
 - `remotePushCount <= lastPulledPushCount` → 最新（Pushして問題なし）
+
+**チェック不可の場合:**
+
+設定が無効、認証エラー、ネットワークエラーなどでリモートの状態を確認できない場合、`checkIfStaleEdit`は`true`を返します。これにより、Pull/Push処理が続行され、適切なエラーメッセージ（例: 「トークンが無効です」「リポジトリが見つかりません」）が表示されます。以前は`0`を返していたため、設定が間違っていても「リモートに変更はありません」と表示されるバグがありました。
 
 ### Push時の確認フロー
 
