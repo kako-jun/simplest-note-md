@@ -1052,6 +1052,11 @@ export async function pullFromGitHub(
     }
     // 空のリポジトリ（コミットがない）の場合は404が返る → 空のデータで成功扱い
     if (treeRes.status === 404) {
+      // コールバックを呼んでUIを正常状態に遷移させる
+      // 1. onStructure: ノート構造を設定（空）
+      options?.onStructure?.([], defaultMetadata, [])
+      // 2. onPriorityComplete: isFirstPriorityFetched=true, isLoadingUI=false を設定
+      options?.onPriorityComplete?.()
       return {
         success: true,
         message: 'github.pullOk',

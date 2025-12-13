@@ -267,7 +267,7 @@
     "pushOkWithCount": "{count}件のリーフを保存しました",
     "pushOkMetadataOnly": "メタデータのみ更新しました",
     "noChanges": "変更なし（Pushスキップ）",
-    "noRemoteChanges": "変更なし（Pullスキップ）"
+    "noRemoteChanges": "リモートに変更がないためPullをスキップしました"
   },
   "welcome": {
     "title": "Agasteerに\n興味をもってくれてありがとう！",

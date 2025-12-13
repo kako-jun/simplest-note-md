@@ -254,7 +254,7 @@
     "pushOkWithCount": "Saved {count} leaves",
     "pushOkMetadataOnly": "Metadata updated",
     "noChanges": "No changes (Push skipped)",
-    "noRemoteChanges": "No changes (Pull skipped)"
+    "noRemoteChanges": "No remote changes - Pull skipped"
   },
   "move": {
     "title": "Select destination",

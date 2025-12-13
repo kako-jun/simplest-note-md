@@ -2239,33 +2239,38 @@
     isClosingSettingsPull = false
   }
 
-  async function handlePull(isInitial = false) {
-    // 交通整理: Pull不可なら何もしない（初回Pullは例外）
-    if (!isInitial && !canSync($isPulling, $isPushing).canPull) return
+  async function handlePull(isInitialStartup = false) {
+    // まだ一度もPullしていない場合は全チェックをスキップして必ずPull実行
+    // （Pull test、Pullボタン、初回Pullは本質的に同じ処理）
+    if (!isFirstPriorityFetched) {
+      await executePullInternal(isInitialStartup)
+      return
+    }
 
-    // 初回Pull以外で未保存の変更がある場合は確認
-    // （ローカル変更を破棄してリモートに合わせたい場合があるので、リモート変更チェックより先）
-    if (!isInitial && get(hasAnyChanges)) {
+    // 以下は2回目以降のPull時のみ実行
+
+    // 交通整理: Pull/Push中は不可
+    if (!canSync($isPulling, $isPushing).canPull) return
+
+    // 未保存の変更がある場合は確認
+    if (get(hasAnyChanges)) {
       let message = $_('modal.unsavedChanges')
       if (isClosingSettingsPull && importOccurredInSettings) {
         message += `\n\n${$_('settings.importExport.importCloseHint')}`
         importOccurredInSettings = false
       }
-      showConfirm(message, () => executePullInternal(isInitial))
+      showConfirm(message, () => executePullInternal(isInitialStartup))
       return
     }
 
-    // 初回Pull以外で、リモートに変更がなければスキップ
-    // （未保存変更がない場合のみ適用）
-    if (!isInitial) {
-      const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
-      if (!isStale) {
-        showPullToast($_('toast.noRemoteChanges'), 'success')
-        return
-      }
+    // リモートに変更がなければスキップ
+    const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
+    if (!isStale) {
+      showPullToast($_('github.noRemoteChanges'), 'success')
+      return
     }
 
-    await executePullInternal(isInitial)
+    await executePullInternal(isInitialStartup)
   }
 
   async function executePullInternal(isInitial: boolean) {
