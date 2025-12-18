@@ -47,6 +47,10 @@
     archiveMetadata,
     isArchiveLoaded,
     currentWorld,
+    initActivityDetection,
+    setupBeforeUnloadSave,
+    scheduleOfflineSave,
+    flushPendingSaves,
   } from './lib/stores'
   import {
     clearAllData,
@@ -169,9 +173,6 @@
   let importOccurredInSettings = false
   let isClosingSettingsPull = false
   let isArchiveLoading = false // アーカイブをロード中
-
-  // オフラインリーフの状態（ストアから取得、HMRでもリセットされない）
-  let offlineSaveTimeoutId: ReturnType<typeof setTimeout> | null = null
 
   // leafStatsStoreとmoveModalStoreへのリアクティブアクセス
   $: totalLeafCount = $leafStatsStore.totalLeafCount
@@ -467,6 +468,10 @@
 
   // 初期化
   onMount(() => {
+    // ユーザーアクティビティ検知を初期化（自動保存のデバウンス用）
+    const cleanupActivityDetection = initActivityDetection()
+    const cleanupBeforeUnloadSave = setupBeforeUnloadSave()
+
     // 非同期初期化処理を即座に実行
     ;(async () => {
       const loadedSettings = loadSettings()
@@ -678,6 +683,8 @@
       window.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       clearInterval(autoPushIntervalId)
+      cleanupActivityDetection()
+      cleanupBeforeUnloadSave()
     }
   })
 
@@ -773,17 +780,8 @@
   function updateOfflineContent(content: string) {
     const now = Date.now()
     offlineLeafStore.update((s) => ({ ...s, content, updatedAt: now }))
-    // デバウンス保存: 既存のタイマーをクリアして新しいタイマーを設定
-    if (offlineSaveTimeoutId) {
-      clearTimeout(offlineSaveTimeoutId)
-    }
-    offlineSaveTimeoutId = setTimeout(() => {
-      const current = $offlineLeafStore
-      const leaf = createOfflineLeaf(current.content, current.badgeIcon, current.badgeColor)
-      leaf.updatedAt = current.updatedAt
-      saveOfflineLeaf(leaf)
-      offlineSaveTimeoutId = null
-    }, 500) // 500msのデバウンス
+    // 共通の自動保存機構を使用（1秒後に保存）
+    scheduleOfflineSave()
   }
 
   function navigateToLeafFromPriority(leafId: string, pane: Pane) {
@@ -1815,6 +1813,9 @@
     // 交通整理: Push不可なら何もしない
     if (!canSync($isPulling, $isPushing).canPush) return
 
+    // 保留中の自動保存を即座に実行してからPush
+    await flushPendingSaves()
+
     $isPushing = true
     try {
       // stale編集かどうかチェック
@@ -2425,13 +2426,10 @@
 
   // HMR時にオフラインリーフをlocalStorageに一時保存（同期的に完了するため）
   function flushOfflineSaveSync() {
-    if (offlineSaveTimeoutId) {
-      clearTimeout(offlineSaveTimeoutId)
-      offlineSaveTimeoutId = null
-    }
+    // 保留中の自動保存をキャンセルして同期的にlocalStorageへ保存
+    // IndexedDBは非同期なのでHMRに間に合わないため
     const current = get(offlineLeafStore)
     if (current.content || current.badgeIcon || current.badgeColor) {
-      // localStorageに同期的に保存（IndexedDBは非同期なのでHMRに間に合わない）
       localStorage.setItem(HMR_OFFLINE_KEY, JSON.stringify(current))
       console.log('[HMR] Saved offline leaf to localStorage:', current)
     }

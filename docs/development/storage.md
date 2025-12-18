@@ -121,8 +121,28 @@ interface Leaf {
 
 ### 保存タイミング
 
-- ノート/リーフの作成・削除・編集時に即座に反映
+- ノート/リーフの作成・削除・編集時（**デバウンス方式**: 最後の操作から1秒後に保存）
 - ドラッグ&ドロップによる並び替え時
+- Push実行前（保留中の保存を即座に実行）
+
+#### 自動保存のデバウンス機構
+
+ユーザー操作（キー入力、クリック、タッチ、スクロール、マウス移動）を検知し、最後の操作から1秒間無操作が続いた場合にIndexedDBへ保存します。
+
+```typescript
+// src/lib/stores/auto-save.ts
+const AUTO_SAVE_DELAY = 1000 // 1秒
+
+// 検知イベント
+const events = ['keydown', 'keyup', 'click', 'touchstart', 'scroll', 'mousemove']
+```
+
+**動作フロー:**
+
+1. `updateLeaves()` / `updateNotes()` 呼び出し → Svelteストア即座更新 + 保存フラグON
+2. ユーザー操作検知 → タイマーリセット（1秒にリスタート）
+3. 1秒間無操作 → IndexedDBへ一括保存
+4. Push実行時 → 保留中の保存を強制フラッシュ
 
 #### `fonts` オブジェクトストア
 

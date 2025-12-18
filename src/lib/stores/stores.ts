@@ -7,7 +7,8 @@ import { writable, derived } from 'svelte/store'
 import type { Settings, Note, Leaf, Metadata, View, WorldType } from '../types'
 import type { Pane } from '../navigation'
 // 循環参照回避: data/index.tsではなく、直接storageからインポート
-import { defaultSettings, saveSettings, saveNotes, saveLeaves } from '../data/storage'
+import { defaultSettings, saveSettings } from '../data/storage'
+import { scheduleLeavesSave, scheduleNotesSave } from './auto-save'
 
 // ============================================
 // 基本ストア（Home用）
@@ -156,15 +157,16 @@ export function updateSettings(newSettings: Settings): void {
 
 export function updateNotes(newNotes: Note[]): void {
   notes.set(newNotes)
-  saveNotes(newNotes).catch((err) => console.error('Failed to persist notes:', err))
+  // 無操作1秒後にIndexedDBへ保存をスケジュール
+  scheduleNotesSave()
   // ノート構造の変更があったらダーティフラグを立てる
   isStructureDirty.set(true)
 }
 
 export function updateLeaves(newLeaves: Leaf[]): void {
   leaves.set(newLeaves)
-  // 非同期で永続化（失敗してもUIをブロックしない）
-  saveLeaves(newLeaves).catch((err) => console.error('Failed to persist leaves:', err))
+  // 無操作1秒後にIndexedDBへ保存をスケジュール
+  scheduleLeavesSave()
   // 注: リーフのisDirtyは各リーフに設定されているのでここでは何もしない
   // リーフの追加/削除は構造変更としてマーク
   isStructureDirty.set(true)
