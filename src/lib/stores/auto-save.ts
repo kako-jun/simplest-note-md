@@ -15,14 +15,6 @@ import { createOfflineLeaf } from '../utils/offline'
  */
 export const autoPushProgress = writable<number>(0)
 
-// stores.tsから値を購読
-lastPushTime.subscribe((value) => {
-  lastPushTimeValue = value
-})
-hasAnyChanges.subscribe((value) => {
-  hasChangesValue = value
-})
-
 // デバウンス間隔（ミリ秒）
 const AUTO_SAVE_DELAY = 1000
 
@@ -40,9 +32,17 @@ let activityTimerId: ReturnType<typeof setTimeout> | null = null
 // 初期化済みフラグ
 let initialized = false
 
-// 進捗更新用のストア参照（循環参照回避のため遅延インポート）
+// 進捗更新用のストア参照
 let lastPushTimeValue = 0
 let hasChangesValue = false
+
+// stores.tsから値を購読
+lastPushTime.subscribe((value) => {
+  lastPushTimeValue = value
+})
+hasAnyChanges.subscribe((value) => {
+  hasChangesValue = value
+})
 
 // 自動Pushトリガー用ストア（5分経過時にtrueになる）
 export const shouldAutoPush = writable<boolean>(false)
