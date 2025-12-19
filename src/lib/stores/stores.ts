@@ -113,7 +113,7 @@ export const lastPushTime = writable<number>(0)
 
 // 自動Push進捗を初期化（循環参照回避のため遅延初期化）
 import { initAutoPushProgress } from './auto-save'
-initAutoPushProgress(lastPushTime, hasAnyChanges)
+initAutoPushProgress(hasAnyChanges)
 
 // ペイン状態ストア
 export const leftNote = writable<Note | null>(null)

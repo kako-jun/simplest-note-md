@@ -1,6 +1,6 @@
 /**
  * 自動保存機構
- * ユーザー操作を検知し、無操作が一定時間続いたら自動保存を実行
+ * ユーザー操作を検知し、無操作が一定時間続いたら自動保存・自動Pushを実行
  */
 
 import { get, writable, type Readable } from 'svelte/store'
@@ -10,8 +10,8 @@ import { createOfflineLeaf } from '../utils/offline'
 
 /**
  * 自動Push進捗（0〜1）
- * 最後の編集から自動Pushまでの進捗を表示
- * 0 = 編集なし or Push完了直後、1 = 自動Push直前
+ * 最後のアクティビティから自動Pushまでの進捗を表示
+ * 0 = 変更なし or Push完了直後、1 = 自動Push直前
  */
 export const autoPushProgress = writable<number>(0)
 
@@ -28,26 +28,22 @@ let pendingOfflineSave = false
 
 // タイマーID
 let activityTimerId: ReturnType<typeof setTimeout> | null = null
+let progressUpdateIntervalId: ReturnType<typeof setInterval> | null = null
 
 // 初期化済みフラグ
 let initialized = false
 
-// 進捗更新用のストア参照（遅延初期化で循環参照を回避）
+// 進捗更新用の状態
 let hasChangesValue = false
-let dirtyStartTime = 0 // ダーティになった時刻
-let lastPushTimeStore: Readable<number> | null = null
-let hasAnyChangesStore: Readable<boolean> | null = null
+let dirtyStartTime = 0 // 最後のアクティビティ時刻（変更がある状態で）
+
+// 自動Pushトリガー用ストア（5分経過時にtrueになる）
+export const shouldAutoPush = writable<boolean>(false)
 
 /**
  * 進捗追跡を初期化（stores.tsからの参照を遅延設定）
  */
-export function initAutoPushProgress(
-  lastPushTime: Readable<number>,
-  hasAnyChanges: Readable<boolean>
-): void {
-  lastPushTimeStore = lastPushTime
-  hasAnyChangesStore = hasAnyChanges
-
+export function initAutoPushProgress(hasAnyChanges: Readable<boolean>): void {
   hasAnyChanges.subscribe((value) => {
     // false → true になった瞬間に開始時刻を記録
     if (value && !hasChangesValue) {
@@ -56,31 +52,41 @@ export function initAutoPushProgress(
     // true → false になった瞬間にリセット
     if (!value && hasChangesValue) {
       dirtyStartTime = 0
+      autoPushProgress.set(0)
+      shouldAutoPush.set(false)
     }
     hasChangesValue = value
   })
+
+  // 進捗自動更新タイマー（1秒ごとに進捗計算と自動Push判定）
+  if (progressUpdateIntervalId) {
+    clearInterval(progressUpdateIntervalId)
+  }
+  progressUpdateIntervalId = setInterval(() => {
+    if (!hasChangesValue || dirtyStartTime === 0) {
+      autoPushProgress.set(0)
+      shouldAutoPush.set(false)
+      return
+    }
+    const elapsed = Date.now() - dirtyStartTime
+    const progress = Math.min(elapsed / AUTO_PUSH_INTERVAL_MS, 1)
+    autoPushProgress.set(progress)
+
+    // 5分経過で自動Pushをトリガー
+    if (elapsed >= AUTO_PUSH_INTERVAL_MS) {
+      shouldAutoPush.set(true)
+    }
+  }, 1000)
 }
 
-// 自動Pushトリガー用ストア（5分経過時にtrueになる）
-export const shouldAutoPush = writable<boolean>(false)
-
-// 進捗自動更新タイマー（1秒ごとに進捗計算と自動Push判定）
-const PROGRESS_UPDATE_INTERVAL = 1000 // 1秒ごと
-const progressUpdateIntervalId = setInterval(() => {
-  if (!hasChangesValue || dirtyStartTime === 0) {
-    autoPushProgress.set(0)
-    shouldAutoPush.set(false)
-    return
-  }
-  const elapsed = Date.now() - dirtyStartTime
-  const progress = Math.min(elapsed / AUTO_PUSH_INTERVAL_MS, 1)
-  autoPushProgress.set(progress)
-
-  // 5分経過で自動Pushをトリガー
-  if (elapsed >= AUTO_PUSH_INTERVAL_MS) {
-    shouldAutoPush.set(true)
-  }
-}, PROGRESS_UPDATE_INTERVAL)
+/**
+ * 自動Pushが実行された後に呼ぶ（タイマーをリセット）
+ */
+export function resetAutoPushTimer(): void {
+  dirtyStartTime = Date.now()
+  autoPushProgress.set(0)
+  shouldAutoPush.set(false)
+}
 
 /**
  * リーフ保存をスケジュール
@@ -175,6 +181,11 @@ function handleUserActivity(): void {
   if (pendingLeavesSave || pendingNotesSave || pendingOfflineSave) {
     resetActivityTimer()
   }
+
+  // 変更がある状態でアクティビティがあれば、自動Push開始時刻をリセット
+  if (hasChangesValue) {
+    dirtyStartTime = Date.now()
+  }
 }
 
 /**
@@ -205,6 +216,10 @@ export function initActivityDetection(): () => void {
     if (activityTimerId) {
       clearTimeout(activityTimerId)
       activityTimerId = null
+    }
+    if (progressUpdateIntervalId) {
+      clearInterval(progressUpdateIntervalId)
+      progressUpdateIntervalId = null
     }
     initialized = false
   }
