@@ -3,13 +3,31 @@
  * ユーザー操作を検知し、無操作が一定時間続いたら自動保存を実行
  */
 
-import { get } from 'svelte/store'
-import { leaves, notes, offlineLeafStore } from './stores'
+import { get, writable } from 'svelte/store'
+import { leaves, notes, offlineLeafStore, lastPushTime, hasAnyChanges } from './stores'
 import { saveLeaves, saveNotes, saveOfflineLeaf } from '../data/storage'
 import { createOfflineLeaf } from '../utils/offline'
 
+/**
+ * 自動Push進捗（0〜1）
+ * 最後の編集から自動Pushまでの進捗を表示
+ * 0 = 編集なし or Push完了直後、1 = 自動Push直前
+ */
+export const autoPushProgress = writable<number>(0)
+
+// stores.tsから値を購読
+lastPushTime.subscribe((value) => {
+  lastPushTimeValue = value
+})
+hasAnyChanges.subscribe((value) => {
+  hasChangesValue = value
+})
+
 // デバウンス間隔（ミリ秒）
 const AUTO_SAVE_DELAY = 1000
+
+// 自動Push間隔（ミリ秒）
+const AUTO_PUSH_INTERVAL_MS = 5 * 60 * 1000 // 5分
 
 // 保存が必要かどうかのフラグ
 let pendingLeavesSave = false
@@ -21,6 +39,31 @@ let activityTimerId: ReturnType<typeof setTimeout> | null = null
 
 // 初期化済みフラグ
 let initialized = false
+
+// 進捗更新用のストア参照（循環参照回避のため遅延インポート）
+let lastPushTimeValue = 0
+let hasChangesValue = false
+
+// 自動Pushトリガー用ストア（5分経過時にtrueになる）
+export const shouldAutoPush = writable<boolean>(false)
+
+// 進捗自動更新タイマー（1秒ごとに進捗計算と自動Push判定）
+const PROGRESS_UPDATE_INTERVAL = 1000 // 1秒ごと
+const progressUpdateIntervalId = setInterval(() => {
+  if (!hasChangesValue || lastPushTimeValue === 0) {
+    autoPushProgress.set(0)
+    shouldAutoPush.set(false)
+    return
+  }
+  const elapsed = Date.now() - lastPushTimeValue
+  const progress = Math.min(elapsed / AUTO_PUSH_INTERVAL_MS, 1)
+  autoPushProgress.set(progress)
+
+  // 5分経過で自動Pushをトリガー
+  if (elapsed >= AUTO_PUSH_INTERVAL_MS) {
+    shouldAutoPush.set(true)
+  }
+}, PROGRESS_UPDATE_INTERVAL)
 
 /**
  * リーフ保存をスケジュール
@@ -100,6 +143,7 @@ function resetActivityTimer(): void {
   if (activityTimerId) {
     clearTimeout(activityTimerId)
   }
+
   activityTimerId = setTimeout(() => {
     activityTimerId = null
     executePendingSaves()

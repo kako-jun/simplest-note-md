@@ -1,11 +1,17 @@
+<script lang="ts">
+  import AutoSaveIndicator from './footer/AutoSaveIndicator.svelte'
+</script>
+
 <div class="footer-fixed">
   <slot name="left" />
   <div class="spacer" />
   <slot name="right" />
+  <AutoSaveIndicator />
 </div>
 
 <style>
   .footer-fixed {
+    position: relative;
     background: rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);

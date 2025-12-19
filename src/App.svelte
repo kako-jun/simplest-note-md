@@ -51,6 +51,7 @@
     setupBeforeUnloadSave,
     scheduleOfflineSave,
     flushPendingSaves,
+    shouldAutoPush,
   } from './lib/stores'
   import {
     clearAllData,
@@ -631,11 +632,13 @@
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // 自動Push機能（前回Pushから5分経過 + ダーティありの場合）
-    const AUTO_PUSH_INTERVAL_MS = 5 * 60 * 1000 // 5分
-    const AUTO_PUSH_CHECK_INTERVAL_MS = 30 * 1000 // 30秒ごとにチェック
+    // 自動Push機能（shouldAutoPushストアを購読して実行）
+    const unsubscribeAutoPush = shouldAutoPush.subscribe(async (should) => {
+      if (!should) return
 
-    const autoPushIntervalId = setInterval(async () => {
+      // フラグをリセット（連続実行防止）
+      shouldAutoPush.set(false)
+
       // バックグラウンドでは実行しない
       if (document.visibilityState !== 'visible') return
 
@@ -644,14 +647,6 @@
 
       // Push/Pull中はスキップ
       if ($isPulling || $isPushing) return
-
-      // ダーティがなければスキップ
-      if (!get(hasAnyChanges)) return
-
-      // 前回Pushから5分経過していなければスキップ
-      const now = Date.now()
-      const lastPush = get(lastPushTime)
-      if (lastPush > 0 && now - lastPush < AUTO_PUSH_INTERVAL_MS) return
 
       // 初回Pullが完了していなければスキップ
       if (!isFirstPriorityFetched) return
@@ -674,7 +669,7 @@
 
       // 自動Push実行
       await handleSaveToGitHub()
-    }, AUTO_PUSH_CHECK_INTERVAL_MS)
+    })
 
     return () => {
       window.removeEventListener('popstate', handlePopState)
@@ -682,7 +677,7 @@
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      clearInterval(autoPushIntervalId)
+      unsubscribeAutoPush()
       cleanupActivityDetection()
       cleanupBeforeUnloadSave()
     }
