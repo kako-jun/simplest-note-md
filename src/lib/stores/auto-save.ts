@@ -19,7 +19,7 @@ export const autoPushProgress = writable<number>(0)
 const AUTO_SAVE_DELAY = 1000
 
 // 自動Push間隔（ミリ秒）
-const AUTO_PUSH_INTERVAL_MS = 5 * 60 * 1000 // 5分
+const AUTO_PUSH_INTERVAL_MS = 42 * 1000 // 42秒
 
 // 保存が必要かどうかのフラグ
 let pendingLeavesSave = false
@@ -185,6 +185,8 @@ function handleUserActivity(): void {
   // 変更がある状態でアクティビティがあれば、自動Push開始時刻をリセット
   if (hasChangesValue) {
     dirtyStartTime = Date.now()
+    // 即座にバーを0にリセット
+    autoPushProgress.set(0)
   }
 }
 
