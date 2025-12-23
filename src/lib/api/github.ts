@@ -3,7 +3,7 @@
  * GitHubへのファイル保存とSHA取得を担当
  */
 
-import type { Leaf, Note, Settings, Metadata, WorldType } from '../types'
+import type { Leaf, Note, Settings, Metadata, WorldType, FetchPushCountResult } from '../types'
 import { PRIORITY_LEAF_ID } from '../utils'
 
 // ============================================
@@ -1313,46 +1313,65 @@ export async function pullFromGitHub(
 }
 
 /**
- * リモートのpushCountを取得（stale編集検出用）
- * @returns pushCount（チェック不可の場合は-1、空リポジトリは0）
+ * リモートのpushCountを取得（Stale編集検出用）
+ *
+ * ## Stale（ステイル）とは
+ * 「Stale = 古くなった」状態を指す。
+ * 例: PCでPull→スマホで編集してPush→PCで編集を続行
+ * この時、PCのローカルデータはリモートより古い（Stale）状態。
+ * PCからそのままPushすると、スマホでの変更が上書きされてしまう。
+ *
+ * ## 判定ロジック
+ * リモートのpushCount > ローカルのlastPulledPushCount → Stale
+ *
+ * ## 処理フェーズ
+ *   Phase 1: 設定バリデーション
+ *   Phase 2: metadata.json取得
+ *   Phase 3: レスポンス解析・結果判定
+ *
+ * @returns FetchPushCountResult - 明確な状態を持つ結果オブジェクト
  */
-export async function fetchRemotePushCount(settings: Settings): Promise<number> {
+export async function fetchRemotePushCount(settings: Settings): Promise<FetchPushCountResult> {
+  // Phase 1: 設定バリデーション
   const validation = validateGitHubSettings(settings)
   if (!validation.valid) {
-    // 設定が無効な場合は-1を返す（チェック不可）
-    return -1
+    return { status: 'settings_invalid' }
   }
 
+  // Phase 2: metadata.json取得
   try {
     const metadataRes = await fetchGitHubContents(
       NOTES_METADATA_PATH,
       settings.repoName,
       settings.token
     )
+
+    // Phase 3: レスポンス解析・結果判定
     if (metadataRes.ok) {
       const metadataData = await metadataRes.json()
       if (metadataData.content) {
         const base64 = metadataData.content.replace(/\n/g, '')
         const jsonText = decodeURIComponent(escape(atob(base64)))
         const parsed = JSON.parse(jsonText)
-        return parsed.pushCount || 0
+        return { status: 'success', pushCount: parsed.pushCount || 0 }
       }
     }
-    // 404/409の場合（空リポジトリ、metadata.jsonなし）は0を返す
-    // 空リポジトリ = pushCount 0（まだ一度もPushされていない）
-    // ローカルのlastPulledPushCountも初期値0なので、0 > 0 = false → staleではない
+
+    // 404/409: 空リポジトリ、またはmetadata.jsonがまだない
     if (metadataRes.status === 404 || metadataRes.status === 409) {
-      return 0
+      return { status: 'empty_repository' }
     }
-    // 認証エラーや権限エラーは-1（チェック不可）
+
+    // 401/403: 認証エラー
     if (metadataRes.status === 401 || metadataRes.status === 403) {
-      return -1
+      return { status: 'auth_error' }
     }
-    return 0
+
+    // その他のエラー（500等）はネットワークエラーとして扱う
+    return { status: 'network_error' }
   } catch (e) {
     console.warn('Failed to fetch remote pushCount:', e)
-    // ネットワークエラー等は-1（チェック不可）
-    return -1
+    return { status: 'network_error', error: e }
   }
 }
 

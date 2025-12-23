@@ -1,8 +1,9 @@
-import type { Note, Leaf, Settings, Metadata } from '../types'
+import type { Note, Leaf, Settings, Metadata, StaleCheckResult } from '../types'
 import { pushAllWithTreeAPI, pullFromGitHub, fetchRemotePushCount } from './github'
 import type { PullOptions, RateLimitInfo } from './github'
 
 export type { PullOptions, PullPriority, LeafSkeleton, RateLimitInfo } from './github'
+export type { StaleCheckResult } from '../types'
 
 /**
  * Push操作の結果
@@ -150,22 +151,55 @@ export async function executePull(settings: Settings, options?: PullOptions): Pr
 }
 
 /**
- * stale編集かどうかを判定
- * リモートのpushCountがローカルのlastPulledPushCountより大きければstale
+ * Stale編集かどうかを判定
+ *
+ * ## Stale（ステイル）とは
+ * 「Stale = 古くなった」状態を指す。
+ * 例: PCでPull→スマホで編集してPush→PCで編集を続行
+ * この時、PCのローカルデータはリモートより古い（Stale）状態。
+ *
+ * ## 処理フェーズ
+ *   Phase 1: リモートのpushCount取得
+ *   Phase 2: 結果に応じた状態判定
+ *
+ * ## 戻り値の状態
+ * - stale: リモートに新しい変更あり（Push前にPullが必要）
+ * - up_to_date: 最新状態（Pushして良い）
+ * - check_failed: チェック失敗（設定不正、認証エラー、ネットワークエラー等）
  *
  * @param settings - GitHub設定
  * @param lastPulledPushCount - 最後にPullしたときのpushCount
- * @returns staleならtrue、チェック不可（設定無効、ネットワークエラー等）の場合もtrue（Pullを進めてエラーを表示）
+ * @returns StaleCheckResult - 明確な状態を持つ結果オブジェクト
  */
-export async function checkIfStaleEdit(
+export async function checkStaleStatus(
   settings: Settings,
   lastPulledPushCount: number
-): Promise<boolean> {
-  const remotePushCount = await fetchRemotePushCount(settings)
-  // -1はチェック不可（設定無効、認証エラー、ネットワークエラー等）
-  // この場合はPullを進めて適切なエラーメッセージを表示
-  if (remotePushCount === -1) {
-    return true
+): Promise<StaleCheckResult> {
+  // Phase 1: リモートのpushCount取得
+  const result = await fetchRemotePushCount(settings)
+
+  // Phase 2: 結果に応じた状態判定
+  switch (result.status) {
+    case 'success': {
+      const remotePushCount = result.pushCount
+      if (remotePushCount > lastPulledPushCount) {
+        return {
+          status: 'stale',
+          remotePushCount,
+          localPushCount: lastPulledPushCount,
+        }
+      }
+      return { status: 'up_to_date' }
+    }
+
+    case 'empty_repository':
+      // 空リポジトリ = まだ誰もPushしていない → 最新状態として扱う
+      return { status: 'up_to_date' }
+
+    case 'settings_invalid':
+    case 'auth_error':
+    case 'network_error':
+      // チェック失敗 - 理由を添えて返す
+      return { status: 'check_failed', reason: result }
   }
-  return remotePushCount > lastPulledPushCount
 }

@@ -52,6 +52,7 @@
     scheduleOfflineSave,
     flushPendingSaves,
     shouldAutoPush,
+    resetAutoPushTimer,
   } from './lib/stores'
   import {
     clearAllData,
@@ -73,12 +74,18 @@
     executePush,
     executePull,
     pullArchive,
-    checkIfStaleEdit,
+    checkStaleStatus,
     testGitHubConnection,
     translateGitHubMessage,
     canSync,
   } from './lib/api'
-  import type { PullOptions, PullPriority, LeafSkeleton, RateLimitInfo } from './lib/api'
+  import type {
+    PullOptions,
+    PullPriority,
+    LeafSkeleton,
+    RateLimitInfo,
+    StaleCheckResult,
+  } from './lib/api'
   import { initI18n, _ } from './lib/i18n'
   import { isTourShown, startTour } from './lib/tour'
   import { processImportFile, isAgasteerZip, parseAgasteerZip } from './lib/data'
@@ -653,21 +660,33 @@
 
       console.log('Auto-push triggered')
 
-      // staleチェックを実行
-      try {
-        const stale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
-        if (stale) {
-          // staleの場合はPullボタンに赤丸を表示してPushしない
+      // Staleチェックを実行
+      const staleResult = await checkStaleStatus($settings, get(lastPulledPushCount))
+
+      switch (staleResult.status) {
+        case 'stale':
+          // リモートに新しい変更あり → Pullボタンに赤丸を表示してPushしない
           isStale.set(true)
           showPushToast($_('toast.staleAutoSave'), 'error')
+          console.log(
+            `Auto-push blocked: remote(${staleResult.remotePushCount}) > local(${staleResult.localPushCount})`
+          )
+          // タイマーをリセット（リトライループ防止）
+          resetAutoPushTimer()
           return
-        }
-      } catch (e) {
-        // チェック失敗時はPushを続行
-        console.warn('Stale check failed, continuing with auto-push:', e)
+
+        case 'check_failed':
+          // チェック失敗（ネットワークエラー等）→ 静かにスキップ
+          console.warn('Stale check failed, skipping auto-push:', staleResult.reason)
+          // タイマーをリセット（リトライループ防止、次の42秒後に再試行）
+          resetAutoPushTimer()
+          return
+
+        case 'up_to_date':
+          // 最新状態 → 自動Push実行
+          break
       }
 
-      // 自動Push実行
       await handleSaveToGitHub()
     })
 
@@ -1813,21 +1832,30 @@
 
     $isPushing = true
     try {
-      // stale編集かどうかチェック
-      const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
-      if (isStale) {
-        // staleの場合は確認ダイアログを表示
-        $isPushing = false
-        showConfirm($_('modal.staleEdit'), () => executePushInternal())
-        return
-      }
+      // Stale編集かどうかチェック
+      const staleResult = await checkStaleStatus($settings, get(lastPulledPushCount))
 
-      // staleでなければそのままPush
-      await executePushInternal()
-    } catch (e) {
-      console.error('Push check failed:', e)
-      // チェック失敗時もPushを続行
-      await executePushInternal()
+      switch (staleResult.status) {
+        case 'stale':
+          // リモートに新しい変更あり → 確認ダイアログを表示
+          $isPushing = false
+          console.log(
+            `Push blocked: remote(${staleResult.remotePushCount}) > local(${staleResult.localPushCount})`
+          )
+          showConfirm($_('modal.staleEdit'), () => executePushInternal())
+          return
+
+        case 'check_failed':
+          // チェック失敗（ネットワークエラー等）→ そのままPush続行
+          console.warn('Stale check failed, continuing with push:', staleResult.reason)
+          await executePushInternal()
+          return
+
+        case 'up_to_date':
+          // 最新状態 → そのままPush
+          await executePushInternal()
+          return
+      }
     } finally {
       $isPushing = false
     }
@@ -2256,14 +2284,33 @@
       return
     }
 
-    // staleチェック（比較対象は常にある：初期値0 vs リモート）
-    // 空リポジトリ(metadata.jsonなし)の場合は-1が返り、stale=trueになる
-    const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
-    if (!isStale) {
-      showPullToast($_('github.noRemoteChanges'), 'success')
-      return
+    // ロック取得（Staleチェック中に別のPullが開始されるのを防止）
+    $isPulling = true
+
+    // Staleチェック: リモートに変更があるか確認
+    const staleResult = await checkStaleStatus($settings, get(lastPulledPushCount))
+
+    switch (staleResult.status) {
+      case 'up_to_date':
+        // リモートに変更なし → Pullスキップ、ロック解除
+        $isPulling = false
+        showPullToast($_('github.noRemoteChanges'), 'success')
+        return
+
+      case 'stale':
+        // リモートに変更あり → Pull実行
+        console.log(
+          `Pull needed: remote(${staleResult.remotePushCount}) > local(${staleResult.localPushCount})`
+        )
+        break
+
+      case 'check_failed':
+        // チェック失敗 → Pull実行（サーバー側でエラー表示される）
+        console.warn('Stale check failed, proceeding with pull:', staleResult.reason)
+        break
     }
 
+    // executePullInternal内で$isPullingの管理を継続
     await executePullInternal(isInitialStartup)
   }
 
