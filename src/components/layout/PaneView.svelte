@@ -222,6 +222,7 @@
     currentWorld={$state.currentWorld}
     onArchive={() => actions.archiveNote(pane)}
     onRestore={() => actions.restoreNote(pane)}
+    noteId={currentNote.id}
   />
 {:else if currentView === 'edit' && currentLeaf}
   <EditorFooter

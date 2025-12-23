@@ -1,6 +1,8 @@
 <script lang="ts">
   import { _ } from '../../../lib/i18n'
   import type { WorldType } from '../../../lib/types'
+  import { leaves } from '../../../lib/stores/stores'
+  import { isTourShown, dismissTour } from '../../../lib/tour'
   import Footer from '../Footer.svelte'
   import IconButton from '../../buttons/IconButton.svelte'
   import SaveButton from '../../buttons/SaveButton.svelte'
@@ -27,6 +29,21 @@
   /** アーカイブ/リストアのコールバック */
   export let onArchive: (() => void) | null = null
   export let onRestore: (() => void) | null = null
+  /** 現在のノートID（ガイド表示用） */
+  export let noteId: string = ''
+
+  // このノート配下のリーフが0個かつガイド未表示なら吹き出しを表示
+  $: noteLeaves = $leaves.filter((l) => l.noteId === noteId)
+  $: showGuide = noteLeaves.length === 0 && !isTourShown()
+
+  function handleCreateLeaf() {
+    dismissTour()
+    onCreateLeaf('')
+  }
+
+  function handleDismiss() {
+    dismissTour()
+  }
 </script>
 
 <Footer>
@@ -78,15 +95,23 @@
         </IconButton>
       {/if}
 
-      <span id="tour-create-leaf">
+      <span class="guide-container">
         <IconButton
-          onClick={() => onCreateLeaf('')}
+          onClick={handleCreateLeaf}
           title={$_('footer.newLeaf')}
           ariaLabel={$_('footer.newLeaf')}
           {disabled}
         >
           <FilePlusIcon />
         </IconButton>
+        {#if showGuide}
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div class="guide-tooltip" on:click={handleDismiss}>
+            <span class="guide-text">{$_('guide.createLeaf')}</span>
+            <span class="guide-close">×</span>
+          </div>
+        {/if}
       </span>
     {/if}
   </svelte:fragment>
@@ -100,3 +125,59 @@
     />
   </svelte:fragment>
 </Footer>
+
+<style>
+  .guide-container {
+    position: relative;
+  }
+
+  .guide-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: var(--text-color, #333);
+    color: var(--bg-color, #fff);
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.3s ease;
+  }
+
+  .guide-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--text-color, #333);
+  }
+
+  .guide-close {
+    opacity: 0.7;
+    font-size: 16px;
+  }
+
+  .guide-close:hover {
+    opacity: 1;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+</style>

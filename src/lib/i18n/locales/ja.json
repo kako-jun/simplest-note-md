@@ -276,45 +276,8 @@
     "openSettings": "設定を開く",
     "later": "後で"
   },
-  "tour": {
-    "next": "次へ",
-    "prev": "戻る",
-    "done": "完了",
-    "welcome": {
-      "title": "Agasteerへようこそ！",
-      "description": "基本的な使い方を説明します。"
-    },
-    "createNote": {
-      "title": "ノートを作る",
-      "description": "まずノートを作りましょう。ノートはリーフをまとめるフォルダです。"
-    },
-    "createLeaf": {
-      "title": "リーフを作る",
-      "description": "ノートの中にリーフを作ります。リーフは実際にメモを書くページです。"
-    },
-    "save": {
-      "title": "Push（保存）",
-      "description": "書いたらPushしてGitHubに保存しましょう。Ctrl+S / Cmd+S でもPushできます。"
-    },
-    "pull": {
-      "title": "Pull（同期）",
-      "description": "起動するたびに自動でPullします。別のデバイスからの変更を取り込みます。"
-    },
-    "settings": {
-      "title": "設定",
-      "description": "テーマやフォントを変えて自分好みにカスタマイズできます。マニュアルへのリンクもあります。"
-    },
-    "offline": {
-      "title": "Offlineリーフ",
-      "description": "ホームにあるOfflineリーフは、オフライン環境や急ぎのメモ用です。GitHubと同期しません。"
-    },
-    "priority": {
-      "title": "Priorityリーフ",
-      "description": "ホームにあるPriorityリーフは、各リーフの[1]〜[5]マーカー付き段落を自動収集します。読み取り専用です。"
-    },
-    "finish": {
-      "title": "準備完了！",
-      "description": "さあ、メモを書き始めましょう！困ったら設定画面のマニュアルリンクへ。"
-    }
+  "guide": {
+    "createNote": "ここをクリックしてノートを作成",
+    "createLeaf": "ここをクリックしてリーフを作成"
   }
 }

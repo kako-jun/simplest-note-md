@@ -25,7 +25,6 @@
     "@types/jszip": "^3.4.0",
     "codemirror": "^6.0.1",
     "dompurify": "^3.3.0",
-    "driver.js": "^1.4.0",
     "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
     "marked": "^17.0.1",
