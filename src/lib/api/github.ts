@@ -247,13 +247,15 @@ function getNotePath(note: Note, allNotes: Note[], world: WorldType = 'home'): s
 function buildPath(leaf: Leaf, notes: Note[], world: WorldType = 'home'): string {
   const note = notes.find((f) => f.id === leaf.noteId)
   const basePath = getBasePath(world)
+  // ファイル名に使えない文字をサニタイズ
+  const sanitizedTitle = sanitizePathPart(leaf.title)
   if (!note) {
     console.warn('[buildPath] Note not found for leaf:', leaf.title, 'noteId:', leaf.noteId)
-    return `${basePath}/${leaf.title}.md`
+    return `${basePath}/${sanitizedTitle}.md`
   }
 
   const folderPath = getFolderPath(note, notes)
-  const path = `${basePath}/${folderPath}/${leaf.title}.md`
+  const path = `${basePath}/${folderPath}/${sanitizedTitle}.md`
   return path
 }
 
@@ -1427,7 +1429,7 @@ export async function testGitHubConnection(settings: Settings): Promise<TestResu
   }
 }
 const sanitizePathPart = (raw: string): string => {
-  const cleaned = raw.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ')
+  const cleaned = raw.replace(/[\\/:*?"<>|#]/g, '-').replace(/\s+/g, ' ')
   const limited = cleaned.slice(0, 80)
   return limited.length === 0 ? 'Untitled' : limited
 }

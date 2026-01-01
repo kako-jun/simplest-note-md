@@ -190,7 +190,7 @@
   }
 
   // プレビュー内のリンククリックを処理
-  function handleClick(event: MouseEvent) {
+  async function handleClick(event: MouseEvent) {
     const target = event.target as HTMLElement
     const anchor = target.closest('a')
     if (!anchor) return
@@ -208,19 +208,26 @@
       return
     }
 
-    // 外部リンクは別タブで開く（PWA対応）
+    // 外部リンクの処理
     if (href.startsWith('http://') || href.startsWith('https://')) {
       event.preventDefault()
 
-      // PWAモードでは動的に作成したa要素をクリックすることで
-      // システムブラウザで開くようにする
-      const a = document.createElement('a')
-      a.href = href
-      a.target = '_blank'
-      a.rel = 'noopener noreferrer'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      // Web Share APIが使える場合は共有機能を使う
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            url: href,
+          })
+        } catch (error) {
+          // ユーザーがキャンセルした場合など
+          if ((error as Error).name !== 'AbortError') {
+            console.error('共有に失敗しました:', error)
+          }
+        }
+      } else {
+        // Web Share APIが使えない場合は別タブで開く
+        window.open(href, '_blank', 'noopener,noreferrer')
+      }
     }
   }
 
