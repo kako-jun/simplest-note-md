@@ -110,6 +110,9 @@ export const isStale = writable<boolean>(false)
 // 最後にPush成功した時刻
 export const lastPushTime = writable<number>(0)
 
+// 最後にstaleチェックした時刻（定期チェック延長用）
+export const lastStaleCheckTime = writable<number>(0)
+
 // 自動Push進捗を初期化（循環参照回避のため遅延初期化）
 import { initAutoPushProgress } from './auto-save'
 initAutoPushProgress(hasAnyChanges)

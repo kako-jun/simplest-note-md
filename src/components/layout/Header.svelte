@@ -7,6 +7,7 @@
   import SettingsIcon from '../icons/SettingsIcon.svelte'
   import SearchIcon from '../icons/SearchIcon.svelte'
   import SwapIcon from '../icons/SwapIcon.svelte'
+  import StaleCheckIndicator from './header/StaleCheckIndicator.svelte'
 
   export let githubConfigured: boolean
   export let title: string = 'Agasteer'
@@ -27,6 +28,7 @@
 </script>
 
 <header>
+  <StaleCheckIndicator />
   <div class="title-group" class:no-title={!hasTitle}>
     {#if showAppIcon}
       <span class="header-app-icon-wrap">

@@ -53,6 +53,9 @@
     flushPendingSaves,
     shouldAutoPush,
     resetAutoPushTimer,
+    lastStaleCheckTime,
+    startStaleChecker,
+    stopStaleChecker,
   } from './lib/stores'
   import {
     clearAllData,
@@ -556,6 +559,9 @@
         showWelcome = true
         // GitHub設定が未完了の間は操作をロックしたまま
       }
+
+      // Stale定期チェッカーを開始（5分ごと、前回Pullから5分経過後にチェック）
+      startStaleChecker()
     })()
 
     // アスペクト比を監視して isDualPane を更新（横 > 縦で2ペイン表示）
@@ -661,6 +667,7 @@
 
       // Staleチェックを実行
       const staleResult = await checkStaleStatus($settings, get(lastPulledPushCount))
+      lastStaleCheckTime.set(Date.now())
 
       switch (staleResult.status) {
         case 'stale':
@@ -698,6 +705,7 @@
       unsubscribeAutoPush()
       cleanupActivityDetection()
       cleanupBeforeUnloadSave()
+      stopStaleChecker()
     }
   })
 
@@ -1833,6 +1841,7 @@
     try {
       // Stale編集かどうかチェック
       const staleResult = await checkStaleStatus($settings, get(lastPulledPushCount))
+      lastStaleCheckTime.set(Date.now())
 
       switch (staleResult.status) {
         case 'stale':
@@ -2288,6 +2297,7 @@
 
     // Staleチェック: リモートに変更があるか確認
     const staleResult = await checkStaleStatus($settings, get(lastPulledPushCount))
+    lastStaleCheckTime.set(Date.now())
 
     switch (staleResult.status) {
       case 'up_to_date':

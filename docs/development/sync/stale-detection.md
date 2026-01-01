@@ -144,11 +144,80 @@ if (result.variant === 'success') {
 5. **警告表示** → ユーザーが確認後にPush、またはキャンセル
 6. **Push成功** → `lastPulledPushCount`を+1
 
+### 定期的なstaleチェック
+
+バックグラウンドで定期的にリモートの状態をチェックし、他のデバイスでPushされた変更を検出します。
+
+#### 仕組み
+
+- **チェック間隔**: 5分
+- **条件**: 前回のチェックから5分経過後にチェック
+- **タブがアクティブ時のみ**: `document.visibilityState === 'visible'`
+- **Pull/Push中はスキップ**: 操作中は干渉しない
+- **サイレント実行**: UIブロックなし、通知なし
+
+#### lastStaleCheckTimeストア
+
+最後にstaleチェックを実行した時刻を保持するストア（`stores.ts`）。
+
+```typescript
+export const lastStaleCheckTime = writable<number>(0)
+```
+
+この時刻は以下のタイミングで更新される：
+
+- Pullボタン押下時のstaleチェック
+- 手動Push時のstaleチェック
+- 自動Push時のstaleチェック
+- 定期チェック実行時
+
+これにより、手動操作でチェックが行われた場合は定期チェックが5分延長される。
+
+#### stale-checker.ts
+
+```typescript
+// チェック間隔（5分）
+const CHECK_INTERVAL_MS = 5 * 60 * 1000
+
+// 進捗ストア（0〜1）
+export const staleCheckProgress = writable<number>(0)
+
+// 定期チェッカー開始
+export function startStaleChecker(): void {
+  // 5分ごとにチェック
+  intervalId = setInterval(checkIfNeeded, CHECK_INTERVAL_MS)
+  // 1秒ごとに進捗更新
+  progressIntervalId = setInterval(updateProgress, 1000)
+}
+```
+
+#### 進捗バー表示
+
+ヘッダー左上に、次のチェックまでの残り時間を示す進捗バーを表示。
+
+- **位置**: ヘッダー左端、上から下に伸びる
+- **幅**: 2px
+- **色**: アクセントカラー（opacity: 0.5）
+- **高さ**: ヘッダー高さ × 進捗（0〜1）
+
+1ドット（1px）あたりの時間 = 5分 ÷ ヘッダー高さ（約48px）≈ 6.25秒
+
+staleチェック実行時にバーは0にリセットされる。
+
+#### stale検出時の動作
+
+定期チェックでstaleを検出した場合：
+
+1. `isStale`ストアを`true`に設定
+2. Pullボタンに赤い丸印（notification badge）を表示
+3. ユーザーがPullボタンを押すまで待機
+
 ### 設計思想
 
 - **個人用アプリ**: 複数ユーザーの同時編集は想定しない
 - **警告のみ**: ブロックせず、ユーザーの判断で上書き可能
 - **ネットワークエラー時**: チェック失敗時はPushを続行（使い勝手優先）
 - **force: true**: Git Tree APIでの強制更新は維持（常に成功を優先）
+- **定期チェック**: 5分間隔でサイレントにチェック、stale時のみUI通知
 
 ---

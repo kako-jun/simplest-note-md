@@ -1,0 +1,28 @@
+<script lang="ts">
+  import { staleCheckProgress } from '../../../lib/stores/stale-checker'
+
+  // ヘッダー高さに合わせて高さを計算（約48px）
+  $: height = Math.round($staleCheckProgress * 48)
+</script>
+
+<div class="wrapper">
+  {#if $staleCheckProgress > 0}
+    <div class="indicator" style="height: {height}px" />
+  {/if}
+</div>
+
+<style>
+  .wrapper {
+    display: contents;
+  }
+
+  .indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 2px;
+    background: var(--accent);
+    opacity: 0.5;
+    transition: height 50ms linear;
+  }
+</style>

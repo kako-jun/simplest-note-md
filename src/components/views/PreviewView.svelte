@@ -205,6 +205,13 @@
       const leafId = priorityMatch[1]
       const line = parseInt(priorityMatch[2], 10)
       onPriorityLinkClick(leafId, line)
+      return
+    }
+
+    // 外部リンクは別タブで開く（PWA対応）
+    if (href.startsWith('http://') || href.startsWith('https://')) {
+      event.preventDefault()
+      window.open(href, '_blank', 'noopener,noreferrer')
     }
   }
 
