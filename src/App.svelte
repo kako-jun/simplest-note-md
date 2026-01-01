@@ -98,6 +98,8 @@
     showPullToast,
     showConfirm,
     showAlert,
+    confirmAsync,
+    promptAsync,
     showPrompt,
     closeModal,
   } from './lib/ui'
@@ -537,9 +539,9 @@
       // GitHub設定チェック
       const isConfigured = loadedSettings.token && loadedSettings.repoName
       if (isConfigured) {
-        // 初回Pull実行（handlePull内でdirtyチェック、staleチェックを行う）
+        // 初回Pull実行（pullFromGitHub内でdirtyチェック、staleチェックを行う）
         // キャンセル時はIndexedDBから読み込んで操作可能にする
-        await handlePull(true, async () => {
+        await pullFromGitHub(true, async () => {
           try {
             const savedNotes = await loadNotes()
             const savedLeaves = await loadLeaves()
@@ -550,7 +552,7 @@
           } catch (error) {
             console.error('Failed to load from IndexedDB:', error)
             // 失敗した場合はPullを実行
-            await handlePull(true)
+            await pullFromGitHub(true)
           }
         })
       } else {
@@ -691,7 +693,7 @@
           break
       }
 
-      await handlePushToGitHub()
+      await pushToGitHub()
     })
 
     return () => {
@@ -1354,7 +1356,7 @@
   function handleGlobalKeyDown(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
       e.preventDefault()
-      handlePushToGitHub()
+      pushToGitHub()
       return
     }
     const state = getNavState()
@@ -1374,7 +1376,7 @@
 
   async function goSettings() {
     // 仕様: 設定ボタンを押したときに全リーフをGitHubにPush
-    await handlePushToGitHub()
+    await pushToGitHub()
     showSettings = true
   }
 
@@ -1828,7 +1830,11 @@
   }
 
   // GitHub同期
-  async function handlePushToGitHub() {
+  /**
+   * GitHubにPush（統合版）
+   * すべてのPush処理がこの1つの関数を通る
+   */
+  async function pushToGitHub() {
     // 交通整理: Push不可なら何もしない
     if (!canSync($isPulling, $isPushing).canPush) return
 
@@ -1837,43 +1843,20 @@
     try {
       // 保留中の自動保存を即座に実行してからPush
       await flushPendingSaves()
+
       // Stale編集かどうかチェック（共通関数で時刻も更新）
       const staleResult = await executeStaleCheck($settings, get(lastPulledPushCount))
 
-      switch (staleResult.status) {
-        case 'stale':
-          // リモートに新しい変更あり → 確認ダイアログを表示（ロックは保持）
-          console.log(
-            `Push blocked: remote(${staleResult.remotePushCount}) > local(${staleResult.localPushCount})`
-          )
-          showConfirm(
-            $_('modal.staleEdit'),
-            () => executePushInternal(),
-            () => {
-              $isPushing = false
-            }
-          )
-          return
-
-        case 'check_failed':
-          // チェック失敗（ネットワークエラー等）→ そのままPush続行
-          console.warn('Stale check failed, continuing with push:', staleResult.reason)
-          await executePushInternal()
-          return
-
-        case 'up_to_date':
-          // 最新状態 → そのままPush
-          await executePushInternal()
-          return
+      if (staleResult.status === 'stale') {
+        // リモートに新しい変更あり → 確認ダイアログを表示
+        console.log(
+          `Push blocked: remote(${staleResult.remotePushCount}) > local(${staleResult.localPushCount})`
+        )
+        const confirmed = await confirmAsync($_('modal.staleEdit'))
+        if (!confirmed) return
       }
-    } finally {
-      $isPushing = false
-    }
-  }
+      // check_failedやup_to_dateの場合はそのまま続行
 
-  async function executePushInternal() {
-    $isPushing = true
-    try {
       // Push開始を通知
       showPushToast($_('loading.pushing'))
 
@@ -2201,7 +2184,7 @@
     openMoveModalForLeaf,
 
     // 保存・エクスポート
-    handlePushToGitHub,
+    handlePushToGitHub: pushToGitHub,
     downloadLeafAsMarkdown,
     downloadLeafAsImage,
 
@@ -2263,7 +2246,7 @@
   }
   async function handleCloseSettings() {
     isClosingSettingsPull = true
-    await handlePull(false)
+    await pullFromGitHub(false)
     importOccurredInSettings = false
     isClosingSettingsPull = false
   }
@@ -2281,197 +2264,198 @@
     }
   }
 
-  async function handlePull(isInitialStartup = false, onCancel?: () => void) {
+  /**
+   * Pull処理の統合関数
+   * - 交通整理（canSync）
+   * - ダーティチェック（confirmAsync）
+   * - Staleチェック（executeStaleCheck）
+   * - Pull実行（executePull）
+   * を1つの関数で実行し、自動的に排他制御を行う
+   */
+  async function pullFromGitHub(isInitialStartup = false, onCancel?: () => void | Promise<void>) {
     // 交通整理: Pull/Push中は不可
     if (!canSync($isPulling, $isPushing).canPull) return
 
-    // ロック取得（確認ダイアログ中も保持）
+    // 即座にロック取得（この後の非同期処理中にPushが開始されるのを防止）
     $isPulling = true
-
-    // 未保存の変更がある場合は確認（PWA強制終了後の再起動も考慮）
-    if (get(hasAnyChanges) || getPersistedDirtyFlag()) {
-      const message = isInitialStartup
-        ? $_('modal.unsavedChangesOnStartup')
-        : $_('modal.unsavedChanges')
-      showConfirm(
-        message,
-        () => executePullInternal(isInitialStartup),
-        () => {
-          $isPulling = false
-          onCancel?.()
+    try {
+      // 未保存の変更がある場合は確認（PWA強制終了後の再起動も考慮）
+      if (get(hasAnyChanges) || getPersistedDirtyFlag()) {
+        const message = isInitialStartup
+          ? $_('modal.unsavedChangesOnStartup')
+          : $_('modal.unsavedChanges')
+        const confirmed = await confirmAsync(message)
+        if (!confirmed) {
+          // キャンセル時: onCancelを呼んでからreturn
+          await onCancel?.()
+          return
         }
-      )
-      return
-    }
-
-    // Staleチェック: リモートに変更があるか確認（共通関数で時刻も更新）
-    const staleResult = await executeStaleCheck($settings, get(lastPulledPushCount))
-
-    switch (staleResult.status) {
-      case 'up_to_date':
-        // リモートに変更なし → Pullスキップ、ロック解除
-        $isPulling = false
-        showPullToast($_('github.noRemoteChanges'), 'success')
-        return
-
-      case 'stale':
-        // リモートに変更あり → Pull実行
-        console.log(
-          `Pull needed: remote(${staleResult.remotePushCount}) > local(${staleResult.localPushCount})`
-        )
-        break
-
-      case 'check_failed':
-        // チェック失敗 → Pull実行（サーバー側でエラー表示される）
-        console.warn('Stale check failed, proceeding with pull:', staleResult.reason)
-        break
-    }
-
-    // executePullInternal内で$isPullingの管理を継続
-    await executePullInternal(isInitialStartup)
-  }
-
-  async function executePullInternal(isInitial: boolean) {
-    isLoadingUI = true
-    isFirstPriorityFetched = false
-    isPullCompleted = false
-    $isPulling = true // Pull処理中はURL更新をスキップ
-
-    // Pull開始を通知
-    showPullToast('Pullします')
-
-    // Pull失敗時のデータ保護: 既存データをバックアップ
-    const backup = await createBackup()
-    const hasBackupData = backup.notes.length > 0 || backup.leaves.length > 0
-    if (hasBackupData) {
-      console.log(
-        `Created backup before Pull (${backup.notes.length} notes, ${backup.leaves.length} leaves)`
-      )
-    }
-
-    // 重要: GitHubが唯一の真実の情報源（Single Source of Truth）
-    // IndexedDBは単なるキャッシュであり、Pull成功時に全削除→全作成される
-    // オフラインリーフは専用storeに保存されているため影響なし
-    await clearAllData()
-    notes.set([])
-    leaves.set([])
-    loadingLeafIds = new Set()
-    resetLeafStats()
-    $leftNote = null
-    $leftLeaf = null
-    $rightNote = null
-    $rightLeaf = null
-
-    const options: PullOptions = {
-      // ノート構造確定時: ノートを表示可能に、スケルトン情報を設定、優先情報を計算して返す
-      onStructure: (notesFromGitHub, metadataFromGitHub, leafSkeletons) => {
-        // ノートを先に反映（ナビゲーション可能に）
-        notes.set(notesFromGitHub)
-        metadata.set(metadataFromGitHub)
-
-        // スケルトン情報を保存（NoteViewでスケルトン表示に使用）
-        leafSkeletonMap = new Map(leafSkeletons.map((s) => [s.id, s]))
-
-        // 全リーフIDをローディング中として登録
-        loadingLeafIds = new Set(leafSkeletons.map((s) => s.id))
-
-        // Pull進捗: 総リーフ数をセット
-        pullProgressStore.start(leafSkeletons.length)
-
-        // URLから優先情報を計算して返す
-        return nav.getPriorityFromUrl(notesFromGitHub)
-      },
-
-      // 各リーフ取得完了時: leavesストアに追加、統計を更新
-      onLeaf: (leaf) => {
-        leaves.update((current) => [...current, leaf])
-        leafStatsStore.addLeaf(leaf.id, leaf.content)
-        loadingLeafIds.delete(leaf.id)
-        loadingLeafIds = loadingLeafIds // リアクティブ更新
-        // Pull進捗: カウントアップ
-        pullProgressStore.increment()
-      },
-
-      // 第1優先リーフ取得完了時: 作成・削除許可、ガラス効果解除、URL復元
-      onPriorityComplete: () => {
-        isFirstPriorityFetched = true
-        isLoadingUI = false // ガラス効果を解除（残りのリーフはバックグラウンドで取得継続）
-
-        // 初回Pull時のURL復元
-        if (isInitial) {
-          isRestoringFromUrl = true
-          restoreStateFromUrl(true)
-          isRestoringFromUrl = false
-        } else {
-          restoreStateFromUrl(false)
-        }
-      },
-    }
-
-    const result = await executePull($settings, options)
-
-    if (result.success) {
-      // 全リーフ取得完了
-      isPullCompleted = true
-
-      // leavesストアはonLeafで逐次更新済みなので、最終的なソートのみ
-      // ただし、Pull中にユーザーが編集したリーフのisDirtyとcontentは保持する
-      const currentLeaves = get(leaves)
-      const dirtyLeafMap = new Map(currentLeaves.filter((l) => l.isDirty).map((l) => [l.id, l]))
-      const sortedLeaves = result.leaves
-        .sort((a, b) => a.order - b.order)
-        .map((leaf) => {
-          const dirtyLeaf = dirtyLeafMap.get(leaf.id)
-          if (dirtyLeaf) {
-            // ユーザーが編集したリーフは、編集内容とダーティ状態を保持
-            return { ...leaf, content: dirtyLeaf.content, isDirty: true }
-          }
-          return leaf
-        })
-      leaves.set(sortedLeaves)
-      rebuildLeafStats(sortedLeaves, result.notes)
-
-      // stale編集検出用にpushCountを記録
-      lastPulledPushCount.set(result.metadata.pushCount)
-
-      // IndexedDBに保存（isDirtyをセットしないように直接保存）
-      saveNotes(result.notes).catch((err) => console.error('Failed to persist notes:', err))
-      saveLeaves(sortedLeaves).catch((err) => console.error('Failed to persist leaves:', err))
-
-      // Pull成功時はGitHubと同期したのでダーティフラグをクリア
-      // ただし、Pull中にユーザーが編集した場合はクリアしない
-      await tick()
-      if (!get(hasAnyChanges)) {
-        clearAllChanges()
       }
-      isStale.set(false) // Pullしたのでstale状態を解除
-    } else {
-      // Pull失敗時: バックアップからデータを復元
+
+      // Staleチェック: リモートに変更があるか確認（共通関数で時刻も更新）
+      const staleResult = await executeStaleCheck($settings, get(lastPulledPushCount))
+
+      switch (staleResult.status) {
+        case 'up_to_date':
+          // リモートに変更なし → Pullスキップ
+          showPullToast($_('github.noRemoteChanges'), 'success')
+          return
+
+        case 'stale':
+          // リモートに変更あり → Pull実行
+          console.log(
+            `Pull needed: remote(${staleResult.remotePushCount}) > local(${staleResult.localPushCount})`
+          )
+          break
+
+        case 'check_failed':
+          // チェック失敗 → Pull実行（サーバー側でエラー表示される）
+          console.warn('Stale check failed, proceeding with pull:', staleResult.reason)
+          break
+      }
+
+      // Pull開始準備
+      isLoadingUI = true
+      isFirstPriorityFetched = false
+      isPullCompleted = false
+
+      // Pull開始を通知
+      showPullToast('Pullします')
+
+      // Pull失敗時のデータ保護: 既存データをバックアップ
+      const backup = await createBackup()
+      const hasBackupData = backup.notes.length > 0 || backup.leaves.length > 0
       if (hasBackupData) {
-        console.log('Pull failed, restoring from backup...')
-        try {
-          await restoreFromBackup(backup)
-          // ストアにもバックアップデータを復元
-          notes.set(backup.notes)
-          leaves.set(backup.leaves)
-          rebuildLeafStats(backup.leaves, backup.notes)
-          // URLから状態を復元
-          restoreStateFromUrl(false)
-          isFirstPriorityFetched = true // 操作可能にする
-        } catch (restoreError) {
-          console.error('Failed to restore from backup:', restoreError)
-        }
+        console.log(
+          `Created backup before Pull (${backup.notes.length} notes, ${backup.leaves.length} leaves)`
+        )
       }
-      // 初回Pull失敗時は静かに処理（設定未完了は正常な状態）
-      // 2回目以降のPull失敗はトーストで通知される
-    }
 
-    // 結果を通知（GitHub APIのメッセージキーを翻訳）
-    const translatedMessage = translateGitHubMessage(result.message, $_, result.rateLimitInfo)
-    showPullToast(translatedMessage, result.variant)
-    isLoadingUI = false
-    $isPulling = false // Pull処理完了
-    pullProgressStore.reset() // Pull進捗リセット
+      // 重要: GitHubが唯一の真実の情報源（Single Source of Truth）
+      // IndexedDBは単なるキャッシュであり、Pull成功時に全削除→全作成される
+      // オフラインリーフは専用storeに保存されているため影響なし
+      await clearAllData()
+      notes.set([])
+      leaves.set([])
+      loadingLeafIds = new Set()
+      resetLeafStats()
+      $leftNote = null
+      $leftLeaf = null
+      $rightNote = null
+      $rightLeaf = null
+
+      const options: PullOptions = {
+        // ノート構造確定時: ノートを表示可能に、スケルトン情報を設定、優先情報を計算して返す
+        onStructure: (notesFromGitHub, metadataFromGitHub, leafSkeletons) => {
+          // ノートを先に反映（ナビゲーション可能に）
+          notes.set(notesFromGitHub)
+          metadata.set(metadataFromGitHub)
+
+          // スケルトン情報を保存（NoteViewでスケルトン表示に使用）
+          leafSkeletonMap = new Map(leafSkeletons.map((s) => [s.id, s]))
+
+          // 全リーフIDをローディング中として登録
+          loadingLeafIds = new Set(leafSkeletons.map((s) => s.id))
+
+          // Pull進捗: 総リーフ数をセット
+          pullProgressStore.start(leafSkeletons.length)
+
+          // URLから優先情報を計算して返す
+          return nav.getPriorityFromUrl(notesFromGitHub)
+        },
+
+        // 各リーフ取得完了時: leavesストアに追加、統計を更新
+        onLeaf: (leaf) => {
+          leaves.update((current) => [...current, leaf])
+          leafStatsStore.addLeaf(leaf.id, leaf.content)
+          loadingLeafIds.delete(leaf.id)
+          loadingLeafIds = loadingLeafIds // リアクティブ更新
+          // Pull進捗: カウントアップ
+          pullProgressStore.increment()
+        },
+
+        // 第1優先リーフ取得完了時: 作成・削除許可、ガラス効果解除、URL復元
+        onPriorityComplete: () => {
+          isFirstPriorityFetched = true
+          isLoadingUI = false // ガラス効果を解除（残りのリーフはバックグラウンドで取得継続）
+
+          // 初回Pull時のURL復元
+          if (isInitialStartup) {
+            isRestoringFromUrl = true
+            restoreStateFromUrl(true)
+            isRestoringFromUrl = false
+          } else {
+            restoreStateFromUrl(false)
+          }
+        },
+      }
+
+      const result = await executePull($settings, options)
+
+      if (result.success) {
+        // 全リーフ取得完了
+        isPullCompleted = true
+
+        // leavesストアはonLeafで逐次更新済みなので、最終的なソートのみ
+        // ただし、Pull中にユーザーが編集したリーフのisDirtyとcontentは保持する
+        const currentLeaves = get(leaves)
+        const dirtyLeafMap = new Map(currentLeaves.filter((l) => l.isDirty).map((l) => [l.id, l]))
+        const sortedLeaves = result.leaves
+          .sort((a, b) => a.order - b.order)
+          .map((leaf) => {
+            const dirtyLeaf = dirtyLeafMap.get(leaf.id)
+            if (dirtyLeaf) {
+              // ユーザーが編集したリーフは、編集内容とダーティ状態を保持
+              return { ...leaf, content: dirtyLeaf.content, isDirty: true }
+            }
+            return leaf
+          })
+        leaves.set(sortedLeaves)
+        rebuildLeafStats(sortedLeaves, result.notes)
+
+        // stale編集検出用にpushCountを記録
+        lastPulledPushCount.set(result.metadata.pushCount)
+
+        // IndexedDBに保存（isDirtyをセットしないように直接保存）
+        saveNotes(result.notes).catch((err) => console.error('Failed to persist notes:', err))
+        saveLeaves(sortedLeaves).catch((err) => console.error('Failed to persist leaves:', err))
+
+        // Pull成功時はGitHubと同期したのでダーティフラグをクリア
+        // ただし、Pull中にユーザーが編集した場合はクリアしない
+        await tick()
+        if (!get(hasAnyChanges)) {
+          clearAllChanges()
+        }
+        isStale.set(false) // Pullしたのでstale状態を解除
+      } else {
+        // Pull失敗時: バックアップからデータを復元
+        if (hasBackupData) {
+          console.log('Pull failed, restoring from backup...')
+          try {
+            await restoreFromBackup(backup)
+            // ストアにもバックアップデータを復元
+            notes.set(backup.notes)
+            leaves.set(backup.leaves)
+            rebuildLeafStats(backup.leaves, backup.notes)
+            // URLから状態を復元
+            restoreStateFromUrl(false)
+            isFirstPriorityFetched = true // 操作可能にする
+          } catch (restoreError) {
+            console.error('Failed to restore from backup:', restoreError)
+          }
+        }
+        // 初回Pull失敗時は静かに処理（設定未完了は正常な状態）
+        // 2回目以降のPull失敗はトーストで通知される
+      }
+
+      // 結果を通知（GitHub APIのメッセージキーを翻訳）
+      const translatedMessage = translateGitHubMessage(result.message, $_, result.rateLimitInfo)
+      showPullToast(translatedMessage, result.variant)
+      isLoadingUI = false
+      pullProgressStore.reset() // Pull進捗リセット
+    } finally {
+      $isPulling = false
+    }
   }
 
   // HMR用の一時保存キー
@@ -2544,7 +2528,7 @@
       onSettingsClick={() => {
         goSettings()
       }}
-      onPull={() => handlePull(false)}
+      onPull={() => pullFromGitHub(false)}
       pullDisabled={!canPull}
       isStale={$isStale}
       pullProgress={$pullProgressInfo}

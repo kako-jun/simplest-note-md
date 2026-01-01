@@ -98,6 +98,26 @@ export function showConfirm(
 }
 
 /**
+ * 確認ダイアログを表示（Promise版）
+ * @returns true: 確認, false: キャンセル
+ */
+export function confirmAsync(
+  message: string,
+  position: ModalPosition = 'center'
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    modalState.set({
+      show: true,
+      message,
+      type: 'confirm',
+      callback: () => resolve(true),
+      cancelCallback: () => resolve(false),
+      position,
+    })
+  })
+}
+
+/**
  * アラートダイアログを表示
  */
 export function showAlert(message: string, position: ModalPosition = 'center') {
@@ -127,6 +147,29 @@ export function showPrompt(
     promptCallback: onSubmit,
     placeholder,
     position,
+  })
+}
+
+/**
+ * 入力ダイアログを表示（Promise版）
+ * @returns 入力された値、キャンセル時はnull
+ */
+export function promptAsync(
+  message: string,
+  placeholder: string = '',
+  position: ModalPosition = 'center'
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    modalState.set({
+      show: true,
+      message,
+      type: 'prompt',
+      callback: null,
+      promptCallback: (value) => resolve(value),
+      cancelCallback: () => resolve(null),
+      placeholder,
+      position,
+    })
   })
 }
 
