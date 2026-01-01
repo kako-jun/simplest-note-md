@@ -211,7 +211,16 @@
     // 外部リンクは別タブで開く（PWA対応）
     if (href.startsWith('http://') || href.startsWith('https://')) {
       event.preventDefault()
-      window.open(href, '_blank', 'noopener,noreferrer')
+
+      // PWAモードでは動的に作成したa要素をクリックすることで
+      // システムブラウザで開くようにする
+      const a = document.createElement('a')
+      a.href = href
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     }
   }
 
