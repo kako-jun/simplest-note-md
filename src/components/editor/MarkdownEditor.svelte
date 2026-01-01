@@ -12,7 +12,7 @@
   export let pane: Pane
   export let leafId: string = ''
   export let onChange: (newContent: string) => void
-  export let onSave: (() => void) | null = null
+  export let onPush: (() => void) | null = null
   export let onClose: (() => void) | null = null
   export let onSwitchPane: (() => void) | null = null
   export let onScroll: ((scrollTop: number, scrollHeight: number) => void) | null = null
@@ -365,7 +365,7 @@
           window.editorCallbacks = {}
         }
         window.editorCallbacks[pane] = {
-          onSave,
+          onPush,
           onClose,
           onSwitchPane,
         }
@@ -388,8 +388,8 @@
           Vim.defineEx('write', 'w', function () {
             const paneId = getCurrentPane()
             const callbacks = paneId ? window.editorCallbacks?.[paneId] : null
-            if (callbacks?.onSave) {
-              callbacks.onSave()
+            if (callbacks?.onPush) {
+              callbacks.onPush()
             }
           })
 
@@ -397,8 +397,8 @@
           Vim.defineEx('wq', 'wq', function () {
             const paneId = getCurrentPane()
             const callbacks = paneId ? window.editorCallbacks?.[paneId] : null
-            if (callbacks?.onSave) {
-              callbacks.onSave()
+            if (callbacks?.onPush) {
+              callbacks.onPush()
             }
             if (callbacks?.onClose) {
               setTimeout(() => {

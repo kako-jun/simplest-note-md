@@ -121,12 +121,12 @@ Header.svelte
 
 HomeFooter.svelte
 ├── #tour-create-note  # ノート作成ボタン wrapper
-└── #tour-save         # Pushボタン（SaveButton経由）
+└── #tour-save         # Pushボタン（PushButton経由）
 
 NoteFooter.svelte
 └── #tour-create-leaf  # リーフ作成ボタン wrapper
 
-SaveButton.svelte
+PushButton.svelte
 └── id prop            # 任意のIDを設定可能
 ```
 

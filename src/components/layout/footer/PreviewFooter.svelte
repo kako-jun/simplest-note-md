@@ -3,7 +3,7 @@
   import type { WorldType } from '../../../lib/types'
   import Footer from '../Footer.svelte'
   import IconButton from '../../buttons/IconButton.svelte'
-  import SaveButton from '../../buttons/SaveButton.svelte'
+  import PushButton from '../../buttons/PushButton.svelte'
   import DownloadIcon from '../../icons/DownloadIcon.svelte'
   import FileEditIcon from '../../icons/FileEditIcon.svelte'
   import MoveIcon from '../../icons/MoveIcon.svelte'
@@ -13,12 +13,12 @@
   export let onMove: () => void
   export let onDownload: () => void
   export let onToggleEdit: () => void
-  export let onSave: () => void
+  export let onPush: () => void
   export let disabled: boolean
   export let isDirty: boolean
-  export let saveDisabled: boolean = false
-  export let saveDisabledReason: string = ''
-  export let onDisabledSaveClick: ((reason: string) => void) | null = null
+  export let pushDisabled: boolean = false
+  export let pushDisabledReason: string = ''
+  export let onDisabledPushClick: ((reason: string) => void) | null = null
   export let hideEditButton: boolean = false
   export let hideMoveButton: boolean = false
   /** 現在のワールド */
@@ -78,12 +78,12 @@
       </IconButton>
     {/if}
 
-    <SaveButton
-      {onSave}
+    <PushButton
+      {onPush}
       {isDirty}
-      disabled={saveDisabled}
-      disabledReason={saveDisabledReason}
-      onDisabledClick={onDisabledSaveClick}
+      disabled={pushDisabled}
+      disabledReason={pushDisabledReason}
+      onDisabledClick={onDisabledPushClick}
     />
   </svelte:fragment>
 </Footer>

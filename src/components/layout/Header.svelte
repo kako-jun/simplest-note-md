@@ -3,7 +3,7 @@
   import AppIcon from '../icons/AppIcon.svelte'
   import { defaultSettings } from '../../lib/data'
   import IconButton from '../buttons/IconButton.svelte'
-  import OctocatPullIcon from '../icons/OctocatPullIcon.svelte'
+  import PullButton from '../buttons/PullButton.svelte'
   import SettingsIcon from '../icons/SettingsIcon.svelte'
   import SearchIcon from '../icons/SearchIcon.svelte'
   import SwapIcon from '../icons/SwapIcon.svelte'
@@ -15,7 +15,7 @@
   export let onSettingsClick: () => void
   export let onPull: () => void
   export let pullDisabled: boolean = false
-  export let isStale: boolean = false // リモートに新しい変更がある場合
+  export let isStale: boolean = false
   /** Pull進捗情報、nullなら非表示 */
   export let pullProgress: { percent: number; fetched: number; total: number } | null = null
   export let onPullProgressClick: () => void = () => {}
@@ -45,28 +45,14 @@
         }
       }}>{title}</a
     >
-    <div class="pull-button-wrapper" id="tour-pull">
-      <div class="pull-button">
-        <IconButton
-          onClick={onPull}
-          title={$_('header.pull')}
-          ariaLabel={$_('header.pull')}
-          disabled={pullDisabled}
-          iconWidth={32}
-          iconHeight={20}
-        >
-          <OctocatPullIcon />
-        </IconButton>
-        {#if pullProgress !== null}
-          <button class="pull-progress" on:click={onPullProgressClick}
-            >{pullProgress.percent}%</button
-          >
-        {/if}
-      </div>
-      {#if isStale}
-        <span class="notification-badge" title={$_('header.staleRemote')}></span>
-      {/if}
-    </div>
+    <PullButton
+      {onPull}
+      disabled={pullDisabled}
+      {isStale}
+      progress={pullProgress}
+      onProgressClick={onPullProgressClick}
+      id="tour-pull"
+    />
   </div>
   {#if isDualPane}
     <div class="swap-button">
@@ -173,40 +159,6 @@
     background: #ef4444;
     border-radius: 50%;
     pointer-events: none;
-  }
-
-  .pull-button-wrapper {
-    position: relative;
-  }
-
-  .pull-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.2rem 0.3rem;
-    border-radius: 999px;
-    gap: 0.25rem;
-  }
-
-  .pull-button :global(.icon-button) {
-    padding: 0.15rem;
-  }
-
-  .pull-progress {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--accent);
-    min-width: 2.5em;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 4px;
-    user-select: none;
-  }
-
-  .pull-progress:hover {
-    background: var(--surface-2);
   }
 
   .swap-button {

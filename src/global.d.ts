@@ -6,7 +6,7 @@ declare const __BUILD_DATE__: string
 interface Window {
   editorCallbacks?: {
     [paneId: string]: {
-      onSave?: (() => void) | null
+      onPush?: (() => void) | null
       onClose?: (() => void) | null
       onSwitchPane?: (() => void) | null
     }

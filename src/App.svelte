@@ -299,7 +299,7 @@
     isFirstPriorityFetched: false,
     isPullCompleted: false,
     canPush: false,
-    saveDisabledReason: '',
+    pushDisabledReason: '',
     selectedIndexLeft: 0,
     selectedIndexRight: 0,
     editingBreadcrumb: null,
@@ -319,8 +319,8 @@
     isArchiveLoading: false,
   })
 
-  // Saveボタン無効理由を計算
-  $: saveDisabledReason = $pullProgressInfo
+  // Pushボタン無効理由を計算
+  $: pushDisabledReason = $pullProgressInfo
     ? $_('home.leafFetched', {
         values: { fetched: $pullProgressInfo.fetched, total: $pullProgressInfo.total },
       })
@@ -331,7 +331,7 @@
     isFirstPriorityFetched,
     isPullCompleted,
     canPush,
-    saveDisabledReason,
+    pushDisabledReason,
     selectedIndexLeft,
     selectedIndexRight,
     editingBreadcrumb,
@@ -691,7 +691,7 @@
           break
       }
 
-      await handleSaveToGitHub()
+      await handlePushToGitHub()
     })
 
     return () => {
@@ -868,9 +868,9 @@
     }
   }
 
-  function handleDisabledSaveClick(reason: string) {
-    // reasonが空でもsaveDisabledReasonを使う
-    const message = reason || saveDisabledReason
+  function handleDisabledPushClick(reason: string) {
+    // reasonが空でもpushDisabledReasonを使う
+    const message = reason || pushDisabledReason
     if (message) {
       showPushToast(message)
     }
@@ -1354,7 +1354,7 @@
   function handleGlobalKeyDown(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
       e.preventDefault()
-      handleSaveToGitHub()
+      handlePushToGitHub()
       return
     }
     const state = getNavState()
@@ -1374,7 +1374,7 @@
 
   async function goSettings() {
     // 仕様: 設定ボタンを押したときに全リーフをGitHubにPush
-    await handleSaveToGitHub()
+    await handlePushToGitHub()
     showSettings = true
   }
 
@@ -1828,7 +1828,7 @@
   }
 
   // GitHub同期
-  async function handleSaveToGitHub() {
+  async function handlePushToGitHub() {
     // 交通整理: Push不可なら何もしない
     if (!canSync($isPulling, $isPushing).canPush) return
 
@@ -2196,7 +2196,7 @@
     openMoveModalForLeaf,
 
     // 保存・エクスポート
-    handleSaveToGitHub,
+    handlePushToGitHub,
     downloadLeafAsMarkdown,
     downloadLeafAsImage,
 
@@ -2226,8 +2226,8 @@
     // Priorityリンククリック
     handlePriorityLinkClick,
 
-    // 無効なSaveボタンがクリックされたとき
-    handleDisabledSaveClick,
+    // 無効なPushボタンがクリックされたとき
+    handleDisabledPushClick,
 
     // ワールド切り替え・アーカイブ
     handleWorldChange,

@@ -137,7 +137,8 @@ agasteer/
 ├── src/
 │   ├── components/
 │   │   ├── buttons/
-│   │   │   └── SaveButton.svelte        # 保存ボタン共通コンポーネント
+│   │   │   ├── PushButton.svelte        # Pushボタン共通コンポーネント
+│   │   │   └── PullButton.svelte        # Pullボタン共通コンポーネント
 │   │   ├── cards/
 │   │   │   └── NoteCard.svelte          # ノートカード共通コンポーネント
 │   │   ├── editor/
@@ -279,7 +280,8 @@ agasteer/
 
 - `MarkdownEditor.svelte`: CodeMirrorラッパー
 - `NoteCard.svelte`: ノートカード共通コンポーネント（HomeViewとNoteViewで使用）
-- `SaveButton.svelte`: 保存ボタン共通コンポーネント（isDirty状態バッジ付き）
+- `PushButton.svelte`: Pushボタン共通コンポーネント（isDirty状態バッジ付き）
+- `PullButton.svelte`: Pullボタン共通コンポーネント（isStale状態バッジ付き）
 
 #### ビジネスロジック層（lib/）
 

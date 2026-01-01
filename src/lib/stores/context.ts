@@ -52,7 +52,7 @@ export interface PaneActions {
   openMoveModalForLeaf: (pane: Pane) => void
 
   // 保存・エクスポート
-  handleSaveToGitHub: () => void
+  handlePushToGitHub: () => void
   downloadLeafAsMarkdown: (leafId: string, pane: Pane) => void
   downloadLeafAsImage: (leafId: string, pane: Pane) => void
 
@@ -82,8 +82,8 @@ export interface PaneActions {
   // Priorityリンククリック（元リーフの該当行へジャンプ）
   handlePriorityLinkClick: (leafId: string, line: number, pane: Pane) => void
 
-  // 無効なSaveボタンがクリックされたとき
-  handleDisabledSaveClick: (reason: string) => void
+  // 無効なPushボタンがクリックされたとき
+  handleDisabledPushClick: (reason: string) => void
 
   // ワールド切り替え・アーカイブ
   handleWorldChange: (world: WorldType) => void
@@ -103,8 +103,8 @@ export interface PaneState {
   isPullCompleted: boolean
   /** Push可能か */
   canPush: boolean
-  /** Saveボタンが無効な理由（Pull中の進捗メッセージなど） */
-  saveDisabledReason: string
+  /** Pushボタンが無効な理由（Pull中の進捗メッセージなど） */
+  pushDisabledReason: string
   selectedIndexLeft: number
   selectedIndexRight: number
   editingBreadcrumb: string | null

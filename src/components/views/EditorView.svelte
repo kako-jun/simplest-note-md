@@ -9,7 +9,7 @@
   export let linedMode: boolean = false
   export let pane: Pane
   export let onContentChange: (content: string, leafId: string) => void
-  export let onSave: () => void
+  export let onPush: () => void
   export let onClose: (() => void) | null = null
   export let onSwitchPane: (() => void) | null = null
   export let onDownload: (leafId: string) => void
@@ -70,7 +70,7 @@
     {pane}
     leafId={leaf.id}
     onChange={handleContentChange}
-    {onSave}
+    {onPush}
     {onClose}
     {onSwitchPane}
     {onScroll}

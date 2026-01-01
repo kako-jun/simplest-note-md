@@ -2,7 +2,7 @@
   import { _ } from '../../lib/i18n'
   import OctocatPushIcon from '../icons/OctocatPushIcon.svelte'
 
-  export let onSave: () => void
+  export let onPush: () => void
   export let isDirty: boolean
   export let disabled: boolean = false
   /** 無効時の理由（クリックしたらトースト表示） */
@@ -18,19 +18,20 @@
         onDisabledClick(disabledReason)
       }
     } else {
-      onSave()
+      onPush()
     }
   }
 </script>
 
-<div class="save-button-wrapper" id={id || undefined}>
+<!-- svelte-ignore a11y-click-events-have-key-events -->
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<div class="push-button-wrapper" id={id || undefined} on:click={handleClick}>
   <button
     type="button"
-    class="save-button"
-    class:disabled
-    on:click={handleClick}
-    title={$_('common.save')}
-    aria-label={$_('common.save')}
+    class="push-button"
+    {disabled}
+    title={$_('header.push')}
+    aria-label={$_('header.push')}
   >
     <OctocatPushIcon />
   </button>
@@ -40,11 +41,11 @@
 </div>
 
 <style>
-  .save-button-wrapper {
+  .push-button-wrapper {
     position: relative;
   }
 
-  .save-button {
+  .push-button {
     background: none;
     border: none;
     cursor: pointer;
@@ -56,16 +57,16 @@
     transition: opacity 0.2s;
   }
 
-  .save-button:hover:not(.disabled) {
+  .push-button:hover:not(:disabled) {
     opacity: 0.7;
   }
 
-  .save-button.disabled {
+  .push-button:disabled {
     opacity: 0.4;
-    cursor: pointer;
+    cursor: not-allowed;
   }
 
-  .save-button :global(svg) {
+  .push-button :global(svg) {
     width: 32px;
     height: 20px;
   }

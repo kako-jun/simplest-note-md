@@ -5,16 +5,16 @@
   import { isTourShown, dismissTour } from '../../../lib/tour'
   import Footer from '../Footer.svelte'
   import IconButton from '../../buttons/IconButton.svelte'
-  import SaveButton from '../../buttons/SaveButton.svelte'
+  import PushButton from '../../buttons/PushButton.svelte'
   import FolderPlusIcon from '../../icons/FolderPlusIcon.svelte'
 
   export let onCreateNote: (name: string) => void
-  export let onSave: () => void
+  export let onPush: () => void
   export let disabled: boolean
   export let isDirty: boolean
-  export let saveDisabled: boolean = false
-  export let saveDisabledReason: string = ''
-  export let onDisabledSaveClick: ((reason: string) => void) | null = null
+  export let pushDisabled: boolean = false
+  export let pushDisabledReason: string = ''
+  export let onDisabledPushClick: ((reason: string) => void) | null = null
   /** 現在のワールド */
   export let currentWorld: WorldType = 'home'
 
@@ -56,12 +56,12 @@
     {/if}
   </svelte:fragment>
   <svelte:fragment slot="right">
-    <SaveButton
-      {onSave}
+    <PushButton
+      {onPush}
       {isDirty}
-      disabled={saveDisabled}
-      disabledReason={saveDisabledReason}
-      onDisabledClick={onDisabledSaveClick}
+      disabled={pushDisabled}
+      disabledReason={pushDisabledReason}
+      onDisabledClick={onDisabledPushClick}
     />
   </svelte:fragment>
 </Footer>

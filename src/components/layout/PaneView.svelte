@@ -170,7 +170,7 @@
       linedMode={$settings.linedMode ?? false}
       {pane}
       onContentChange={actions.updateLeafContent}
-      onSave={actions.handleSaveToGitHub}
+      onPush={actions.handlePushToGitHub}
       onClose={() => actions.closeLeaf(pane)}
       onSwitchPane={() => actions.switchPane(pane)}
       onDownload={(leafId) => actions.downloadLeafAsMarkdown(leafId, pane)}
@@ -198,12 +198,12 @@
 {#if currentView === 'home'}
   <HomeFooter
     onCreateNote={(name) => actions.createNote(undefined, pane, name)}
-    onSave={actions.handleSaveToGitHub}
+    onPush={actions.handlePushToGitHub}
     disabled={!$state.isFirstPriorityFetched}
     isDirty={$isDirty}
-    saveDisabled={!$state.canPush}
-    saveDisabledReason={$state.saveDisabledReason}
-    onDisabledSaveClick={actions.handleDisabledSaveClick}
+    pushDisabled={!$state.canPush}
+    pushDisabledReason={$state.pushDisabledReason}
+    onDisabledPushClick={actions.handleDisabledPushClick}
     currentWorld={$state.currentWorld}
   />
 {:else if currentView === 'note' && currentNote}
@@ -212,13 +212,13 @@
     onMove={() => actions.openMoveModalForNote(pane)}
     onCreateSubNote={(name) => actions.createNote(currentNote.id, pane, name)}
     onCreateLeaf={(name) => actions.createLeaf(pane, name)}
-    onSave={actions.handleSaveToGitHub}
+    onPush={actions.handlePushToGitHub}
     disabled={!$state.isFirstPriorityFetched}
     isDirty={$isDirty}
     canHaveSubNote={!currentNote.parentId}
-    saveDisabled={!$state.canPush}
-    saveDisabledReason={$state.saveDisabledReason}
-    onDisabledSaveClick={actions.handleDisabledSaveClick}
+    pushDisabled={!$state.canPush}
+    pushDisabledReason={$state.pushDisabledReason}
+    onDisabledPushClick={actions.handleDisabledPushClick}
     currentWorld={$state.currentWorld}
     onArchive={() => actions.archiveNote(pane)}
     onRestore={() => actions.restoreNote(pane)}
@@ -230,12 +230,12 @@
     onMove={() => actions.openMoveModalForLeaf(pane)}
     onDownload={() => actions.downloadLeafAsMarkdown(currentLeaf.id, pane)}
     onTogglePreview={() => actions.togglePreview(pane)}
-    onSave={actions.handleSaveToGitHub}
+    onPush={actions.handlePushToGitHub}
     disabled={!$state.isFirstPriorityFetched && !isOfflineLeaf(currentLeaf.id)}
     isDirty={$isDirty}
-    saveDisabled={!$state.canPush}
-    saveDisabledReason={$state.saveDisabledReason}
-    onDisabledSaveClick={actions.handleDisabledSaveClick}
+    pushDisabled={!$state.canPush}
+    pushDisabledReason={$state.pushDisabledReason}
+    onDisabledPushClick={actions.handleDisabledPushClick}
     hideDeleteMove={isOfflineLeaf(currentLeaf.id)}
     getHasSelection={() => actions.getHasSelection(pane)}
     currentWorld={$state.currentWorld}
@@ -247,12 +247,12 @@
     onMove={() => actions.openMoveModalForLeaf(pane)}
     onDownload={() => actions.downloadLeafAsImage(currentLeaf.id, pane)}
     onToggleEdit={() => actions.togglePreview(pane)}
-    onSave={actions.handleSaveToGitHub}
+    onPush={actions.handlePushToGitHub}
     disabled={!$state.isFirstPriorityFetched && !isOfflineLeaf(currentLeaf.id)}
     isDirty={$isDirty}
-    saveDisabled={!$state.canPush}
-    saveDisabledReason={$state.saveDisabledReason}
-    onDisabledSaveClick={actions.handleDisabledSaveClick}
+    pushDisabled={!$state.canPush}
+    pushDisabledReason={$state.pushDisabledReason}
+    onDisabledPushClick={actions.handleDisabledPushClick}
     hideEditButton={isPriorityLeaf(currentLeaf.id)}
     hideMoveButton={isPriorityLeaf(currentLeaf.id) || isOfflineLeaf(currentLeaf.id)}
     currentWorld={$state.currentWorld}
