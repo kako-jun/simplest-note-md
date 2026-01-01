@@ -32,10 +32,13 @@ export async function executeStaleCheck(
   settingsValue: Settings,
   lastPulledCount: number
 ): Promise<StaleCheckResult> {
-  const result = await checkStaleStatusRaw(settingsValue, lastPulledCount)
-  // チェック時刻を更新（成功・失敗に関わらず）
-  lastStaleCheckTime.set(Date.now())
-  return result
+  try {
+    const result = await checkStaleStatusRaw(settingsValue, lastPulledCount)
+    return result
+  } finally {
+    // チェック時刻を更新（成功・失敗・エラーに関わらず必ず実行）
+    lastStaleCheckTime.set(Date.now())
+  }
 }
 
 /** チェック間隔（ミリ秒） */
@@ -52,15 +55,9 @@ let progressIntervalId: ReturnType<typeof setInterval> | null = null
 
 /**
  * 定期チェックを実行
- * - 条件を満たさない場合は何もしない
  * - stale検出時はisStaleをtrueにするだけ
  */
 async function checkIfNeeded(): Promise<void> {
-  // 条件チェック（canPerformCheckで既にチェック済みだが、念のため）
-  if (!canPerformCheck()) {
-    return
-  }
-
   // サイレントにstaleチェック（共通関数を使用）
   try {
     const result = await executeStaleCheck(get(settings), get(lastPulledPushCount))
