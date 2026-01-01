@@ -1842,12 +1842,17 @@
 
       switch (staleResult.status) {
         case 'stale':
-          // リモートに新しい変更あり → 確認ダイアログを表示
-          $isPushing = false
+          // リモートに新しい変更あり → 確認ダイアログを表示（ロックは保持）
           console.log(
             `Push blocked: remote(${staleResult.remotePushCount}) > local(${staleResult.localPushCount})`
           )
-          showConfirm($_('modal.staleEdit'), () => executePushInternal())
+          showConfirm(
+            $_('modal.staleEdit'),
+            () => executePushInternal(),
+            () => {
+              $isPushing = false
+            }
+          )
           return
 
         case 'check_failed':
@@ -2280,17 +2285,24 @@
     // 交通整理: Pull/Push中は不可
     if (!canSync($isPulling, $isPushing).canPull) return
 
+    // ロック取得（確認ダイアログ中も保持）
+    $isPulling = true
+
     // 未保存の変更がある場合は確認（PWA強制終了後の再起動も考慮）
     if (get(hasAnyChanges) || getPersistedDirtyFlag()) {
       const message = isInitialStartup
         ? $_('modal.unsavedChangesOnStartup')
         : $_('modal.unsavedChanges')
-      showConfirm(message, () => executePullInternal(isInitialStartup), onCancel)
+      showConfirm(
+        message,
+        () => executePullInternal(isInitialStartup),
+        () => {
+          $isPulling = false
+          onCancel?.()
+        }
+      )
       return
     }
-
-    // ロック取得（Staleチェック中に別のPullが開始されるのを防止）
-    $isPulling = true
 
     // Staleチェック: リモートに変更があるか確認（共通関数で時刻も更新）
     const staleResult = await executeStaleCheck($settings, get(lastPulledPushCount))
