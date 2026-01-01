@@ -41,9 +41,6 @@ export async function executeStaleCheck(
 /** チェック間隔（ミリ秒） */
 const CHECK_INTERVAL_MS = 5 * 60 * 1000 // 5分
 
-/** 最小経過時間（ミリ秒） - 前回チェックからこの時間が経過するまではチェックしない */
-const MIN_ELAPSED_MS = CHECK_INTERVAL_MS
-
 /**
  * staleチェック進捗（0〜1）
  * 前回チェックからの経過時間を表示
@@ -51,7 +48,6 @@ const MIN_ELAPSED_MS = CHECK_INTERVAL_MS
  */
 export const staleCheckProgress = writable<number>(0)
 
-let intervalId: ReturnType<typeof setInterval> | null = null
 let progressIntervalId: ReturnType<typeof setInterval> | null = null
 
 /**
@@ -60,30 +56,8 @@ let progressIntervalId: ReturnType<typeof setInterval> | null = null
  * - stale検出時はisStaleをtrueにするだけ
  */
 async function checkIfNeeded(): Promise<void> {
-  // タブが非アクティブならスキップ
-  if (document.visibilityState !== 'visible') {
-    return
-  }
-
-  // GitHub未設定ならスキップ
-  if (!get(githubConfigured)) {
-    return
-  }
-
-  // Pull/Push中ならスキップ
-  if (get(isPulling) || get(isPushing)) {
-    return
-  }
-
-  // 前回のチェックから5分経過していなければスキップ
-  const lastCheck = get(lastStaleCheckTime)
-  if (lastCheck === 0) {
-    // まだ一度もチェックしていない（初回Pull前）
-    return
-  }
-
-  const elapsed = Date.now() - lastCheck
-  if (elapsed < MIN_ELAPSED_MS) {
+  // 条件チェック（canPerformCheckで既にチェック済みだが、念のため）
+  if (!canPerformCheck()) {
     return
   }
 
@@ -100,43 +74,69 @@ async function checkIfNeeded(): Promise<void> {
 }
 
 /**
- * 進捗バーを更新
+ * チェック実行の条件を満たしているか
  */
-function updateProgress(): void {
-  const lastCheck = get(lastStaleCheckTime)
-  if (lastCheck === 0 || !get(githubConfigured)) {
+function canPerformCheck(): boolean {
+  // GitHub未設定
+  if (!get(githubConfigured)) {
+    return false
+  }
+
+  // タブが非アクティブ
+  if (document.visibilityState !== 'visible') {
+    return false
+  }
+
+  // Pull/Push中
+  if (get(isPulling) || get(isPushing)) {
+    return false
+  }
+
+  // まだ一度もチェックしていない（初回Pull前）
+  if (get(lastStaleCheckTime) === 0) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * 進捗バーを更新し、必要ならチェックを実行
+ */
+async function updateProgressAndCheck(): Promise<void> {
+  // 条件が整っていなければバーを表示しない
+  if (!canPerformCheck()) {
     staleCheckProgress.set(0)
     return
   }
 
+  const lastCheck = get(lastStaleCheckTime)
   const elapsed = Date.now() - lastCheck
   const progress = Math.min(elapsed / CHECK_INTERVAL_MS, 1)
   staleCheckProgress.set(progress)
+
+  // 5分経過したらチェックを実行
+  if (progress >= 1) {
+    await checkIfNeeded()
+  }
 }
 
 /**
  * 定期チェッカーを開始
  */
 export function startStaleChecker(): void {
-  if (intervalId !== null) {
+  if (progressIntervalId !== null) {
     return // 既に開始済み
   }
 
-  // チェック用タイマー
-  intervalId = setInterval(checkIfNeeded, CHECK_INTERVAL_MS)
-
-  // 進捗更新タイマー（1秒ごと）
-  progressIntervalId = setInterval(updateProgress, 1000)
+  // 進捗更新タイマー（1秒ごと）- チェックもここでトリガー
+  progressIntervalId = setInterval(updateProgressAndCheck, 1000)
 }
 
 /**
  * 定期チェッカーを停止
  */
 export function stopStaleChecker(): void {
-  if (intervalId !== null) {
-    clearInterval(intervalId)
-    intervalId = null
-  }
   if (progressIntervalId !== null) {
     clearInterval(progressIntervalId)
     progressIntervalId = null
