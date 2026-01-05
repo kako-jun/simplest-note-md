@@ -52,6 +52,7 @@ const CHECK_INTERVAL_MS = 5 * 60 * 1000 // 5分
 export const staleCheckProgress = writable<number>(0)
 
 let progressIntervalId: ReturnType<typeof setInterval> | null = null
+let isChecking = false
 
 /**
  * 定期チェックを実行
@@ -107,6 +108,11 @@ async function updateProgressAndCheck(): Promise<void> {
     return
   }
 
+  // チェック中は進捗更新をスキップ（再チェック防止）
+  if (isChecking) {
+    return
+  }
+
   const lastCheck = get(lastStaleCheckTime)
   const elapsed = Date.now() - lastCheck
   const progress = Math.min(elapsed / CHECK_INTERVAL_MS, 1)
@@ -114,7 +120,14 @@ async function updateProgressAndCheck(): Promise<void> {
 
   // 5分経過したらチェックを実行
   if (progress >= 1) {
-    await checkIfNeeded()
+    isChecking = true
+    try {
+      await checkIfNeeded()
+    } finally {
+      isChecking = false
+      // チェック完了後、即座にバーをリセット
+      staleCheckProgress.set(0)
+    }
   }
 }
 
