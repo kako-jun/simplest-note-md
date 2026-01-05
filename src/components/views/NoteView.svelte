@@ -34,6 +34,7 @@
   export let leafSkeletonMap: Map<string, LeafSkeleton> = new Map()
   export let onSwipeLeft: (() => void) | undefined = undefined
   export let onSwipeRight: (() => void) | undefined = undefined
+  export let isArchive: boolean = false
 
   // リアクティブにノートアイテムを計算（leavesが更新されるたびに再計算）
   function computeNoteItems(noteId: string, notes: Note[], leaves: Leaf[]): string[] {
@@ -139,7 +140,13 @@
   <div class="card-grid">
     {#if subNotes.length === 0 && displayItems.length === 0 && isFirstPriorityFetched}
       <div class="empty-state">
-        <p>{currentNote.parentId ? $_('note.noLeaves') : $_('note.noItems')}</p>
+        <p>
+          {#if isArchive}
+            {currentNote.parentId ? $_('note.noLeavesArchive') : $_('note.noItemsArchive')}
+          {:else}
+            {currentNote.parentId ? $_('note.noLeaves') : $_('note.noItems')}
+          {/if}
+        </p>
       </div>
     {:else if subNotes.length > 0 || displayItems.length > 0}
       {#each subNotes as subNote, index (subNote.id)}

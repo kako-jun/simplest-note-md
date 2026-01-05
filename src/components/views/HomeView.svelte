@@ -25,6 +25,7 @@
   export let offlineLeaf: Leaf | null = null
   export let onSelectOffline: () => void
   export let onUpdateOfflineBadge: (icon: string, color: string) => void
+  export let isArchive: boolean = false
 
   // リアクティブにノートアイテムを計算（leavesが更新されるたびに再計算）
   function computeNoteItems(noteId: string, allNotes: Note[], leaves: Leaf[]): string[] {
@@ -175,7 +176,7 @@
     <!-- ノートカード: 特殊リーフの後に表示 -->
     {#if notes.length === 0 && isFirstPriorityFetched}
       <div class="empty-state">
-        <p>{$_('home.noNotes')}</p>
+        <p>{isArchive ? $_('home.noNotesArchive') : $_('home.noNotes')}</p>
       </div>
     {:else if notes.length > 0}
       {#each notes as note, index (note.id)}

@@ -131,6 +131,7 @@
       offlineLeaf={isArchiveWorld ? null : $state.currentOfflineLeaf}
       onSelectOffline={() => actions.openOfflineView(pane)}
       onUpdateOfflineBadge={actions.updateOfflineBadge}
+      isArchive={isArchiveWorld}
     />
   {:else if currentView === 'note' && currentNote}
     <NoteView
@@ -160,6 +161,7 @@
       leafSkeletonMap={$state.leafSkeletonMap}
       onSwipeLeft={() => actions.goToNextSibling(pane)}
       onSwipeRight={() => actions.goToPrevSibling(pane)}
+      isArchive={isArchiveWorld}
     />
   {:else if currentView === 'edit' && currentLeaf}
     <EditorView
