@@ -234,10 +234,10 @@
     "noNestedSubNote": "Cannot create a sub-note under another sub-note.",
     "needInitialPull": "Operations are locked until the initial Pull completes. Please Pull from settings.",
     "exitApp": "You have unsaved changes. Continue?",
-    "archiveNote": "Move this note to Archive?",
-    "archiveLeaf": "Move this leaf to Archive?",
-    "restoreNote": "Restore this note to same path in Home?",
-    "restoreLeaf": "Restore this leaf to same path in Home?"
+    "archiveNote": "Archive this note?",
+    "archiveLeaf": "Archive this leaf?",
+    "restoreNote": "Restore this note?",
+    "restoreLeaf": "Restore this leaf?"
   },
   "loading": {
     "pulling": "Pulling...",
