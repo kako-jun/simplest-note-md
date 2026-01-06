@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store'
+import { tick } from 'svelte'
 
 /**
  * トースト通知の状態
@@ -132,6 +133,37 @@ export function showAlert(
     type: 'alert',
     callback: onClose || null,
     position,
+  })
+}
+
+/**
+ * アラートダイアログを表示（Promise版）
+ * モーダルが閉じられるまで待機
+ */
+export async function alertAsync(
+  message: string,
+  position: ModalPosition = 'center'
+): Promise<void> {
+  // 一度必ずモーダルを閉じる
+  modalState.set({
+    show: false,
+    message: '',
+    type: 'alert',
+    callback: null,
+    position: 'center',
+  })
+
+  // DOM更新を待つ
+  await tick()
+
+  return new Promise((resolve) => {
+    modalState.set({
+      show: true,
+      message,
+      type: 'alert',
+      callback: () => resolve(),
+      position,
+    })
   })
 }
 

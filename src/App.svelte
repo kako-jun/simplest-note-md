@@ -100,6 +100,7 @@
     showPullToast,
     showConfirm,
     showAlert,
+    alertAsync,
     confirmAsync,
     promptAsync,
     showPrompt,
@@ -1039,6 +1040,10 @@
 
   async function moveNoteToWorld(note: Note, targetWorld: WorldType) {
     // アーカイブへの移動時、アーカイブがロードされていない場合は先にPull
+    // Pull後のデータを保持（$archiveNotesはリアクティブ更新が遅れる可能性があるため）
+    let freshArchiveNotes: Note[] | null = null
+    let freshArchiveLeaves: Leaf[] | null = null
+
     if (targetWorld === 'archive' && !$isArchiveLoaded) {
       if ($settings.token && $settings.repoName) {
         isArchiveLoading = true
@@ -1049,6 +1054,9 @@
             archiveLeaves.set(result.leaves)
             archiveMetadata.set(result.metadata)
             isArchiveLoaded.set(true)
+            // Pull直後のデータを保持（リアクティブ更新を待たずに使用）
+            freshArchiveNotes = result.notes
+            freshArchiveLeaves = result.leaves
             // アーカイブPull完了時にスナップショットを更新
             setLastPushedSnapshot(get(notes), get(leaves), result.notes, result.leaves)
           } else {
@@ -1071,8 +1079,8 @@
     }
 
     const sourceWorld = $currentWorld
-    const sourceNotes = sourceWorld === 'home' ? $notes : $archiveNotes
-    const sourceLeaves = sourceWorld === 'home' ? $leaves : $archiveLeaves
+    const sourceNotes = sourceWorld === 'home' ? $notes : (freshArchiveNotes ?? $archiveNotes)
+    const sourceLeaves = sourceWorld === 'home' ? $leaves : (freshArchiveLeaves ?? $archiveLeaves)
 
     // ノートを見つける
     const noteToMove = sourceNotes.find((n) => n.id === note.id)
@@ -1095,7 +1103,9 @@
     const parentPath = getParentPath(noteToMove)
 
     // ターゲット側で同じ親構造を見つけるか作成する
-    let currentTargetNotes = targetWorld === 'home' ? [...$notes] : [...$archiveNotes]
+    // freshArchiveNotesがある場合はそれを使用（Pull直後のデータ）
+    let currentTargetNotes =
+      targetWorld === 'home' ? [...$notes] : [...(freshArchiveNotes ?? $archiveNotes)]
     let targetParentId: string | undefined
 
     for (const pathNote of parentPath) {
@@ -1121,8 +1131,9 @@
 
     // 同じ階層で同じ名前のノートがあるかチェック
     const siblingsInTarget = currentTargetNotes.filter((n) => n.parentId === targetParentId)
-    if (siblingsInTarget.some((n) => n.name === noteToMove.name)) {
-      await showAlert($_('modal.duplicateNoteDestination'))
+    const hasDuplicate = siblingsInTarget.some((n) => n.name === noteToMove.name)
+    if (hasDuplicate) {
+      await alertAsync($_('modal.duplicateNoteDestination'))
       return
     }
 
@@ -1143,7 +1154,7 @@
     // 子ノートはparentIdを維持（移動するノートのIDは変わらないので）
     const movedChildNotes = childNotes.map((n) => ({ ...n }))
     const newTargetNotes = [...currentTargetNotes, movedNote, ...movedChildNotes]
-    const targetLeaves = targetWorld === 'home' ? $leaves : $archiveLeaves
+    const targetLeaves = targetWorld === 'home' ? $leaves : (freshArchiveLeaves ?? $archiveLeaves)
     const newTargetLeaves = [...targetLeaves, ...leavesToMove]
 
     // ストアを更新
@@ -1212,6 +1223,10 @@
 
   async function moveLeafToWorld(leaf: Leaf, targetWorld: WorldType) {
     // アーカイブへの移動時、アーカイブがロードされていない場合は先にPull
+    // Pull後のデータを保持（$archiveNotesはリアクティブ更新が遅れる可能性があるため）
+    let freshArchiveNotes: Note[] | null = null
+    let freshArchiveLeaves: Leaf[] | null = null
+
     if (targetWorld === 'archive' && !$isArchiveLoaded) {
       if ($settings.token && $settings.repoName) {
         isArchiveLoading = true
@@ -1222,6 +1237,9 @@
             archiveLeaves.set(result.leaves)
             archiveMetadata.set(result.metadata)
             isArchiveLoaded.set(true)
+            // Pull直後のデータを保持（リアクティブ更新を待たずに使用）
+            freshArchiveNotes = result.notes
+            freshArchiveLeaves = result.leaves
             // アーカイブPull完了時にスナップショットを更新
             setLastPushedSnapshot(get(notes), get(leaves), result.notes, result.leaves)
           } else {
@@ -1244,10 +1262,10 @@
     }
 
     const sourceWorld = $currentWorld
-    const sourceNotes = sourceWorld === 'home' ? $notes : $archiveNotes
-    const sourceLeaves = sourceWorld === 'home' ? $leaves : $archiveLeaves
-    const targetNotes = targetWorld === 'home' ? $notes : $archiveNotes
-    const targetLeaves = targetWorld === 'home' ? $leaves : $archiveLeaves
+    const sourceNotes = sourceWorld === 'home' ? $notes : (freshArchiveNotes ?? $archiveNotes)
+    const sourceLeaves = sourceWorld === 'home' ? $leaves : (freshArchiveLeaves ?? $archiveLeaves)
+    const targetNotes = targetWorld === 'home' ? $notes : (freshArchiveNotes ?? $archiveNotes)
+    const targetLeaves = targetWorld === 'home' ? $leaves : (freshArchiveLeaves ?? $archiveLeaves)
 
     // リーフの親ノートを見つける
     const sourceNote = sourceNotes.find((n) => n.id === leaf.noteId)
@@ -1266,7 +1284,9 @@
     const sourceNotePath = getNotePath(sourceNote)
 
     // ターゲット側で同じパス構造を見つけるか作成する
-    let currentTargetNotes = targetWorld === 'home' ? [...$notes] : [...$archiveNotes]
+    // freshArchiveNotesがある場合はそれを使用（Pull直後のデータ）
+    let currentTargetNotes =
+      targetWorld === 'home' ? [...$notes] : [...(freshArchiveNotes ?? $archiveNotes)]
     let targetNote: Note | undefined
     let parentId: string | undefined
 
