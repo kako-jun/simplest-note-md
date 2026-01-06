@@ -1151,16 +1151,16 @@
       updateNotes(newSourceNotes)
       updateLeaves(newSourceLeaves)
     } else {
-      archiveNotes.set(newSourceNotes)
-      archiveLeaves.set(newSourceLeaves)
+      updateArchiveNotes(newSourceNotes)
+      updateArchiveLeaves(newSourceLeaves)
     }
 
     if (targetWorld === 'home') {
       updateNotes(newTargetNotes)
       updateLeaves(newTargetLeaves)
     } else {
-      archiveNotes.set(newTargetNotes)
-      archiveLeaves.set(newTargetLeaves)
+      updateArchiveNotes(newTargetNotes)
+      updateArchiveLeaves(newTargetLeaves)
     }
 
     // IndexedDBとdirtyフラグを更新
@@ -1296,7 +1296,7 @@
         if (targetWorld === 'home') {
           updateNotes(currentTargetNotes)
         } else {
-          archiveNotes.set(currentTargetNotes)
+          updateArchiveNotes(currentTargetNotes)
         }
       }
     }
@@ -1322,18 +1322,17 @@
     if (sourceWorld === 'home') {
       updateLeaves(newSourceLeaves)
     } else {
-      archiveLeaves.set(newSourceLeaves)
+      updateArchiveLeaves(newSourceLeaves)
     }
 
     if (targetWorld === 'home') {
       updateLeaves(newTargetLeaves)
     } else {
-      archiveLeaves.set(newTargetLeaves)
+      updateArchiveLeaves(newTargetLeaves)
     }
 
-    // IndexedDBとdirtyフラグを更新
+    // IndexedDBに保存
     await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
-    isStructureDirty.set(true)
 
     // スケルトンマップから移動したリーフを削除（Homeからアーカイブ時のみ）
     if (sourceWorld === 'home' && leafSkeletonMap.has(leaf.id)) {
@@ -1692,9 +1691,8 @@
           const remainingNotes = allNotes.filter((n) => !descendantIds.has(n.id))
           const remainingLeaves = allLeaves.filter((l) => !descendantIds.has(l.noteId))
 
-          archiveNotes.set(remainingNotes)
-          archiveLeaves.set(remainingLeaves)
-          isStructureDirty.set(true)
+          updateArchiveNotes(remainingNotes)
+          updateArchiveLeaves(remainingLeaves)
 
           // ナビゲーション処理
           const parentNote = targetNote.parentId
@@ -1773,8 +1771,7 @@
       const updated = allNotes.map((n) =>
         n.id === noteId ? { ...n, badgeIcon: nextIcon, badgeColor: nextColor } : n
       )
-      archiveNotes.set(updated)
-      isStructureDirty.set(true)
+      updateArchiveNotes(updated)
       return
     }
 
@@ -1867,8 +1864,7 @@
       showConfirm(
         $_('modal.deleteLeaf'),
         () => {
-          archiveLeaves.set(allLeaves.filter((l) => l.id !== leafId))
-          isStructureDirty.set(true)
+          updateArchiveLeaves(allLeaves.filter((l) => l.id !== leafId))
 
           const note = allNotes.find((n) => n.id === targetLeaf.noteId)
           if (note) selectNote(note, pane)
@@ -1948,8 +1944,7 @@
         updatedAt: Date.now(),
         isDirty: true,
       }
-      archiveLeaves.set(allLeaves.map((l) => (l.id === leafId ? updatedLeaf : l)))
-      isStructureDirty.set(true)
+      updateArchiveLeaves(allLeaves.map((l) => (l.id === leafId ? updatedLeaf : l)))
 
       if ($leftLeaf?.id === leafId) $leftLeaf = updatedLeaf
       if ($rightLeaf?.id === leafId) $rightLeaf = updatedLeaf
@@ -1987,8 +1982,7 @@
         badgeColor: normalizeBadgeValue(badgeColor),
         updatedAt: Date.now(),
       }
-      archiveLeaves.set(allLeaves.map((l) => (l.id === leafId ? updatedLeaf : l)))
-      isStructureDirty.set(true)
+      updateArchiveLeaves(allLeaves.map((l) => (l.id === leafId ? updatedLeaf : l)))
 
       if ($leftLeaf?.id === leafId) $leftLeaf = updatedLeaf
       if ($rightLeaf?.id === leafId) $rightLeaf = updatedLeaf
@@ -2116,8 +2110,7 @@
         order: remaining.filter((l) => l.noteId === destNoteId).length,
         updatedAt: Date.now(),
       }
-      archiveLeaves.set([...remaining, movedLeaf])
-      isStructureDirty.set(true)
+      updateArchiveLeaves([...remaining, movedLeaf])
 
       if ($leftLeaf?.id === targetLeaf.id) {
         $leftLeaf = movedLeaf
@@ -2191,8 +2184,7 @@
       const updated = allNotes.map((n) =>
         n.id === targetNote.id ? { ...n, parentId: nextParent || undefined } : n
       )
-      archiveNotes.set(updated)
-      isStructureDirty.set(true)
+      updateArchiveNotes(updated)
 
       const updatedNote = updated.find((n) => n.id === targetNote.id)
       if (updatedNote) {
@@ -2430,8 +2422,8 @@
 
       // アーカイブデータがあればストアに設定
       if (result.archiveNotes.length > 0 || result.archiveLeaves.length > 0) {
-        archiveNotes.set(result.archiveNotes)
-        archiveLeaves.set(result.archiveLeaves)
+        updateArchiveNotes(result.archiveNotes)
+        updateArchiveLeaves(result.archiveLeaves)
         if (result.archiveMetadata) {
           archiveMetadata.set(result.archiveMetadata)
         }
