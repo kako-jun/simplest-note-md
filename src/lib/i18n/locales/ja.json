@@ -180,7 +180,7 @@
       "infoFileFooter": "アーカイブには notes/ と metadata.json が入っています。",
       "exportZip": "ZIPエクスポート",
       "exporting": "エクスポート中...",
-      "exportSuccess": "ZIP を出力しました（.git なし）",
+      "exportSuccess": "ZIPをエクスポートしました",
       "exportFailed": "ZIP エクスポートに失敗しました",
       "nothingToExport": "エクスポートするノートがありません",
       "needInitialPull": "初回 Pull 完了後にエクスポートできます",
@@ -286,9 +286,9 @@
     "connectionOk": "接続OK（認証・リポジトリ参照に成功）",
     "pullOk": "Pullしました",
     "pushOk": "Pushしました",
-    "pushOkWithCount": "{count}件のリーフを保存しました",
-    "pushOkMetadataOnly": "メタデータのみ更新しました",
-    "noChanges": "変更なし（Pushスキップ）",
+    "pushOkWithCount": "{count}件のリーフをPushしました",
+    "pushOkMetadataOnly": "メタデータのみPushしました",
+    "noChanges": "ローカルに変更がないためPushをスキップしました",
     "noRemoteChanges": "リモートに変更がないためPullをスキップしました"
   },
   "welcome": {

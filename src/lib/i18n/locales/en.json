@@ -176,7 +176,7 @@
       "infoFileFooter": "Archive includes notes/ and metadata.json for this app.",
       "exportZip": "Export as ZIP",
       "exporting": "Exporting...",
-      "exportSuccess": "Exported ZIP (no .git history included)",
+      "exportSuccess": "ZIP exported",
       "exportFailed": "Failed to export ZIP",
       "nothingToExport": "No notes to export",
       "needInitialPull": "Finish the first pull before exporting",
@@ -273,10 +273,10 @@
     "connectionOk": "Connection OK (auth and repo access successful)",
     "pullOk": "Pulled successfully",
     "pushOk": "Pushed successfully",
-    "pushOkWithCount": "Saved {count} leaves",
-    "pushOkMetadataOnly": "Metadata updated",
-    "noChanges": "No changes (Push skipped)",
-    "noRemoteChanges": "No remote changes - Pull skipped"
+    "pushOkWithCount": "Pushed {count} leaves",
+    "pushOkMetadataOnly": "Pushed metadata only",
+    "noChanges": "No local changes, Push skipped",
+    "noRemoteChanges": "No remote changes, Pull skipped"
   },
   "move": {
     "title": "Select destination",
