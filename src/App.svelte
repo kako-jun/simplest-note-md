@@ -2829,8 +2829,19 @@
         }
         isStale.set(false) // Pullしたのでstale状態を解除
       } else {
-        // Pull失敗時: バックアップからデータを復元
-        if (hasBackupData) {
+        // Pull失敗時の処理
+        if (result.message === 'github.pullIncomplete') {
+          // リーフ取得が不完全な場合は、UIをロック状態に戻す
+          // これにより、不完全なデータでのPushによるデータ消失を防ぐ
+          console.error('Pull incomplete: some leaves failed to fetch. UI remains locked.')
+          isFirstPriorityFetched = false
+          isPullCompleted = false
+          // ストアをクリアして不完全なデータでのPushを防ぐ
+          notes.set([])
+          leaves.set([])
+          // バックアップからの復元はしない（不完全な状態でのPushを防ぐため）
+        } else if (hasBackupData) {
+          // その他のPull失敗（ネットワークエラー等）: バックアップからデータを復元
           console.log('Pull failed, restoring from backup...')
           try {
             await restoreFromBackup(backup)

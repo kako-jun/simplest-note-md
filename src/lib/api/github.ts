@@ -1253,6 +1253,9 @@ export async function pullFromGitHub(
     }
 
     // リーフを並列取得（コールバック付き）
+    // 失敗したリーフのパスを追跡
+    const failedLeafPaths: string[] = []
+
     const leaves = await runWithConcurrency(
       sortedTargets,
       CONTENT_FETCH_CONCURRENCY,
@@ -1263,7 +1266,14 @@ export async function pullFromGitHub(
           settings.token,
           { raw: true }
         )
-        if (!contentRes.ok) return null
+        if (!contentRes.ok) {
+          // 失敗を記録
+          failedLeafPaths.push(target.relativePath)
+          console.error(
+            `Failed to fetch leaf: ${target.relativePath} (status: ${contentRes.status})`
+          )
+          return null
+        }
         const content = await contentRes.text()
 
         const leaf: Leaf = {
@@ -1292,6 +1302,22 @@ export async function pullFromGitHub(
         return leaf
       }
     )
+
+    // リーフ取得に失敗したものがあれば、Pull全体を失敗として扱う
+    // これにより、不完全な状態でのPushによるデータ消失を防ぐ
+    if (failedLeafPaths.length > 0) {
+      console.error(
+        `Pull incomplete: ${failedLeafPaths.length} leaves failed to fetch:`,
+        failedLeafPaths
+      )
+      return {
+        success: false,
+        message: 'github.pullIncomplete',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+      }
+    }
 
     // orderでソート
     const sortedLeaves = leaves.sort((a, b) => a.order - b.order)
@@ -1686,6 +1712,9 @@ export async function pullArchive(settings: Settings): Promise<ArchivePullResult
     })
 
     // リーフを並列取得
+    // 失敗したリーフのパスを追跡
+    const failedLeafPaths: string[] = []
+
     const leaves = await runWithConcurrency(
       leafTargets,
       CONTENT_FETCH_CONCURRENCY,
@@ -1696,7 +1725,14 @@ export async function pullArchive(settings: Settings): Promise<ArchivePullResult
           settings.token,
           { raw: true }
         )
-        if (!contentRes.ok) return null
+        if (!contentRes.ok) {
+          // 失敗を記録
+          failedLeafPaths.push(target.relativePath)
+          console.error(
+            `Failed to fetch archive leaf: ${target.relativePath} (status: ${contentRes.status})`
+          )
+          return null
+        }
         const content = await contentRes.text()
 
         const leaf: Leaf = {
@@ -1713,6 +1749,21 @@ export async function pullArchive(settings: Settings): Promise<ArchivePullResult
         return leaf
       }
     )
+
+    // リーフ取得に失敗したものがあれば、Pull全体を失敗として扱う
+    if (failedLeafPaths.length > 0) {
+      console.error(
+        `Archive pull incomplete: ${failedLeafPaths.length} leaves failed to fetch:`,
+        failedLeafPaths
+      )
+      return {
+        success: false,
+        message: 'github.pullIncomplete',
+        notes: [],
+        leaves: [],
+        metadata: defaultMetadata,
+      }
+    }
 
     const sortedNotes = Array.from(noteMap.values()).sort((a, b) => a.order - b.order)
     const sortedLeaves = leaves.sort((a, b) => a.order - b.order)

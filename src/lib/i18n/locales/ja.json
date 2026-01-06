@@ -285,6 +285,7 @@
     "networkError": "ネットワークエラー",
     "connectionOk": "接続OK（認証・リポジトリ参照に成功）",
     "pullOk": "Pullしました",
+    "pullIncomplete": "Pullが不完全です（一部のリーフを取得できませんでした）",
     "pushOk": "Pushしました",
     "pushOkWithCount": "{count}件のリーフをPushしました",
     "pushOkMetadataOnly": "メタデータのみPushしました",

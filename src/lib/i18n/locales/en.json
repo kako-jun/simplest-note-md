@@ -272,6 +272,7 @@
     "networkError": "Network error",
     "connectionOk": "Connection OK (auth and repo access successful)",
     "pullOk": "Pulled successfully",
+    "pullIncomplete": "Pull incomplete (some leaves failed to fetch)",
     "pushOk": "Pushed successfully",
     "pushOkWithCount": "Pushed {count} leaves",
     "pushOkMetadataOnly": "Pushed metadata only",
