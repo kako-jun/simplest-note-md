@@ -31,8 +31,16 @@
   $: showAppIcon = hasTitle && title.trim() === defaultSettings.toolName
 
   let showPaneMenu = false
+  let menuX = 0
+  let menuY = 0
+  let swapButtonRef: HTMLElement
 
   function togglePaneMenu() {
+    if (!showPaneMenu && swapButtonRef) {
+      const rect = swapButtonRef.getBoundingClientRect()
+      menuX = rect.left + rect.width / 2
+      menuY = rect.bottom + 4
+    }
     showPaneMenu = !showPaneMenu
   }
 
@@ -43,13 +51,27 @@
 
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement
-    if (!target.closest('.pane-menu-container')) {
+    if (!target.closest('.pane-menu-container') && !target.closest('.pane-menu')) {
       showPaneMenu = false
     }
   }
 </script>
 
 <svelte:window on:click={handleClickOutside} />
+
+{#if showPaneMenu}
+  <div class="pane-menu" style="left: {menuX}px; top: {menuY}px;">
+    <button on:click={() => handleMenuAction(onCopyRightToLeft)}>
+      <ArrowLeftIcon />
+    </button>
+    <button on:click={() => handleMenuAction(onSwapPanes)}>
+      <SwapIcon />
+    </button>
+    <button on:click={() => handleMenuAction(onCopyLeftToRight)}>
+      <ArrowRightIcon />
+    </button>
+  </div>
+{/if}
 
 <header>
   <StaleCheckIndicator />
@@ -80,7 +102,7 @@
   </div>
   {#if isDualPane}
     <div class="pane-menu-container">
-      <div class="swap-button">
+      <div class="swap-button" bind:this={swapButtonRef}>
         <IconButton
           onClick={togglePaneMenu}
           title={$_('header.swapPanes')}
@@ -89,19 +111,6 @@
           <SwapIcon />
         </IconButton>
       </div>
-      {#if showPaneMenu}
-        <div class="pane-menu">
-          <button on:click={() => handleMenuAction(onCopyLeftToRight)}>
-            <ArrowRightIcon />
-          </button>
-          <button on:click={() => handleMenuAction(onSwapPanes)}>
-            <SwapIcon />
-          </button>
-          <button on:click={() => handleMenuAction(onCopyRightToLeft)}>
-            <ArrowLeftIcon />
-          </button>
-        </div>
-      {/if}
     </div>
   {/if}
   <div class="header-right">
@@ -222,11 +231,8 @@
   }
 
   .pane-menu {
-    position: absolute;
-    top: 100%;
-    left: 50%;
+    position: fixed;
     transform: translateX(-50%);
-    margin-top: 0.25rem;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 8px;
