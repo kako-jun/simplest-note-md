@@ -23,6 +23,7 @@
   export let onPullProgressClick: () => void = () => {}
   export let onSearchClick: () => void
   export let isDualPane: boolean = false
+  export let isOperationsLocked: boolean = false
   export let onSwapPanes: () => void = () => {}
   export let onCopyLeftToRight: () => void = () => {}
   export let onCopyRightToLeft: () => void = () => {}
@@ -100,7 +101,7 @@
       id="tour-pull"
     />
   </div>
-  {#if isDualPane}
+  {#if isDualPane && !isOperationsLocked}
     <div class="pane-menu-container">
       <div class="swap-button" bind:this={swapButtonRef}>
         <IconButton

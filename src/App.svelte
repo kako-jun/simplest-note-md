@@ -2936,6 +2936,7 @@
       }}
       onSearchClick={toggleSearch}
       {isDualPane}
+      isOperationsLocked={!isFirstPriorityFetched}
       onSwapPanes={swapPanes}
       onCopyLeftToRight={copyLeftToRight}
       onCopyRightToLeft={copyRightToLeft}
