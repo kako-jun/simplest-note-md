@@ -53,20 +53,28 @@
     max-width: calc(100vw - 24px);
     text-align: center;
     white-space: nowrap;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
   }
 
   .toast.success {
-    background: color-mix(in srgb, var(--accent) 20%, var(--surface-1) 80%);
+    background: color-mix(in srgb, var(--accent) 30%, var(--surface-1) 70%);
   }
 
   .toast.error {
-    background: color-mix(in srgb, var(--error) 20%, var(--surface-1) 80%);
+    background: color-mix(in srgb, var(--error) 30%, var(--surface-1) 70%);
   }
 
-  /* ダークテーマ: 白い枠 */
+  /* ダークテーマ: 白い枠、黒い影、エラー時は直接エラー色 */
   :global([data-theme='dotsD']) .toast,
   :global([data-theme='dotsF']) .toast,
   :global([data-theme='greenboard']) .toast {
     border-color: #ffffff;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  }
+
+  :global([data-theme='dotsD']) .toast.error,
+  :global([data-theme='dotsF']) .toast.error,
+  :global([data-theme='greenboard']) .toast.error {
+    background: var(--error);
   }
 </style>
