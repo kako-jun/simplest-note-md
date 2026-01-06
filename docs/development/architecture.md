@@ -32,13 +32,6 @@ graph TB
     C --> D
 ```
 
-**統計情報:**
-
-- 総行数: 約8,100行（コメント・空行含む）
-- 総ファイル数: 56個（.svelte + .ts）
-- コンポーネント数: 38個（23個の一般 + 14個のアイコン + IconButton）
-- libモジュール数: 14個
-
 詳細なファイル構造は[プロジェクト構造](#プロジェクト構造)セクションを参照してください。
 
 ---
@@ -188,7 +181,7 @@ agasteer/
 │   │   └── ui.ts                        # トースト状態管理
 │   ├── app.css                          # グローバルスタイル + テーマ定義
 │   ├── app.d.ts                         # TypeScript型宣言
-│   ├── App.svelte                       # ルートコンポーネント (約1,400行)
+│   ├── App.svelte                       # ルートコンポーネント
 │   └── main.ts                          # エントリーポイント
 ├── docs/                                # 詳細ドキュメント
 │   ├── architecture.md                  # このファイル
@@ -219,7 +212,7 @@ agasteer/
 
 ### 重要ファイルの役割
 
-#### `src/App.svelte` (約1,400行)
+#### `src/App.svelte`
 
 アプリケーションのルートコンポーネント。ビュー切り替えとイベントハンドリングを担当。
 
@@ -255,7 +248,7 @@ agasteer/
 - `NoteView.svelte`: ノート内のサブノートとリーフ一覧
 - `EditorView.svelte`: リーフ編集画面（CodeMirrorエディタ）
 - `PreviewView.svelte`: マークダウンプレビュー画面（marked + DOMPurify）
-- `SettingsView.svelte`: 設定画面（コンポーネントの羅列のみ、約100行）
+- `SettingsView.svelte`: 設定画面（コンポーネントの羅列のみ）
 
 **設定コンポーネント:**
 
@@ -482,7 +475,6 @@ Agasteerは、Svelteのリアクティブシステムとコンポーネントベ
 
 **主要な特徴:**
 
-- 約8,400行のコード（59ファイル、45コンポーネント、14モジュール）
 - 完全なブラウザベース実装
 - GitHub API直接統合
 - IndexedDB/LocalStorageによる永続化

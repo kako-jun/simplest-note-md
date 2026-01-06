@@ -17,6 +17,8 @@ Agasteerのデータモデル、型定義、状態管理について説明しま
 | theme                    | ThemeType | テーマ名                           |
 | toolName                 | string    | アプリケーション名（タブタイトル） |
 | locale                   | Locale    | 言語（'ja' / 'en'）                |
+| linedMode                | boolean   | 罫線エディタモード                 |
+| vimMode                  | boolean   | Vimモード                          |
 | hasCustomFont            | boolean   | カスタムフォント適用フラグ         |
 | hasCustomBackgroundLeft  | boolean   | 左ペイン背景画像適用フラグ         |
 | hasCustomBackgroundRight | boolean   | 右ペイン背景画像適用フラグ         |
@@ -25,44 +27,64 @@ Agasteerのデータモデル、型定義、状態管理について説明しま
 
 **注意**: コミット時のユーザー名とメールアドレスは固定値（`agasteer` / `agasteer@example.com`）を使用します。
 
-#### `Folder` / `Note`
+#### `Note`
 
-| フィールド | 型     | 説明                                           |
-| ---------- | ------ | ---------------------------------------------- |
-| id         | string | UUID（crypto.randomUUID()）                    |
-| name       | string | 表示名                                         |
-| parentId   | string | 親フォルダ/ノートのID（ルートの場合undefined） |
-| order      | number | 並び順（同階層内）                             |
+ノート（フォルダ相当）を表します。
 
-**Note**にはさらに以下のフィールドがあります：
+| フィールド | 型          | 説明                                        |
+| ---------- | ----------- | ------------------------------------------- |
+| id         | string      | UUID（crypto.randomUUID()）                 |
+| name       | string      | 表示名                                      |
+| parentId   | string/null | 親ノートのID（ルートの場合null）            |
+| order      | number      | 並び順（同階層内）                          |
+| badgeIcon  | number/null | バッジアイコン（5×5グリッドのインデックス） |
+| badgeColor | number/null | バッジ色（5色パレットのインデックス）       |
 
-| フィールド | 型     | 説明                                |
-| ---------- | ------ | ----------------------------------- |
-| folderId   | string | 所属フォルダのID                    |
-| content    | string | Markdown本文                        |
-| updatedAt  | number | 最終更新タイムスタンプ（Unix time） |
+#### `Leaf`
+
+リーフ（Markdownファイル）を表します。
+
+| フィールド | 型          | 説明                                  |
+| ---------- | ----------- | ------------------------------------- |
+| id         | string      | UUID                                  |
+| title      | string      | リーフタイトル（#見出しと双方向同期） |
+| noteId     | string      | 所属ノートのID                        |
+| content    | string      | Markdown本文                          |
+| order      | number      | 並び順（同ノート内）                  |
+| updatedAt  | number      | 最終更新タイムスタンプ（Unix time）   |
+| isDirty    | boolean     | ローカル変更フラグ                    |
+| badgeIcon  | number/null | バッジアイコン                        |
+| badgeColor | number/null | バッジ色                              |
 
 #### `View`
 
-現在のビュー状態: `'home' | 'settings' | 'edit' | 'folder'`
+現在のビュー状態: `'home' | 'settings' | 'edit' | 'note' | 'preview'`
 
-- **home**: ルートフォルダ一覧
-- **folder**: フォルダ内のサブフォルダとノート一覧
-- **edit**: ノート編集画面
+- **home**: ルートノート一覧
+- **note**: ノート内のサブノートとリーフ一覧
+- **edit**: リーフ編集画面
+- **preview**: リーフプレビュー画面
 - **settings**: 設定画面
+
+#### `WorldType`
+
+ワールド: `'home' | 'archive'`
+
+- **home**: 通常のノート・リーフ（.agasteer/notes/）
+- **archive**: アーカイブされたノート・リーフ（.agasteer/archive/）
 
 ### データの一意性とリレーション
 
 ```mermaid
 graph TB
-    F1["Folder<br/>(id: uuid-1, parentId: null)<br/>ルートフォルダ"]
-    F2["Folder<br/>(id: uuid-2, parentId: uuid-1)<br/>サブフォルダ"]
-    N3["Note<br/>(id: uuid-3, folderId: uuid-1)"]
-    N5["Note<br/>(id: uuid-5, folderId: uuid-2)"]
+    N1["Note<br/>(id: uuid-1, parentId: null)<br/>ルートノート"]
+    N2["Note<br/>(id: uuid-2, parentId: uuid-1)<br/>サブノート"]
+    L3["Leaf<br/>(id: uuid-3, noteId: uuid-1)"]
+    L5["Leaf<br/>(id: uuid-5, noteId: uuid-2)"]
 
-    F1 --> F2
-    F1 --> N3
-    F2 --> N5
+    N1 --> N2
+    N1 --> L3
+    N2 --> L5
 ```
 
 **UUIDの使用理由:**
