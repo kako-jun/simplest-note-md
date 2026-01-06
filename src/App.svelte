@@ -99,7 +99,6 @@
     showPushToast,
     showPullToast,
     showConfirm,
-    showAlert,
     alertAsync,
     confirmAsync,
     promptAsync,
@@ -651,20 +650,19 @@
     let lastVisibleTime = Date.now()
     const BACKGROUND_THRESHOLD_MS = 5 * 60 * 1000 // 5分
 
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         const now = Date.now()
         const elapsed = now - lastVisibleTime
         if (elapsed > BACKGROUND_THRESHOLD_MS) {
           console.log(`PWA was in background for ${Math.round(elapsed / 1000)}s`)
           // モーダルを表示し、閉じたら状態確認を実行
-          showAlert($_('modal.longBackground'), 'center', async () => {
-            // staleチェックを実行
-            const staleResult = await executeStaleCheck($settings, get(lastPulledPushCount))
-            if (staleResult.status === 'stale') {
-              isStale.set(true)
-            }
-          })
+          await alertAsync($_('modal.longBackground'), 'center')
+          // staleチェックを実行
+          const staleResult = await executeStaleCheck($settings, get(lastPulledPushCount))
+          if (staleResult.status === 'stale') {
+            isStale.set(true)
+          }
         }
         lastVisibleTime = now
 
@@ -1326,7 +1324,7 @@
     // 同じ名前のリーフがあるかチェック
     const targetLeavesInNote = targetLeaves.filter((l) => l.noteId === targetNote!.id)
     if (targetLeavesInNote.some((l) => l.title === leaf.title)) {
-      await showAlert($_('modal.duplicateLeafDestination'))
+      await alertAsync($_('modal.duplicateLeafDestination'))
       return
     }
 
@@ -1542,7 +1540,7 @@
     )
   }
 
-  function saveEditBreadcrumb(id: string, newName: string, type: Breadcrumb['type']) {
+  async function saveEditBreadcrumb(id: string, newName: string, type: Breadcrumb['type']) {
     const trimmed = newName.trim()
     if (!trimmed) return
 
@@ -1559,7 +1557,7 @@
           n.name.trim() === trimmed
       )
       if (siblingWithSameName) {
-        showAlert($_('modal.duplicateNoteSameLevel'))
+        await alertAsync($_('modal.duplicateNoteSameLevel'))
         return
       }
       if (targetNote && targetNote.name === trimmed) {
@@ -1595,7 +1593,7 @@
         (l) => l.id !== actualId && l.noteId === targetLeaf?.noteId && l.title.trim() === trimmed
       )
       if (siblingLeafWithSameName) {
-        showAlert($_('modal.duplicateLeafSameNote'))
+        await alertAsync($_('modal.duplicateLeafSameNote'))
         return
       }
 
@@ -1925,7 +1923,7 @@
     }
   }
 
-  function updateLeafContent(content: string, leafId: string) {
+  async function updateLeafContent(content: string, leafId: string) {
     // オフラインリーフは専用の自動保存処理
     if (isOfflineLeaf(leafId)) {
       updateOfflineContent(content)
@@ -1950,7 +1948,7 @@
           (l) => l.id !== leafId && l.noteId === targetLeaf.noteId && l.title.trim() === trimmed
         )
         if (hasDuplicate) {
-          showAlert($_('modal.duplicateLeafHeading'))
+          await alertAsync($_('modal.duplicateLeafHeading'))
           newTitle = targetLeaf.title
         } else {
           titleChanged = true
@@ -2098,7 +2096,7 @@
     }
   }
 
-  function moveLeafTo(destNoteId: string | null, targetLeaf: Leaf) {
+  async function moveLeafTo(destNoteId: string | null, targetLeaf: Leaf) {
     // アーカイブ内の場合は専用処理
     if ($currentWorld === 'archive') {
       if (!destNoteId || targetLeaf.noteId === destNoteId) {
@@ -2118,7 +2116,7 @@
         (l) => l.noteId === destNoteId && l.title.trim() === targetLeaf.title.trim()
       )
       if (hasDuplicate) {
-        showAlert($_('modal.duplicateLeafDestination'))
+        await alertAsync($_('modal.duplicateLeafDestination'))
         closeMoveModal()
         return
       }
@@ -2166,7 +2164,7 @@
     closeMoveModal()
   }
 
-  function moveNoteTo(destNoteId: string | null, targetNote: Note) {
+  async function moveNoteTo(destNoteId: string | null, targetNote: Note) {
     // アーカイブ内の場合は専用処理
     if ($currentWorld === 'archive') {
       const currentParent = targetNote.parentId || null
@@ -2196,7 +2194,7 @@
           n.name.trim() === targetNote.name.trim()
       )
       if (hasDuplicate) {
-        showAlert($_('modal.duplicateNoteDestination'))
+        await alertAsync($_('modal.duplicateNoteDestination'))
         closeMoveModal()
         return
       }
