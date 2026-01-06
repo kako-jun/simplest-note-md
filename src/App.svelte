@@ -502,6 +502,12 @@
 
   // 初期化
   onMount(() => {
+    // 訪問者カウントをインクリメント（非表示、1日1回制限あり）
+    // 設定ページでも表示されるが、nostalgicの重複防止機構で1回のみカウント
+    fetch('https://api.nostalgic.llll-ll.com/visit?action=increment&id=agasteer-c347357a').catch(
+      () => {}
+    )
+
     // ユーザーアクティビティ検知を初期化（自動保存のデバウンス用）
     const cleanupActivityDetection = initActivityDetection()
     const cleanupBeforeUnloadSave = setupBeforeUnloadSave()
