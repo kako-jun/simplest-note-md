@@ -10,63 +10,41 @@ Agasteerのデータモデル、型定義、状態管理について説明しま
 
 ユーザー設定を保持。
 
-```typescript
-type Settings = {
-  token: string // GitHub Personal Access Token
-  repoName: string // "owner/repo"形式
-  theme: ThemeType // 'yomi' | 'campus' | 'greenboard' | 'whiteboard' | 'dotsD' | 'dotsF'
-  toolName: string // アプリケーション名（タブタイトル）
-  locale: Locale // 'ja' | 'en'
-  hasCustomFont?: boolean // カスタムフォント適用フラグ
-  hasCustomBackgroundLeft?: boolean // 左ペイン背景画像適用フラグ
-  hasCustomBackgroundRight?: boolean // 右ペイン背景画像適用フラグ
-  backgroundOpacityLeft?: number // 左ペイン背景画像透明度
-  backgroundOpacityRight?: number // 右ペイン背景画像透明度
-}
-```
+| フィールド               | 型        | 説明                               |
+| ------------------------ | --------- | ---------------------------------- |
+| token                    | string    | GitHub Personal Access Token       |
+| repoName                 | string    | "owner/repo"形式                   |
+| theme                    | ThemeType | テーマ名                           |
+| toolName                 | string    | アプリケーション名（タブタイトル） |
+| locale                   | Locale    | 言語（'ja' / 'en'）                |
+| hasCustomFont            | boolean   | カスタムフォント適用フラグ         |
+| hasCustomBackgroundLeft  | boolean   | 左ペイン背景画像適用フラグ         |
+| hasCustomBackgroundRight | boolean   | 右ペイン背景画像適用フラグ         |
+| backgroundOpacityLeft    | number    | 左ペイン背景画像透明度             |
+| backgroundOpacityRight   | number    | 右ペイン背景画像透明度             |
 
 **注意**: コミット時のユーザー名とメールアドレスは固定値（`agasteer` / `agasteer@example.com`）を使用します。
 
-#### `Folder`
+#### `Folder` / `Note`
 
-フォルダ情報（最大2階層）。
+| フィールド | 型     | 説明                                           |
+| ---------- | ------ | ---------------------------------------------- |
+| id         | string | UUID（crypto.randomUUID()）                    |
+| name       | string | 表示名                                         |
+| parentId   | string | 親フォルダ/ノートのID（ルートの場合undefined） |
+| order      | number | 並び順（同階層内）                             |
 
-```typescript
-type Folder = {
-  id: string // UUID (crypto.randomUUID())
-  name: string // 表示名
-  parentId?: string // 親フォルダのID（undefinedの場合はルート）
-  order: number // 並び順（同階層内）
-}
-```
+**Note**にはさらに以下のフィールドがあります：
 
-**階層構造:**
-
-- `parentId === undefined`: ルートフォルダ
-- `parentId !== undefined`: サブフォルダ
-
-#### `Note`
-
-ノート情報。
-
-```typescript
-type Note = {
-  id: string // UUID
-  title: string // ノート名
-  folderId: string // 所属フォルダのID
-  content: string // Markdown本文
-  updatedAt: number // 最終更新タイムスタンプ（Unix time）
-  order: number // 並び順（フォルダ内）
-}
-```
+| フィールド | 型     | 説明                                |
+| ---------- | ------ | ----------------------------------- |
+| folderId   | string | 所属フォルダのID                    |
+| content    | string | Markdown本文                        |
+| updatedAt  | number | 最終更新タイムスタンプ（Unix time） |
 
 #### `View`
 
-現在のビュー状態。
-
-```typescript
-type View = 'home' | 'settings' | 'edit' | 'folder'
-```
+現在のビュー状態: `'home' | 'settings' | 'edit' | 'folder'`
 
 - **home**: ルートフォルダ一覧
 - **folder**: フォルダ内のサブフォルダとノート一覧
@@ -103,13 +81,13 @@ Agasteerは、Svelteの`writable`と`derived`ストアを使用して状態を�
 
 #### 基本ストア（グローバル）
 
-```typescript
-export const settings = writable<Settings>(defaultSettings)
-export const notes = writable<Note[]>([])
-export const leaves = writable<Leaf[]>([])
-export const metadata = writable<Metadata>({ version: 1, notes: {}, leaves: {}, pushCount: 0 })
-export const isDirty = writable<boolean>(false) // GitHubにPushされていない変更があるか
-```
+| ストア名 | 型       | 説明                                 |
+| -------- | -------- | ------------------------------------ |
+| settings | Settings | ユーザー設定                         |
+| notes    | Note[]   | 全ノート                             |
+| leaves   | Leaf[]   | 全リーフ                             |
+| metadata | Metadata | メタデータ（version, pushCount等）   |
+| isDirty  | boolean  | GitHubにPushされていない変更があるか |
 
 **重要な設計変更（Version 5.0）:**
 
@@ -119,17 +97,7 @@ export const isDirty = writable<boolean>(false) // GitHubにPushされていな�
 
 #### ローカル変数（各ペイン独立）
 
-```typescript
-// 左ペインの状態
-let leftNote: Note | null = null
-let leftLeaf: Leaf | null = null
-let leftView: View = 'home'
-
-// 右ペインの状態
-let rightNote: Note | null = null
-let rightLeaf: Leaf | null = null
-let rightView: View = 'home'
-```
+左右それぞれのペインに`leftNote`/`rightNote`、`leftLeaf`/`rightLeaf`、`leftView`/`rightView`を持ちます。
 
 **設計思想:**
 
@@ -139,18 +107,10 @@ let rightView: View = 'home'
 
 #### 派生ストア
 
-```typescript
-// ルートノート（parentIdがないもの）
-export const rootNotes = derived(notes, ($notes) =>
-  $notes.filter((f) => !f.parentId).sort((a, b) => a.order - b.order)
-)
-
-// GitHub設定が完了しているか
-export const githubConfigured = derived(
-  settings,
-  ($settings) => !!($settings.token && $settings.repoName)
-)
-```
+| ストア名         | 説明                                    |
+| ---------------- | --------------------------------------- |
+| rootNotes        | parentIdがないノート（order順でソート） |
+| githubConfigured | tokenとrepoNameが設定されているか       |
 
 **削除された派生ストア:**
 
@@ -299,34 +259,11 @@ UI Re-render
 
 **onMount時の処理:**
 
-```typescript
-onMount(() => {
-  // 1. LocalStorageから設定の読み込み
-  const loadedSettings = loadSettings()
-  settings.set(loadedSettings)
-  applyTheme(loadedSettings.theme, loadedSettings)
-  document.title = loadedSettings.toolName
-  ;(async () => {
-    // 2. 初回Pull（GitHubからデータを取得）
-    //    重要: IndexedDBからは読み込まない
-    //    Pull成功時にIndexedDBは全削除→全作成される
-    await handlePull(true)
-
-    // 3. Pull成功後、URLから状態を復元（ディープリンク対応）
-    restoreStateFromUrl()
-  })()
-
-  // 4. ブラウザの戻る/進むボタンに対応
-  const handlePopState = () => {
-    restoreStateFromUrl()
-  }
-  window.addEventListener('popstate', handlePopState)
-
-  return () => {
-    window.removeEventListener('popstate', handlePopState)
-  }
-})
-```
+1. LocalStorageから設定の読み込み
+2. テーマ適用、タイトル設定
+3. 初回Pull（GitHubからデータを取得） - **IndexedDBからは読み込まない**
+4. Pull成功後、URLから状態を復元（ディープリンク対応）
+5. popstateイベントリスナー設定（ブラウザの戻る/進む対応）
 
 **重要な仕様:**
 
@@ -342,199 +279,40 @@ onMount(() => {
 
 **ノートの作成:**
 
-```typescript
-function createNote(parentId: string | undefined, pane: Pane) {
-  if (isOperationsLocked) return
-  const allNotes = $notes
-
-  // 階層制限チェック: サブノートの下にはサブノートを作成できない
-  if (parentId) {
-    const parentNote = allNotes.find((n) => n.id === parentId)
-    if (parentNote && parentNote.parentId) {
-      showAlert('サブノートの下にはサブノートを作成できません。')
-      return
-    }
-  }
-
-  const targetNotes = parentId
-    ? allNotes.filter((f) => f.parentId === parentId)
-    : allNotes.filter((f) => !f.parentId)
-
-  const newNote: Note = {
-    id: crypto.randomUUID(),
-    name: generateUniqueName(
-      'ノート',
-      targetNotes.map((n) => n.name)
-    ),
-    parentId: parentId || undefined,
-    order: targetNotes.length,
-  }
-
-  updateNotes([...allNotes, newNote]) // IndexedDBに保存
-}
-```
+- 階層制限チェック（サブノートの下にはサブノートを作成不可）
+- `crypto.randomUUID()`でIDを生成
+- `generateUniqueName()`で重複しない名前を生成
+- `updateNotes()`でストア更新＆IndexedDB保存
 
 **リーフの作成:**
 
-```typescript
-function createLeaf(pane: Pane) {
-  if (isOperationsLocked) return
-  const targetNote = pane === 'left' ? leftNote : rightNote
-  if (!targetNote) return
-
-  const allLeaves = $leaves
-  const noteLeaves = allLeaves.filter((n) => n.noteId === targetNote.id)
-
-  const newLeaf: Leaf = {
-    id: crypto.randomUUID(),
-    title: generateUniqueName(
-      'リーフ',
-      noteLeaves.map((l) => l.title)
-    ),
-    noteId: targetNote.id,
-    content: `# ${uniqueTitle}\n\n`,
-    updatedAt: Date.now(),
-    order: noteLeaves.length,
-  }
-
-  updateLeaves([...allLeaves, newLeaf]) // IndexedDBに保存
-  selectLeaf(newLeaf, pane)
-}
-```
+- 対象ノートのリーフ一覧から順序を決定
+- 新規リーフのcontentは`# タイトル\n\n`形式
+- 作成後、自動的にリーフを選択
 
 **重要:** すべてのナビゲーション関数は`pane: 'left' | 'right'`引数を取り、左右のペインを明示的に指定します。
 
 #### Read（読み取り）
 
-**グローバル派生ストア:**
-
-```typescript
-// ルートノート（parentIdがないもの）
-export const rootNotes = derived(notes, ($notes) =>
-  $notes.filter((f) => !f.parentId).sort((a, b) => a.order - b.order)
-)
-```
-
-**ペイン固有の計算（インライン）:**
-
-```typescript
-// 左ペインのサブノート
-subNotes={$notes
-  .filter((n) => n.parentId === leftNote.id)
-  .sort((a, b) => a.order - b.order)}
-
-// 左ペインのリーフ
-leaves={$leaves
-  .filter((l) => l.noteId === leftNote.id)
-  .sort((a, b) => a.order - b.order)}
-```
+- **グローバル派生ストア**: `rootNotes`（parentIdがないノート）
+- **ペイン固有の計算**: 各ペインでインラインfilter/sortを実行
 
 **設計変更の理由:** 2ペイン表示では、左右で異なるノートを表示できるため、各ペインで独立してfilter/sortを実行する必要がある。
 
 #### Update（更新）
 
-**ノート名の更新:**
+- **ノート名の更新**: `updateNotes()`でストア更新
+- **リーフコンテンツの更新**:
+  - H1見出しからタイトルを自動抽出
+  - グローバルストアを更新（左右ペイン両方に反映）
+  - 同じリーフを左右で開いている場合は即座に同期
 
-```typescript
-function updateNoteName(noteId: string, newName: string) {
-  const allNotes = $notes
-  const updatedNotes = allNotes.map((f) => (f.id === noteId ? { ...f, name: newName } : f))
-  updateNotes(updatedNotes) // IndexedDBに保存
-}
-```
-
-**リーフコンテンツの更新:**
-
-```typescript
-function updateLeafContent(content: string, leafId: string) {
-  if (isOperationsLocked) return
-
-  const allLeaves = $leaves
-  const targetLeaf = allLeaves.find((l) => l.id === leafId)
-  if (!targetLeaf) return
-
-  // コンテンツの1行目が # 見出しの場合、リーフのタイトルも自動更新
-  const h1Title = extractH1Title(content)
-  const newTitle = h1Title || targetLeaf.title
-
-  // グローバルストアを更新（左右ペイン両方に反映される）
-  const updatedLeaves = allLeaves.map((n) =>
-    n.id === leafId ? { ...n, content, title: newTitle, updatedAt: Date.now() } : n
-  )
-  updateLeaves(updatedLeaves) // IndexedDBに保存
-
-  // 左ペインのリーフを編集している場合は leftLeaf も更新
-  if (leftLeaf?.id === leafId) {
-    leftLeaf = { ...leftLeaf, content, title: newTitle, updatedAt: Date.now() }
-  }
-
-  // 右ペインのリーフを編集している場合は rightLeaf も更新
-  if (rightLeaf?.id === leafId) {
-    rightLeaf = { ...rightLeaf, content, title: newTitle, updatedAt: Date.now() }
-  }
-}
-```
-
-**重要:** leafIdベースの更新により、左右どちらのペインでも同じリーフを編集可能。同じリーフを左右で開いている場合は即座に同期される。
+**重要:** leafIdベースの更新により、左右どちらのペインでも同じリーフを編集可能。
 
 #### Delete（削除）
 
-**ノートの削除:**
-
-```typescript
-function deleteNote(pane: Pane) {
-  if (isOperationsLocked) return
-  const targetNote = pane === 'left' ? leftNote : rightNote
-  if (!targetNote) return
-
-  const allNotes = $notes
-  const allLeaves = $leaves
-  const hasSubNotes = allNotes.some((f) => f.parentId === targetNote.id)
-  const hasLeaves = allLeaves.some((n) => n.noteId === targetNote.id)
-
-  if (hasSubNotes || hasLeaves) {
-    showAlert('サブノートやリーフが含まれているため削除できません。')
-    return
-  }
-
-  showConfirm('このノートを削除しますか？', () => {
-    const noteId = targetNote.id
-    const parentId = targetNote.parentId
-    updateNotes(allNotes.filter((f) => f.id !== noteId)) // IndexedDBに保存
-
-    // 親ノートまたはホームに戻る
-    const parentNote = allNotes.find((f) => f.id === parentId)
-    if (parentNote) {
-      selectNote(parentNote, pane)
-    } else {
-      goHome(pane)
-    }
-  })
-}
-```
-
-**リーフの削除:**
-
-```typescript
-function deleteLeaf(leafId: string, pane: Pane) {
-  if (isOperationsLocked) return
-
-  const allLeaves = $leaves
-  const targetLeaf = allLeaves.find((l) => l.id === leafId)
-  if (!targetLeaf) return
-
-  showConfirm('このリーフを削除しますか？', () => {
-    updateLeaves(allLeaves.filter((n) => n.id !== leafId)) // IndexedDBに保存
-
-    const note = $notes.find((f) => f.id === targetLeaf.noteId)
-    if (note) {
-      selectNote(note, pane)
-    } else {
-      goHome(pane)
-    }
-  })
-}
-```
+- **ノートの削除**: サブノートやリーフがある場合は削除不可。削除後は親ノートまたはホームに遷移
+- **リーフの削除**: 確認ダイアログ後、削除して親ノートに遷移
 
 **重要:** すべての削除操作でもpane引数を指定し、削除後のナビゲーションが適切なペインで行われるようにする。
 
@@ -542,42 +320,9 @@ function deleteLeaf(leafId: string, pane: Pane) {
 
 ドラッグ&ドロップによる並び替えの実装。
 
-**1. ドラッグ開始**
-
-```typescript
-function handleDragStart(e: DragEvent, folder: Folder) {
-  draggedFolder = folder
-}
-```
-
-**2. ドロップ**
-
-```typescript
-function handleDrop(e: DragEvent, targetFolder: Folder) {
-  if (!draggedFolder || draggedFolder.id === targetFolder.id) return
-  if (draggedFolder.parentId !== targetFolder.parentId) return // 同階層のみ
-
-  const targetList = draggedFolder.parentId ? subfolders : rootFolders
-
-  const fromIndex = targetList.findIndex((f) => f.id === draggedFolder!.id)
-  const toIndex = targetList.findIndex((f) => f.id === targetFolder.id)
-
-  // 並び順を再計算
-  const reordered = [...targetList]
-  const [movedItem] = reordered.splice(fromIndex, 1)
-  reordered.splice(toIndex, 0, movedItem)
-
-  // orderフィールドを更新
-  const updatedFolders = folders.map((f) => {
-    const newOrderIndex = reordered.findIndex((r) => r.id === f.id)
-    if (newOrderIndex !== -1) {
-      return { ...f, order: newOrderIndex }
-    }
-    return f
-  })
-
-  folders = updatedFolders
-  persistFolders()
-  draggedFolder = null
-}
-```
+1. **ドラッグ開始**: ドラッグ対象を変数に保持
+2. **ドロップ**:
+   - 同一アイテムや異なる階層へのドロップは無視
+   - 配列内での位置を入れ替え
+   - orderフィールドを再計算
+   - ストア更新＆永続化

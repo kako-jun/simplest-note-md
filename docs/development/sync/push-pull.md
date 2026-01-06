@@ -32,41 +32,16 @@ Push/Pull処理は、それぞれ**1つの統合関数**に集約されていま
 
 すべてのPush操作（ボタンクリック、Ctrl+S、自動Push、Vim `:w`）は、この1つの関数を通ります。
 
-```typescript
-async function pushToGitHub() {
-  // 1. 交通整理: Pull/Push中は不可
-  if (!canSync($isPulling, $isPushing).canPush) return
+**処理ステップ:**
 
-  // 2. 即座にロック取得（非同期処理の前に取得することが重要）
-  $isPushing = true
-  try {
-    // 3. 保留中の自動保存をフラッシュ
-    await flushPendingSaves()
-
-    // 4. Staleチェック（共通関数で時刻も更新）
-    const staleResult = await executeStaleCheck($settings, get(lastPulledPushCount))
-
-    // 5. Stale編集の場合は確認（ロックを保持したまま await）
-    if (staleResult.status === 'stale') {
-      const confirmed = await confirmAsync($_('modal.staleEdit'))
-      if (!confirmed) return
-    }
-
-    // 6. Push実行
-    showPushToast($_('loading.pushing'))
-    const result = await executePush({...})
-
-    // 7. 結果処理
-    if (result.variant === 'success') {
-      clearAllChanges()
-      lastPulledPushCount.update((n) => n + 1)
-    }
-  } finally {
-    // 8. ロック解放（必ず実行される）
-    $isPushing = false
-  }
-}
-```
+1. 交通整理: Pull/Push中は不可
+2. 即座にロック取得（非同期処理の前に取得することが重要）
+3. 保留中の自動保存をフラッシュ
+4. Staleチェック（共通関数で時刻も更新）
+5. Stale編集の場合は確認（ロックを保持したまま await）
+6. Push実行
+7. 結果処理（成功時はダーティクリア、pushCount更新）
+8. ロック解放（finallyで必ず実行）
 
 ### Push処理フロー
 
@@ -100,28 +75,11 @@ flowchart TD
 
 **修正前の問題:**
 
-```typescript
-// ❌ ロック取得が遅い
-async function handlePushToGitHub() {
-  await flushPendingSaves() // ← この間にPullが開始される可能性
-  $isPushing = true // ← ロック取得が遅すぎる
-}
-```
+ロック取得が遅く、`flushPendingSaves()`の間にPullが開始される可能性がありました。
 
 **修正後:**
 
-```typescript
-// ✅ ロック取得が早い
-async function pushToGitHub() {
-  if (!canSync().canPush) return
-  $isPushing = true // ← 即座にロック取得
-  try {
-    await flushPendingSaves() // ← この間はロック保持
-  } finally {
-    $isPushing = false
-  }
-}
-```
+即座にロック取得し、try-finallyで確実に解放します。
 
 ---
 
@@ -131,49 +89,15 @@ async function pushToGitHub() {
 
 すべてのPull操作（ボタンクリック、初回Pull、設定画面閉じる）は、この1つの関数を通ります。
 
-```typescript
-async function pullFromGitHub(isInitialStartup = false, onCancel?: () => void | Promise<void>) {
-  // 1. 交通整理: Pull/Push中は不可
-  if (!canSync($isPulling, $isPushing).canPull) return
+**処理ステップ:**
 
-  // 2. 即座にロック取得
-  $isPulling = true
-  try {
-    // 3. ダーティチェック（ロックを保持したまま await）
-    if (get(isDirty) || getPersistedDirtyFlag()) {
-      const confirmed = await confirmAsync(message)
-      if (!confirmed) {
-        await onCancel?.()
-        return
-      }
-    }
-
-    // 4. Staleチェック
-    const staleResult = await executeStaleCheck($settings, get(lastPulledPushCount))
-    switch (staleResult.status) {
-      case 'up_to_date':
-        showPullToast($_('github.noRemoteChanges'), 'success')
-        return
-      case 'stale':
-      case 'check_failed':
-        // Pull実行へ
-        break
-    }
-
-    // 5. Pull実行（第一優先で編集可能に、残りはバックグラウンド）
-    const result = await executePull($settings, options)
-
-    // 6. 結果処理
-    if (result.success) {
-      lastPulledPushCount.set(result.metadata.pushCount)
-      clearAllChanges()
-    }
-  } finally {
-    // 7. ロック解放（必ず実行される）
-    $isPulling = false
-  }
-}
-```
+1. 交通整理: Pull/Push中は不可
+2. 即座にロック取得
+3. ダーティチェック（ロックを保持したまま確認ダイアログ）
+4. Staleチェック（up_to_dateなら早期リターン）
+5. Pull実行（第一優先で編集可能に、残りはバックグラウンド）
+6. 結果処理（成功時はpushCount更新、ダーティクリア）
+7. ロック解放（finallyで必ず実行）
 
 ### Pull処理フロー
 
@@ -211,52 +135,19 @@ Pull処理は、ユーザーが早く編集を開始できるよう、優先度�
 3. **編集可能に**: `isFirstPriorityFetched = true`, `isLoadingUI = false`（ガラス効果解除）
 4. **残りのリーフ取得**: バックグラウンドで10並列取得（`CONTENT_FETCH_CONCURRENCY = 10`）
 
-```typescript
-const options: PullOptions = {
-  onStructure: (notes, metadata, skeletons) => {
-    notes.set(notes)
-    metadata.set(metadata)
-    loadingLeafIds = new Set(skeletons.map((s) => s.id))
-    return nav.getPriorityFromUrl(notes) // URLから優先情報を計算
-  },
-  onLeaf: (leaf) => {
-    leaves.update((current) => [...current, leaf])
-    loadingLeafIds.delete(leaf.id)
-  },
-  onPriorityComplete: () => {
-    isFirstPriorityFetched = true // 作成・削除操作を許可
-    isLoadingUI = false // ガラス効果を解除
-    restoreStateFromUrl() // URL復元
-  },
-}
-```
+**PullOptionsコールバック:**
+
+- `onStructure`: ノートとメタデータをストアに設定し、URLから優先情報を返す
+- `onLeaf`: 各リーフをストアに追加
+- `onPriorityComplete`: 操作許可、ガラス効果解除、URL復元
 
 ### Pull中の編集保護
 
 Pull処理中（第一優先完了後）にユーザーが編集を行った場合、その編集内容を保護します：
 
-```typescript
-// Pull完了時の処理
-const currentLeaves = get(leaves)
-const dirtyLeafMap = new Map(currentLeaves.filter((l) => l.isDirty).map((l) => [l.id, l]))
-const sortedLeaves = result.leaves
-  .sort((a, b) => a.order - b.order)
-  .map((leaf) => {
-    const dirtyLeaf = dirtyLeafMap.get(leaf.id)
-    if (dirtyLeaf) {
-      // ユーザーが編集したリーフは、編集内容とダーティ状態を保持
-      return { ...leaf, content: dirtyLeaf.content, isDirty: true }
-    }
-    return leaf
-  })
-leaves.set(sortedLeaves)
-
-// Pull完了後、ダーティな変更がない場合のみクリア
-await tick()
-if (!get(isDirty)) {
-  clearAllChanges()
-}
-```
+- ダーティなリーフを識別してMapに保持
+- Pull結果とマージ時、ダーティなリーフは編集内容とダーティ状態を維持
+- Pull完了後、ダーティな変更がない場合のみクリア
 
 ---
 
@@ -272,13 +163,7 @@ if (!get(isDirty)) {
 4. ダーティフラグが立っている
 5. 最後のPushから5分経過
 
-```typescript
-autoSaveSubscription = autoSaveState.subscribe(async (state) => {
-  if (state.condition === 'auto_push') {
-    await pushToGitHub() // 統合関数を呼ぶだけ
-  }
-})
-```
+自動Pushも`pushToGitHub()`を呼ぶため、手動Pushと完全に同じ排他制御が適用されます。
 
 ### 自動Pushフロー
 
@@ -316,100 +201,17 @@ flowchart TD
 
 Push回数は `metadata.json` の `pushCount` フィールドに保存されます。
 
-```typescript
-export interface Metadata {
-  version: number
-  notes: Record<string, { id: string; order: number }>
-  leaves: Record<string, { id: string; updatedAt: number; order: number }>
-  pushCount: number // Push回数
-}
-```
-
 ### Push時の自動インクリメント
 
-`executePush` 関数内で、Push実行前に既存の `pushCount` を取得し、インクリメントします。
-
-```typescript
-// 既存のmetadata.jsonからpushCountを取得
-let currentPushCount = 0
-try {
-  const metadataRes = await fetch(
-    `https://api.github.com/repos/${settings.repoName}/contents/.agasteer/notes/metadata.json`,
-    { headers }
-  )
-  if (metadataRes.ok) {
-    const metadataData = await metadataRes.json()
-    if (metadataData.content) {
-      const base64 = metadataData.content.replace(/\n/g, '')
-      const decoded = atob(base64)
-      const existingMetadata: Metadata = JSON.parse(decoded)
-      currentPushCount = existingMetadata.pushCount || 0
-    }
-  }
-} catch (e) {
-  // エラーは無視（初回Pushの場合）
-}
-
-// metadata.jsonを生成
-const metadata: Metadata = {
-  version: 1,
-  notes: {},
-  leaves: {},
-  pushCount: currentPushCount + 1, // インクリメント
-}
-```
+`executePush` 関数内で、Push実行前に既存の `pushCount` を取得し、+1してmetadata.jsonに保存します。
 
 ### Pull時のデータ取得
 
-`executePull` 関数内で、metadata.jsonから `pushCount` を取得し、Svelteストアに保存します。
-
-```typescript
-// .agasteer/notes/metadata.jsonを取得
-let metadata: Metadata = { version: 1, notes: {}, leaves: {}, pushCount: 0 }
-try {
-  const metadataRes = await fetch(
-    `https://api.github.com/repos/${settings.repoName}/contents/.agasteer/notes/metadata.json`,
-    { headers }
-  )
-  if (metadataRes.ok) {
-    const metadataData = await metadataRes.json()
-    if (metadataData.content) {
-      const base64 = metadataData.content.replace(/\n/g, '')
-      const jsonText = decodeURIComponent(escape(atob(base64)))
-      const parsed = JSON.parse(jsonText)
-      metadata = {
-        version: parsed.version || 1,
-        notes: parsed.notes || {},
-        leaves: parsed.leaves || {},
-        pushCount: parsed.pushCount || 0, // 後方互換性
-      }
-    }
-  }
-} catch (e) {
-  console.warn('.agasteer/notes/metadata.json not found or invalid, using defaults')
-}
-
-return {
-  success: true,
-  message: '✅ Pull OK',
-  notes: sortedNotes,
-  leaves: sortedLeaves,
-  metadata, // metadataを返す
-}
-```
+`executePull` 関数内で、metadata.jsonから `pushCount` を取得し、Svelteストアに保存します。後方互換性のため、フィールドが存在しない場合は0として扱います。
 
 ### UI表示
 
-HomeView.svelte でホーム画面の右下に統計情報を表示。
-
-```svelte
-<div class="statistics">
-  <div class="stat-item">
-    <div class="stat-label">Push回数</div>
-    <div class="stat-value">{$metadata.pushCount}</div>
-  </div>
-</div>
-```
+HomeView.svelte でホーム画面の右下に`$metadata.pushCount`を統計情報として表示します。
 
 ---
 
@@ -419,14 +221,12 @@ HomeView.svelte でホーム画面の右下に統計情報を表示。
 
 Pull実行中にPushが開始されると、以下のような順序でデータ損失が発生していました：
 
-```
 1. Pull開始
 2. Pull中にPushボタンをクリック
 3. Push処理がロック取得前の非同期処理（flushPendingSaves等）を実行
 4. その間にPullが完了し、leaves.set([]) でデータをクリア
 5. Pushが実行され、空のデータをGitHubにPush
-6. リーフが消失 💥
-```
+6. リーフが消失
 
 ### 解決方法
 
@@ -446,7 +246,6 @@ Pull実行中にPushが開始されると、以下のような順序でデータ
 
 ### 動作フロー（例：自動Push中にPullボタンをクリック）
 
-```
 1. 自動Push開始
 2. pushToGitHub() → canSync OK → $isPushing = true（即座にロック）
 3. flushPendingSaves() 実行中...
@@ -455,7 +254,6 @@ Pull実行中にPushが開始されると、以下のような順序でデータ
 6. Pull は実行されない ✅
 7. Push処理が完了
 8. $isPushing = false（ロック解放）
-```
 
 ---
 

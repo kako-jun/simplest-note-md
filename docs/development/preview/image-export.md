@@ -14,25 +14,11 @@
 
 #### html2canvasライブラリ
 
-```typescript
-// 動的インポート（使用時のみロード）
-const html2canvas = (await import('html2canvas')).default
-```
-
 - **バンドルサイズ**: 約200KB（gzip: 48KB）
 - **動的インポート**: プレビュー画像ダウンロード時のみロード
 - **ブラウザ互換性**: モダンブラウザ対応
 
 #### 画像生成設定
-
-```typescript
-const canvas = await html2canvas(wrapper, {
-  backgroundColor: '#ffffff', // 白背景
-  scale: 1, // 等倍（画像サイズ削減）
-  logging: false,
-  useCORS: true, // 外部画像対応
-})
-```
 
 | 設定項目          | 値        | 理由                     |
 | ----------------- | --------- | ------------------------ |
@@ -43,24 +29,7 @@ const canvas = await html2canvas(wrapper, {
 
 #### 余白の追加
 
-```typescript
-// 余白付きラッパー要素を一時的に作成
-const wrapper = document.createElement('div')
-wrapper.style.padding = '20px'
-wrapper.style.backgroundColor = '#ffffff'
-wrapper.style.display = 'inline-block'
-
-// コンテンツをクローンして追加
-const clonedContent = contentElement.cloneNode(true) as HTMLElement
-wrapper.appendChild(clonedContent)
-document.body.appendChild(wrapper)
-
-// キャプチャ後に削除
-const canvas = await html2canvas(wrapper, {
-  /* ... */
-})
-document.body.removeChild(wrapper)
-```
+余白付きラッパー要素を一時的に作成し、コンテンツをクローンして追加。キャプチャ後に削除。
 
 **余白の役割**:
 
@@ -70,22 +39,6 @@ document.body.removeChild(wrapper)
 
 #### スクロール全体のキャプチャ
 
-```typescript
-// スクロール位置を保存
-const originalScrollTop = previewSection.scrollTop
-
-// 一時的に最上部へ移動
-previewSection.scrollTop = 0
-
-// キャプチャ実行
-const canvas = await html2canvas(contentElement, {
-  /* ... */
-})
-
-// スクロール位置を復元
-previewSection.scrollTop = originalScrollTop
-```
-
 **処理フロー**:
 
 1. 現在のスクロール位置を保存
@@ -93,163 +46,14 @@ previewSection.scrollTop = originalScrollTop
 3. 全体をキャプチャ（html2canvasは表示領域外も含めてキャプチャ）
 4. 元のスクロール位置に戻す
 
-### PreviewView.svelte実装
+### ダウンロード処理の分岐
 
-#### captureAsImage関数
-
-```typescript
-export async function captureAsImage(filename: string): Promise<void> {
-  if (!previewSection || isLoading) return
-
-  try {
-    const html2canvas = (await import('html2canvas')).default
-    const contentElement = previewSection.querySelector('.preview-content') as HTMLElement
-    if (!contentElement) return
-
-    const originalScrollTop = previewSection.scrollTop
-    previewSection.scrollTop = 0
-
-    // 余白付きラッパーを作成
-    const wrapper = document.createElement('div')
-    wrapper.style.padding = '20px'
-    wrapper.style.backgroundColor = '#ffffff'
-    wrapper.style.display = 'inline-block'
-
-    const clonedContent = contentElement.cloneNode(true) as HTMLElement
-    wrapper.appendChild(clonedContent)
-    document.body.appendChild(wrapper)
-
-    // キャプチャ実行
-    const canvas = await html2canvas(wrapper, {
-      backgroundColor: '#ffffff',
-      scale: 1,
-      logging: false,
-      useCORS: true,
-    })
-
-    document.body.removeChild(wrapper)
-    previewSection.scrollTop = originalScrollTop
-
-    // PNG画像としてダウンロード
-    canvas.toBlob((blob) => {
-      if (!blob) return
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${filename}.png`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    })
-  } catch (error) {
-    console.error('画像キャプチャに失敗しました:', error)
-    throw error
-  }
-}
-```
-
-### App.svelte - ダウンロード処理の分岐
-
-#### 編集モード時: Markdownダウンロード
-
-```typescript
-function downloadLeafAsMarkdown(leafId: string) {
-  if (isOperationsLocked) {
-    showPushToast('初回Pullが完了するまでダウンロードできません', 'error')
-    return
-  }
-
-  const targetLeaf = $leaves.find((l) => l.id === leafId)
-  if (!targetLeaf) return
-
-  const blob = new Blob([targetLeaf.content], { type: 'text/markdown' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${targetLeaf.title}.md`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-```
-
-#### プレビューモード時: 画像ダウンロード
-
-```typescript
-async function downloadLeafAsImage(leafId: string, pane: Pane) {
-  if (isOperationsLocked) {
-    showPushToast('初回Pullが完了するまでダウンロードできません', 'error')
-    return
-  }
-
-  const targetLeaf = $leaves.find((l) => l.id === leafId)
-  if (!targetLeaf) return
-
-  try {
-    const previewView = pane === 'left' ? leftPreviewView : rightPreviewView
-    if (previewView && previewView.captureAsImage) {
-      await previewView.captureAsImage(targetLeaf.title)
-      showPushToast(
-        $settings.locale === 'ja' ? '画像をダウンロードしました' : 'Image downloaded',
-        'success'
-      )
-    }
-  } catch (error) {
-    console.error('画像ダウンロードに失敗しました:', error)
-    showPushToast(
-      $settings.locale === 'ja' ? '画像ダウンロードに失敗しました' : 'Failed to download image',
-      'error'
-    )
-  }
-}
-```
-
-#### フッターボタンの出し分け
-
-```svelte
-<!-- 編集モード時 -->
-{:else if leftView === 'edit' && leftLeaf}
-  <EditorFooter
-    onDownload={() => downloadLeafAsMarkdown(leftLeaf.id)}
-    {/* ... */}
-  />
-
-<!-- プレビューモード時 -->
-{:else if leftView === 'preview' && leftLeaf}
-  <PreviewFooter
-    onDownload={() => downloadLeafAsImage(leftLeaf.id, 'left')}
-    {/* ... */}
-  />
-```
-
-### PreviewFooter.svelte - ボタンラベル
-
-#### 国際化対応
-
-```svelte
-<button
-  type="button"
-  on:click={onDownload}
-  title={$_('footer.downloadImage')}
-  aria-label={$_('footer.downloadImage')}
-  {disabled}
->
-  <svg><!-- ダウンロードアイコン --></svg>
-</button>
-```
-
-**i18nラベル**:
-
-- 日本語: `"画像をダウンロード"`
-- 英語: `"Download as image"`
+| モード           | 処理内容                          |
+| ---------------- | --------------------------------- |
+| 編集モード       | Markdownファイル（.md）として保存 |
+| プレビューモード | PNG画像として保存                 |
 
 ### ファイル命名規則
-
-```typescript
-a.download = `${filename}.png`
-```
 
 - ファイル名: リーフのタイトル
 - 拡張子: `.png`
@@ -268,29 +72,21 @@ a.download = `${filename}.png`
 
 #### 動的インポート
 
-```typescript
-const html2canvas = (await import('html2canvas')).default
-```
-
 - 初回使用時のみライブラリをロード
 - メインバンドルには含まれない（コード分割）
 - プレビュー画像ダウンロードを使わないユーザーには影響なし
 
 #### キャプチャ速度
 
-- **短いメモ（~1000文字）**: 0.5秒未満
-- **長い文書（~5000文字）**: 1-2秒
-- **画像多数の文書**: 画像のロード時間に依存
+| コンテンツ            | 所要時間               |
+| --------------------- | ---------------------- |
+| 短いメモ（~1000文字） | 0.5秒未満              |
+| 長い文書（~5000文字） | 1-2秒                  |
+| 画像多数の文書        | 画像のロード時間に依存 |
 
 #### メモリ管理
 
-```typescript
-// Blob URLを作成
-const url = URL.createObjectURL(blob)
-
-// ダウンロード後にメモリ解放
-URL.revokeObjectURL(url)
-```
+Blob URL作成後、ダウンロード完了時に`URL.revokeObjectURL()`でメモリ解放。
 
 ### ブラウザ互換性
 
@@ -344,65 +140,24 @@ URL.revokeObjectURL(url)
 
 すべての画像関連機能（ダウンロード、クリップボード、共有）は `captureAsBlob()` という内部関数を共通で使用します。
 
-```typescript
-// 内部関数 - 画像生成ロジックを共通化
-async function captureAsBlob(): Promise<Blob | null>
-
-// この関数を呼び出す3つの機能
-export async function captureAsImage(filename: string) // ダウンロード
-export async function copyImageToClipboard() // クリップボード
-export async function shareImage(filename: string) // Web Share API
-```
+| 関数名               | 説明                   |
+| -------------------- | ---------------------- |
+| captureAsBlob        | 内部関数 - 画像生成    |
+| captureAsImage       | ダウンロード           |
+| copyImageToClipboard | クリップボードにコピー |
+| shareImage           | Web Share API          |
 
 ### Clipboard API実装
 
-```typescript
-export async function copyImageToClipboard(): Promise<void> {
-  const blob = await captureAsBlob()
-  if (!blob) return
-
-  await navigator.clipboard.write([
-    new ClipboardItem({
-      'image/png': blob,
-    }),
-  ])
-}
-```
+`navigator.clipboard.write()`でClipboardItemを書き込み、`image/png`形式でコピー。
 
 ### Web Share API実装
 
-```typescript
-export async function shareImage(filename: string): Promise<void> {
-  const blob = await captureAsBlob()
-  if (!blob) return
-
-  if (!navigator.share || !navigator.canShare) {
-    throw new Error('Web Share API is not supported')
-  }
-
-  const file = new File([blob], `${filename}.png`, { type: 'image/png' })
-  const shareData = { files: [file], title: filename }
-
-  if (navigator.canShare(shareData)) {
-    await navigator.share(shareData)
-  }
-}
-```
+`navigator.share()`でFileオブジェクトを共有。`navigator.canShare()`で対応確認。
 
 ### フォールバック処理
 
-```typescript
-try {
-  await previewView.shareImage(leaf.title)
-} catch (error: any) {
-  // Web Share API非対応時はクリップボードにコピー
-  if (error.message === 'Web Share API is not supported') {
-    await handleCopyImageToClipboard(pane)
-  } else if (error.name === 'AbortError') {
-    // ユーザーキャンセル時は何もしない
-  }
-}
-```
+Web Share API非対応時はクリップボードにコピー。ユーザーキャンセル時は何もしない。
 
 ### ブラウザ互換性
 

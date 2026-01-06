@@ -2,49 +2,11 @@
 
 ### アスペクト比判定
 
-画面のアスペクト比（横 > 縦）で2ペイン表示を自動切替。
-
-```typescript
-// アスペクト比を監視して isDualPane を更新（横 > 縦で2ペイン表示）
-const updateDualPane = () => {
-  isDualPane = window.innerWidth > window.innerHeight
-}
-updateDualPane()
-
-window.addEventListener('resize', updateDualPane)
-```
+画面のアスペクト比（横 > 縦）で2ペイン表示を自動切替。`window.innerWidth > window.innerHeight`で判定し、resizeイベントで更新します。
 
 ### レスポンシブレイアウト
 
-```svelte
-<div class="content-wrapper" class:single-pane={!isDualPane}>
-  <div class="pane-divider" class:hidden={!isDualPane}></div>
-  <div class="left-column">
-    <!-- 左ペイン -->
-  </div>
-  <div class="right-column" class:hidden={!isDualPane}>
-    <!-- 右ペイン -->
-  </div>
-</div>
-```
-
-### CSS Grid切替
-
-```css
-.content-wrapper {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  /* ... */
-}
-
-.content-wrapper.single-pane {
-  grid-template-columns: 1fr;
-}
-
-.hidden {
-  display: none;
-}
-```
+`.content-wrapper`にCSS Gridを使用し、`single-pane`クラスで1カラム/2カラムを切り替え。右ペインは`.hidden`クラスで非表示にします。
 
 ### 動作
 

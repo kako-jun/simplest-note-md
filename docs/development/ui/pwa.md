@@ -8,78 +8,24 @@
 
 #### 1. Web App Manifest
 
-`vite.config.ts` で `vite-plugin-pwa` を使用：
+`vite.config.ts` で `vite-plugin-pwa` を使用。主な設定：
 
-```typescript
-VitePWA({
-  registerType: 'autoUpdate',
-  workbox: {
-    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-    runtimeCaching: [
-      {
-        urlPattern: /^https:\/\/api\.github\.com\/.*/i,
-        handler: 'NetworkFirst',
-        options: {
-          cacheName: 'github-api-cache',
-          expiration: {
-            maxEntries: 50,
-            maxAgeSeconds: 60 * 5, // 5分
-          },
-        },
-      },
-    ],
-  },
-  manifest: {
-    name: 'Agasteer',
-    short_name: 'Agasteer',
-    description: 'A simple markdown note-taking app with GitHub sync',
-    theme_color: '#1a1a1a',
-    background_color: '#1a1a1a',
-    display: 'standalone',
-    start_url: '/',
-    icons: [
-      {
-        src: '/icon-192.png',
-        sizes: '192x192',
-        type: 'image/png',
-      },
-      {
-        src: '/icon-512.png',
-        sizes: '512x512',
-        type: 'image/png',
-      },
-    ],
-  },
-})
-```
+| 設定項目     | 値               |
+| ------------ | ---------------- |
+| registerType | autoUpdate       |
+| display      | standalone       |
+| theme_color  | #1a1a1a          |
+| icons        | 192x192, 512x512 |
 
 #### 2. アイコン
 
-ImageMagickで生成：
-
-```bash
-# 192x192
-convert -size 192x192 xc:'#2196F3' -fill white -font DejaVu-Sans-Bold \
-  -pointsize 80 -gravity center -annotate +0+0 'md' /public/icon-192.png
-
-# 512x512
-convert -size 512x512 xc:'#2196F3' -fill white -font DejaVu-Sans-Bold \
-  -pointsize 220 -gravity center -annotate +0+0 'md' /public/icon-512.png
-```
-
-**デザイン:**
-
 - 青い背景（#2196F3）
 - 白文字「md」
-- シンプルで視認性が高い
+- サイズ: 192x192, 512x512
 
 #### 3. favicon
 
-ブラウザタブ用の32×32アイコン：
-
-```html
-<link rel="icon" type="image/png" href="/favicon.png" />
-```
+ブラウザタブ用の32×32アイコン。
 
 ### 動作
 
@@ -103,61 +49,13 @@ convert -size 512x512 xc:'#2196F3' -fill white -font DejaVu-Sans-Bold \
 
 新しいバージョンがデプロイされた場合、初回Pullより先に更新を適用します。これにより、API制限の節約と古いコードでのPull実行を回避できます。
 
-#### 実装（main.ts）
-
-```typescript
-import { registerSW } from 'virtual:pwa-register'
-
-// PWA更新を初回Pullより先にチェック
-// 新しいSWがあれば即座にリロード（API制限の節約）
-const updateSW = registerSW({
-  immediate: true,
-  onRegistered(swRegistration) {
-    swRegistration?.update()
-  },
-  onNeedRefresh() {
-    // 新しいSWが検知された場合、即座にリロード
-    // これにより、App.svelteのonMountでの初回Pullより先に更新が適用される
-    console.log('New version available, reloading...')
-    updateSW(true) // true = immediate reload
-  },
-})
-```
-
 #### フロー
 
-```
-アプリ起動
-    ↓
-main.ts: registerSW (immediate: true) → waitForSwCheckをexport
-    ↓
-App.svelte onMount
-    ↓
-await waitForSwCheck ← ここでSWチェック完了を待つ
-    ↓
-    ├─ 新しいSWあり → onNeedRefresh → 即座にリロード（Pullなし）
-    │                    ↓
-    │               リロード後に再起動 → 新しいコードでPull実行
-    │
-    └─ 新しいSWなし or タイムアウト(500ms) → handlePull(true)
-```
-
-#### 実装（App.svelte）
-
-```typescript
-import { waitForSwCheck } from './main'
-
-onMount(() => {
-  ;(async () => {
-    // ... 初期化処理 ...
-
-    // PWA更新チェック完了を待つ（更新があればリロードされる）
-    await waitForSwCheck
-
-    // GitHub設定チェック → handlePull(true)
-  })()
-})
-```
+1. アプリ起動
+2. main.tsで`registerSW`（immediate: true）
+3. App.svelte onMountで`waitForSwCheck`を待機
+4. 新しいSWあり → `onNeedRefresh` → 即座にリロード（Pullなし）
+5. 新しいSWなし or タイムアウト(500ms) → `handlePull(true)`
 
 **設計のポイント:**
 

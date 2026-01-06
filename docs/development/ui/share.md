@@ -10,21 +10,6 @@
 
 現在表示中のページのURLをクリップボードにコピー。
 
-```typescript
-function handleCopyUrl(pane: Pane) {
-  const url = window.location.href
-  navigator.clipboard
-    .writeText(url)
-    .then(() => {
-      showPushToast('URLをコピーしました', 'success')
-    })
-    .catch((err) => {
-      console.error('URLのコピーに失敗しました:', err)
-      showPushToast('URLのコピーに失敗しました', 'error')
-    })
-}
-```
-
 **ユースケース:**
 
 - 同じリーフをスマホとPCで開く
@@ -35,23 +20,6 @@ function handleCopyUrl(pane: Pane) {
 
 現在編集中のリーフのMarkdownコンテンツをクリップボードにコピー。
 
-```typescript
-function handleCopyMarkdown(pane: Pane) {
-  const leaf = pane === 'left' ? leftLeaf : rightLeaf
-  if (!leaf) return
-
-  navigator.clipboard
-    .writeText(leaf.content)
-    .then(() => {
-      showPushToast('Markdownをコピーしました', 'success')
-    })
-    .catch((err) => {
-      console.error('Markdownのコピーに失敗しました:', err)
-      showPushToast('Markdownのコピーに失敗しました', 'error')
-    })
-}
-```
-
 **ユースケース:**
 
 - 他のMarkdownエディタで編集
@@ -60,15 +28,7 @@ function handleCopyMarkdown(pane: Pane) {
 
 ### UI実装
 
-パンくずリスト（Breadcrumbs.svelte）にシェアボタンを配置：
-
-```svelte
-<Breadcrumbs
-  {breadcrumbs}
-  onCopyUrl={() => handleCopyUrl('left')}
-  onCopyMarkdown={() => handleCopyMarkdown('left')}
-/>
-```
+パンくずリスト（Breadcrumbs.svelte）にシェアボタンを配置。
 
 **表示条件:**
 

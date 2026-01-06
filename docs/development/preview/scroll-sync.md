@@ -20,176 +20,21 @@
 
 スクロール同期は4つのコンポーネントで実装されています：
 
-1. **MarkdownEditor.svelte** - CodeMirrorのスクロール制御
-2. **PreviewView.svelte** - プレビューのスクロール制御
-3. **EditorView.svelte** - スクロールイベントのパススルー
-4. **App.svelte** - 左右ペイン間の同期ロジック
+| コンポーネント        | 役割                           |
+| --------------------- | ------------------------------ |
+| MarkdownEditor.svelte | CodeMirrorのスクロール制御     |
+| PreviewView.svelte    | プレビューのスクロール制御     |
+| EditorView.svelte     | スクロールイベントのパススルー |
+| App.svelte            | 左右ペイン間の同期ロジック     |
 
-#### MarkdownEditor.svelte
+各コンポーネントは以下のインターフェースを公開します：
 
-```typescript
-export let onScroll: ((scrollTop: number, scrollHeight: number) => void) | null = null
+- **onScroll**: スクロールイベントを親に通知するコールバック
+- **scrollTo(scrollTop)**: 外部からスクロール位置を設定するメソッド
 
-let isScrollingSynced = false // 無限ループ防止フラグ
+#### 双方向同期ロジック
 
-// 外部からスクロール位置を設定
-export function scrollTo(scrollTop: number) {
-  if (!editorView || isScrollingSynced) return
-
-  isScrollingSynced = true
-  const scroller = editorView.scrollDOM
-  if (scroller) {
-    scroller.scrollTop = scrollTop
-  }
-  // 次のイベントループでフラグをリセット
-  setTimeout(() => {
-    isScrollingSynced = false
-  }, 0)
-}
-
-// スクロールイベントを親に通知
-EditorView.domEventHandlers({
-  scroll: (event) => {
-    if (isScrollingSynced || !onScroll) return
-    const target = event.target as HTMLElement
-    if (target) {
-      onScroll(target.scrollTop, target.scrollHeight)
-    }
-  },
-})
-```
-
-#### PreviewView.svelte
-
-```typescript
-export let onScroll: ((scrollTop: number, scrollHeight: number) => void) | null = null
-
-let previewSection: HTMLElement
-let isScrollingSynced = false // 無限ループ防止フラグ
-
-// 外部からスクロール位置を設定
-export function scrollTo(scrollTop: number) {
-  if (!previewSection || isScrollingSynced) return
-
-  isScrollingSynced = true
-  previewSection.scrollTop = scrollTop
-  setTimeout(() => {
-    isScrollingSynced = false
-  }, 0)
-}
-
-// スクロールイベントを親に通知
-function handleScroll(event: Event) {
-  if (isScrollingSynced || !onScroll) return
-  const target = event.target as HTMLElement
-  if (target) {
-    onScroll(target.scrollTop, target.scrollHeight)
-  }
-}
-```
-
-```svelte
-<section class="preview-section" bind:this={previewSection} on:scroll={handleScroll}>
-  <!-- プレビューコンテンツ -->
-</section>
-```
-
-#### EditorView.svelte
-
-```typescript
-export let onScroll: ((scrollTop: number, scrollHeight: number) => void) | null = null
-
-let markdownEditor: any = null
-
-// スクロール位置設定をMarkdownEditorに委譲
-export function scrollTo(scrollTop: number) {
-  if (markdownEditor && markdownEditor.scrollTo) {
-    markdownEditor.scrollTo(scrollTop)
-  }
-}
-```
-
-```svelte
-<MarkdownEditor
-  bind:this={markdownEditor}
-  content={leaf.content}
-  {theme}
-  onChange={handleContentChange}
-  {onScroll}
-/>
-```
-
-#### App.svelte - 双方向同期ロジック
-
-```typescript
-// コンポーネント参照
-let leftEditorView: any = null
-let leftPreviewView: any = null
-let rightEditorView: any = null
-let rightPreviewView: any = null
-
-// 左ペインのスクロール → 右ペインに同期
-function handleLeftScroll(scrollTop: number, scrollHeight: number) {
-  // 同期条件チェック
-  if (!isDualPane || !$currentLeaf || !rightLeaf || $currentLeaf.id !== rightLeaf.id) return
-  if (
-    ($currentView === 'edit' && rightView === 'preview') ||
-    ($currentView === 'preview' && rightView === 'edit')
-  ) {
-    const target = rightView === 'edit' ? rightEditorView : rightPreviewView
-    if (target && target.scrollTo) {
-      target.scrollTo(scrollTop)
-    }
-  }
-}
-
-// 右ペインのスクロール → 左ペインに同期
-function handleRightScroll(scrollTop: number, scrollHeight: number) {
-  // 同期条件チェック
-  if (!isDualPane || !$currentLeaf || !rightLeaf || $currentLeaf.id !== rightLeaf.id) return
-  if (
-    (rightView === 'edit' && $currentView === 'preview') ||
-    (rightView === 'preview' && $currentView === 'edit')
-  ) {
-    const target = $currentView === 'edit' ? leftEditorView : leftPreviewView
-    if (target && target.scrollTo) {
-      target.scrollTo(scrollTop)
-    }
-  }
-}
-```
-
-```svelte
-<!-- 左ペイン -->
-{:else if $currentView === 'edit' && $currentLeaf}
-  <EditorView
-    bind:this={leftEditorView}
-    onScroll={handleLeftScroll}
-    {/* ... */}
-  />
-{:else if $currentView === 'preview' && $currentLeaf}
-  <PreviewView
-    bind:this={leftPreviewView}
-    onScroll={handleLeftScroll}
-    {/* ... */}
-  />
-{/if}
-
-<!-- 右ペイン -->
-{:else if rightView === 'edit' && rightLeaf}
-  <EditorView
-    bind:this={rightEditorView}
-    onScroll={handleRightScroll}
-    {/* ... */}
-  />
-{:else if rightView === 'preview' && rightLeaf}
-  <PreviewView
-    bind:this={rightPreviewView}
-    onScroll={handleRightScroll}
-    {/* ... */}
-  />
-{/if}
-```
+App.svelteで左右ペインのスクロールイベントを監視し、同期条件を満たす場合にもう一方のペインの`scrollTo()`を呼び出します。
 
 ### 無限ループ防止
 
@@ -205,30 +50,7 @@ function handleRightScroll(scrollTop: number, scrollHeight: number) {
 
 #### 解決策
 
-各コンポーネントで`isScrollingSynced`フラグを使用し、外部からの`scrollTo()`呼び出し中はスクロールイベントを無視します。
-
-```typescript
-let isScrollingSynced = false
-
-export function scrollTo(scrollTop: number) {
-  if (isScrollingSynced) return // すでに同期中なら何もしない
-
-  isScrollingSynced = true
-  // スクロール位置を設定
-  previewSection.scrollTop = scrollTop
-  // 次のイベントループでフラグをリセット
-  setTimeout(() => {
-    isScrollingSynced = false
-  }, 0)
-}
-
-function handleScroll(event: Event) {
-  if (isScrollingSynced || !onScroll) return // 同期中ならイベントを無視
-  onScroll(target.scrollTop, target.scrollHeight)
-}
-```
-
-`setTimeout(..., 0)`を使用することで、スクロール処理が完了してから次のイベントループでフラグをリセットします。
+各コンポーネントで`isScrollingSynced`フラグを使用し、外部からの`scrollTo()`呼び出し中はスクロールイベントを無視します。`setTimeout(..., 0)`でスクロール処理完了後にフラグをリセットします。
 
 ### 双方向性
 

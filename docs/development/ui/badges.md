@@ -6,59 +6,22 @@
 
 ### データ構造
 
-```typescript
-interface Note {
-  id: string
-  name: string
-  parentId: string | null
-  order: number
-  badgeIcon?: string // アイコン識別子（例: 'star', 'heart'）
-  badgeColor?: string // カラーコード（例: '#ff6b6b'）
-}
+Note型とLeaf型に以下のオプションフィールドを追加：
 
-interface Leaf {
-  id: string
-  title: string
-  content: string
-  noteId: string
-  order: number
-  updatedAt: number
-  badgeIcon?: string
-  badgeColor?: string
-}
-```
+| フィールド | 型     | 説明                                  |
+| ---------- | ------ | ------------------------------------- |
+| badgeIcon  | string | アイコン識別子（例: 'star', 'heart'） |
+| badgeColor | string | カラーコード（例: '#ff6b6b'）         |
 
 ### UI実装
 
 #### バッジ表示
 
-```svelte
-<div class="card">
-  <button class="badge" on:click={openBadgePicker}>
-    {#if badgeIcon && badgeIcon !== '+'}
-      <span class="badge-icon" style="color: {badgeColor}">{badgeIcon}</span>
-    {:else}
-      <span class="badge-plus">+</span>
-    {/if}
-  </button>
-</div>
-```
+- バッジ未設定時: 「+」マークを表示
+- バッジ設定時: アイコンを指定色で表示
+- クリックでバッジピッカーを開く
 
 #### アイコン選択UI（5×5グリッド）
-
-```svelte
-<div class="icon-grid">
-  {#each icons as icon}
-    <button
-      class="icon-option"
-      class:selected={selectedIcon === icon}
-      on:click={() => selectIcon(icon)}
-    >
-      {icon}
-    </button>
-  {/each}
-</div>
-```
 
 利用可能なアイコン（25種類）:
 
@@ -68,26 +31,13 @@ interface Leaf {
 
 #### 色選択UI（5色パレット）
 
-```svelte
-<div class="color-palette">
-  {#each colors as color}
-    <button
-      class="color-option"
-      style="background-color: {color}"
-      class:selected={selectedColor === color}
-      on:click={() => selectColor(color)}
-    />
-  {/each}
-</div>
-```
-
-カラーパレット:
-
-- `#ff6b6b` (赤)
-- `#ffd93d` (黄)
-- `#6bcb77` (緑)
-- `#4d96ff` (青)
-- `#9b59b6` (紫)
+| 色  | カラーコード |
+| --- | ------------ |
+| 赤  | #ff6b6b      |
+| 黄  | #ffd93d      |
+| 緑  | #6bcb77      |
+| 青  | #4d96ff      |
+| 紫  | #9b59b6      |
 
 ### 保存先
 

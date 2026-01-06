@@ -25,96 +25,32 @@
 
 ### 定数とファクトリ関数
 
-```typescript
-// src/lib/utils/offline.ts
-
-export const OFFLINE_LEAF_NAME = 'Offline'
-export const OFFLINE_LEAF_ID = '__offline__'
-
-export function createOfflineLeaf(content?: string, badgeIcon?: string, badgeColor?: string): Leaf {
-  return {
-    id: OFFLINE_LEAF_ID,
-    title: OFFLINE_LEAF_NAME,
-    noteId: '',
-    content: content || `# ${OFFLINE_LEAF_NAME}\n\n`,
-    updatedAt: Date.now(),
-    order: -1,
-    badgeIcon,
-    badgeColor,
-  }
-}
-
-export function isOfflineLeaf(leafId: string): boolean {
-  return leafId === OFFLINE_LEAF_ID
-}
-```
+| 定数/関数           | 説明                               |
+| ------------------- | ---------------------------------- |
+| OFFLINE_LEAF_NAME   | 固定名（`Offline`）                |
+| OFFLINE_LEAF_ID     | 固定ID（`__offline__`）            |
+| createOfflineLeaf() | オフラインリーフを生成             |
+| isOfflineLeaf()     | リーフIDがオフラインリーフかどうか |
 
 ### ストア管理
 
-```typescript
-// src/lib/stores.ts
-
-// オフラインリーフ専用ストア
-export const offlineLeafStore = writable<{
-  content: string
-  badgeIcon?: string
-  badgeColor?: string
-}>({
-  content: '',
-  badgeIcon: undefined,
-  badgeColor: undefined,
-})
-```
+`offlineLeafStore`でオフラインリーフの状態（content, badgeIcon, badgeColor）を管理。
 
 ### IndexedDB保存
 
-```typescript
-// src/lib/data/storage.ts
-
-export async function saveOfflineLeaf(data: {
-  content: string
-  badgeIcon?: string
-  badgeColor?: string
-}): Promise<void> {
-  const db = await openDB()
-  await db.put('offlineLeaf', data, 'current')
-}
-
-export async function loadOfflineLeaf(): Promise<{
-  content: string
-  badgeIcon?: string
-  badgeColor?: string
-} | null> {
-  const db = await openDB()
-  return await db.get('offlineLeaf', 'current')
-}
-```
+| 関数名          | 説明                  |
+| --------------- | --------------------- |
+| saveOfflineLeaf | IndexedDBに保存       |
+| loadOfflineLeaf | IndexedDBから読み込み |
 
 ## Pull中の編集保護除外
 
-Pull中はガラス効果オーバーレイが表示されるが、Offlineリーフは除外される。
-
-```svelte
-<!-- PaneView.svelte -->
-{#if ($state.isLoadingUI || $isPushing) && !(currentLeaf && isOfflineLeaf(currentLeaf.id))}
-  <Loading />
-{/if}
-```
+Pull中はガラス効果オーバーレイが表示されるが、Offlineリーフは除外される。`isOfflineLeaf(currentLeaf.id)`でチェック。
 
 ## ファイル構成
 
-```
-src/lib/utils/offline.ts
-├── OFFLINE_LEAF_NAME      # 固定名
-├── OFFLINE_LEAF_ID        # 固定ID
-├── getOfflineLeafInitialContent()  # 初期コンテンツ
-├── createOfflineLeaf()    # リーフ生成
-└── isOfflineLeaf()        # ID判定
-
-src/lib/stores.ts
-└── offlineLeafStore       # 専用ストア
-
-src/lib/data/storage.ts
-├── saveOfflineLeaf()      # IndexedDB保存
-└── loadOfflineLeaf()      # IndexedDB読み込み
-```
+| ファイル                   | 内容                             |
+| -------------------------- | -------------------------------- |
+| `src/lib/utils/offline.ts` | 定数、ファクトリ関数、判定関数   |
+| `src/lib/stores.ts`        | offlineLeafStore                 |
+| `src/lib/data/storage.ts`  | saveOfflineLeaf, loadOfflineLeaf |

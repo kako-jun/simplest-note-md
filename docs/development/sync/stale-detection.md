@@ -10,65 +10,11 @@ PCとスマホなど複数デバイスで同時に編集している場合、他
 
 #### lastPulledPushCountストア
 
-最後にPullした時点の`pushCount`を保持するストア（`stores.ts`）。
-
-```typescript
-export const lastPulledPushCount = writable<number>(0)
-```
+最後にPullした時点の`pushCount`を保持するストア。
 
 #### stale検出ロジック
 
-```typescript
-// リモートのpushCountを取得
-// 戻り値: pushCount（成功時）、-1（チェック不可：空リポジトリ、認証エラー、ネットワークエラー等）
-export async function fetchRemotePushCount(settings: Settings): Promise<number> {
-  const validation = validateGitHubSettings(settings)
-  if (!validation.valid) {
-    // 設定が無効な場合は-1を返す（チェック不可）
-    return -1
-  }
-
-  try {
-    const metadataRes = await fetchGitHubContents(
-      'notes/metadata.json',
-      settings.repoName,
-      settings.token
-    )
-    if (metadataRes.ok) {
-      // ... Base64デコードしてpushCountを取得
-      return metadata.pushCount || 0
-    }
-    // 404の場合（空リポジトリ）は-1を返す
-    // 「リモートに変更がありません」ではなく、Pullを実行させる
-    if (metadataRes.status === 404) {
-      return -1
-    }
-    // 認証エラーや権限エラーも-1（チェック不可）
-    if (metadataRes.status === 401 || metadataRes.status === 403) {
-      return -1
-    }
-    return -1
-  } catch (e) {
-    // ネットワークエラー等は-1（チェック不可）
-    return -1
-  }
-}
-
-// stale編集かどうかを判定
-// 戻り値: staleならtrue、チェック不可（設定無効、ネットワークエラー等）の場合もtrue
-export async function checkIfStaleEdit(
-  settings: Settings,
-  lastPulledPushCount: number
-): Promise<boolean> {
-  const remotePushCount = await fetchRemotePushCount(settings)
-  // -1はチェック不可（設定無効、認証エラー、ネットワークエラー等）
-  // この場合はPull/Pushを進めて適切なエラーメッセージを表示
-  if (remotePushCount === -1) {
-    return true
-  }
-  return remotePushCount > lastPulledPushCount
-}
-```
+`fetchRemotePushCount()`でリモートの`pushCount`を取得し、`lastPulledPushCount`と比較します。
 
 **判定ロジック:**
 
@@ -86,54 +32,14 @@ metadata.jsonが存在しない（404）場合は`-1`を返します。これに
 
 ### Push時の確認フロー
 
-```typescript
-async function handleSaveToGitHub() {
-  // 交通整理: Push不可なら何もしない
-  if (!canSync().canPush) return
-
-  isPushing = true
-  try {
-    // stale編集かどうかチェック
-    const isStale = await checkIfStaleEdit($settings, get(lastPulledPushCount))
-    if (isStale) {
-      // staleの場合は確認ダイアログを表示
-      isPushing = false
-      showConfirm($_('modal.staleEdit'), () => executePushInternal())
-      return
-    }
-
-    // staleでなければそのままPush
-    await executePushInternal()
-  } catch (e) {
-    // チェック失敗時もPushを続行
-    await executePushInternal()
-  } finally {
-    isPushing = false
-  }
-}
-```
+1. 交通整理（Push不可なら何もしない）
+2. stale編集かどうかチェック
+3. staleの場合は確認ダイアログを表示
+4. staleでなければそのままPush
 
 ### Push成功後のpushCount更新
 
-Push成功後は、ローカルの`lastPulledPushCount`を+1して更新します。これにより、連続Pushでstale警告が出ることを防ぎます。
-
-```typescript
-if (result.variant === 'success') {
-  isDirty.set(false)
-  // Push成功後はリモートと同期したのでpushCountを+1
-  lastPulledPushCount.update((n) => n + 1)
-}
-```
-
-### i18nメッセージ
-
-```json
-{
-  "modal": {
-    "staleEdit": "リモートに新しい変更があります。このまま保存すると上書きされます。続行しますか？"
-  }
-}
-```
+Push成功後は、ローカルの`lastPulledPushCount`を+1して更新。これにより、連続Pushでstale警告が出ることを防ぎます。
 
 ### 動作フロー
 
@@ -158,11 +64,7 @@ if (result.variant === 'success') {
 
 #### lastStaleCheckTimeストア
 
-最後にstaleチェックを実行した時刻を保持するストア（`stores.ts`）。
-
-```typescript
-export const lastStaleCheckTime = writable<number>(0)
-```
+最後にstaleチェックを実行した時刻を保持するストア。
 
 この時刻は以下のタイミングで更新される：
 
@@ -173,30 +75,12 @@ export const lastStaleCheckTime = writable<number>(0)
 
 これにより、手動操作でチェックが行われた場合は定期チェックが5分延長される。
 
-#### stale-checker.ts
+#### チェック実行条件
 
-```typescript
-// チェック間隔（5分）
-const CHECK_INTERVAL_MS = 5 * 60 * 1000
-
-// 進捗ストア（0〜1）
-export const staleCheckProgress = writable<number>(0)
-
-// チェック実行条件
-function canPerformCheck(): boolean {
-  if (!get(githubConfigured)) return false // GitHub未設定
-  if (document.visibilityState !== 'visible') return false // タブ非アクティブ
-  if (get(isPulling) || get(isPushing)) return false // Pull/Push中
-  if (get(lastStaleCheckTime) === 0) return false // 初回Pull前
-  return true
-}
-
-// 定期チェッカー開始
-export function startStaleChecker(): void {
-  // 1秒ごとに進捗更新＆チェック判定（統合タイマー）
-  progressIntervalId = setInterval(updateProgressAndCheck, 1000)
-}
-```
+1. GitHub設定済み
+2. タブがアクティブ
+3. Pull/Push中でない
+4. 初回Pull完了済み
 
 #### 進捗バー表示
 

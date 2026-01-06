@@ -10,9 +10,7 @@ Agasteerのデータ永続化スキーマについて説明します。
 
 ### キー定義
 
-```typescript
-const SETTINGS_KEY = 'agasteer/settings'
-```
+`agasteer/settings`
 
 ### データ構造
 
@@ -64,14 +62,12 @@ const SETTINGS_KEY = 'agasteer/settings'
 
 #### `notes` オブジェクトストア
 
-```typescript
-interface Note {
-  id: string // UUID (主キー)
-  name: string // ノート名
-  parentId?: string // 親ノートのID（ルートノートの場合はundefined）
-  order: number // 並び順
-}
-```
+| フィールド | 型      | 説明                                     |
+| ---------- | ------- | ---------------------------------------- |
+| id         | string  | UUID（主キー）                           |
+| name       | string  | ノート名                                 |
+| parentId   | string? | 親ノートのID（ルートノートの場合は省略） |
+| order      | number  | 並び順                                   |
 
 **例:**
 
@@ -93,16 +89,14 @@ interface Note {
 
 #### `leaves` オブジェクトストア
 
-```typescript
-interface Leaf {
-  id: string // UUID (主キー)
-  title: string // リーフタイトル
-  noteId: string // 所属ノートのID
-  content: string // Markdownコンテンツ
-  updatedAt: number // 最終更新タイムスタンプ（Unix time）
-  order: number // 並び順
-}
-```
+| フィールド | 型     | 説明                                |
+| ---------- | ------ | ----------------------------------- |
+| id         | string | UUID（主キー）                      |
+| title      | string | リーフタイトル                      |
+| noteId     | string | 所属ノートのID                      |
+| content    | string | Markdownコンテンツ                  |
+| updatedAt  | number | 最終更新タイムスタンプ（Unix time） |
+| order      | number | 並び順                              |
 
 **例:**
 
@@ -129,14 +123,6 @@ interface Leaf {
 
 ユーザー操作（キー入力、クリック、タッチ、スクロール、マウス移動）を検知し、最後の操作から1秒間無操作が続いた場合にIndexedDBへ保存します。
 
-```typescript
-// src/lib/stores/auto-save.ts
-const AUTO_SAVE_DELAY = 1000 // 1秒
-
-// 検知イベント
-const events = ['keydown', 'keyup', 'click', 'touchstart', 'scroll', 'mousemove']
-```
-
 **動作フロー:**
 
 1. `updateLeaves()` / `updateNotes()` 呼び出し → Svelteストア即座更新 + 保存フラグON
@@ -146,23 +132,11 @@ const events = ['keydown', 'keyup', 'click', 'touchstart', 'scroll', 'mousemove'
 
 #### `fonts` オブジェクトストア
 
-```typescript
-interface CustomFont {
-  name: string // フォント名（常に'custom'）
-  data: ArrayBuffer // フォントファイルのバイナリデータ
-  type: string // MIMEタイプ（例: 'font/ttf', 'font/woff2'）
-}
-```
-
-**例:**
-
-```json
-{
-  "name": "custom",
-  "data": ArrayBuffer(...),
-  "type": "font/ttf"
-}
-```
+| フィールド | 型          | 説明                                       |
+| ---------- | ----------- | ------------------------------------------ |
+| name       | string      | フォント名（常に'custom'）                 |
+| data       | ArrayBuffer | フォントファイルのバイナリデータ           |
+| type       | string      | MIMEタイプ（例: 'font/ttf', 'font/woff2'） |
 
 **仕様:**
 
@@ -176,23 +150,11 @@ interface CustomFont {
 
 #### `backgrounds` オブジェクトストア
 
-```typescript
-interface CustomBackground {
-  name: string // 固定キー: 'custom-left' または 'custom-right'
-  data: ArrayBuffer // 画像ファイルのバイナリデータ
-  type: string // MIMEタイプ (例: 'image/jpeg', 'image/png')
-}
-```
-
-**例:**
-
-```json
-{
-  "name": "custom-left",
-  "data": ArrayBuffer(...),
-  "type": "image/jpeg"
-}
-```
+| フィールド | 型          | 説明                                          |
+| ---------- | ----------- | --------------------------------------------- |
+| name       | string      | 固定キー: 'custom-left' または 'custom-right' |
+| data       | ArrayBuffer | 画像ファイルのバイナリデータ                  |
+| type       | string      | MIMEタイプ（例: 'image/jpeg', 'image/png'）   |
 
 **仕様:**
 
@@ -329,86 +291,12 @@ interface CustomBackground {
 
 ### CSS変数ベースのテーマ
 
-`:root`要素の`data-theme`属性で切り替え。
-
-```css
-/* app.css */
-:root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f3f4f6;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --accent-color: #0f766e;
-  --border-color: #d1d5db;
-}
-
-:root[data-theme='dark'] {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2d2d2d;
-  --text-primary: #e5e7eb;
-  --text-secondary: #9ca3af;
-  --accent-color: #1f4d48;
-  --border-color: #374151;
-}
-```
+`:root`要素の`data-theme`属性で切り替え。各テーマはCSS変数（`--bg-primary`, `--bg-secondary`, `--text-primary`, `--text-secondary`, `--accent-color`, `--border-color`）を定義します。
 
 ### テーマの適用
 
-```typescript
-function applyTheme(theme: 'light' | 'dark' | 'blackboard' | 'kawaii' | 'custom') {
-  if (theme === 'light') {
-    document.documentElement.removeAttribute('data-theme')
-  } else if (theme === 'custom') {
-    document.documentElement.setAttribute('data-theme', 'custom')
-    document.documentElement.style.setProperty('--bg-primary', settings.customBgPrimary)
-    document.documentElement.style.setProperty('--accent-color', settings.customAccentColor)
-  } else {
-    document.documentElement.setAttribute('data-theme', theme)
-  }
-
-  // エディタをテーマに合わせて再初期化
-  if (editorView && currentView === 'edit') {
-    editorView.destroy()
-    initializeEditor()
-    if (currentNote) {
-      resetEditorContent(currentNote.content)
-    }
-  }
-}
-```
+`applyTheme()`関数で`:root`要素に`data-theme`属性を設定。テーマ変更時はエディタも再初期化してスタイルを反映します。
 
 ### エディタテーマ
 
-CodeMirrorのカスタムテーマ定義。
-
-```typescript
-const editorDarkTheme = EditorView.theme(
-  {
-    '&': {
-      backgroundColor: '#1a1a1a',
-      color: '#e5e7eb',
-    },
-    '.cm-content': {
-      caretColor: '#1f4d48',
-    },
-    '.cm-cursor, .cm-dropCursor': {
-      borderLeftColor: '#1f4d48',
-    },
-    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-      backgroundColor: '#1f4d48',
-    },
-    '.cm-activeLine': {
-      backgroundColor: '#2d2d2d',
-    },
-    '.cm-gutters': {
-      backgroundColor: '#1a1a1a',
-      color: '#9ca3af',
-      border: 'none',
-    },
-    '.cm-activeLineGutter': {
-      backgroundColor: '#2d2d2d',
-    },
-  },
-  { dark: true }
-)
-```
+CodeMirrorの`EditorView.theme()`でエディタ専用のテーマを定義。背景色、カーソル色、選択範囲色、ガター色などをアプリテーマに合わせて設定します。

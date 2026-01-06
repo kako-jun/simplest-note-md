@@ -6,47 +6,7 @@ Agasteerの基本機能の実装詳細について説明します。
 
 ### 初期化
 
-```typescript
-function initializeEditor() {
-  if (!editorContainer) return
-
-  const extensions = [
-    // basicSetupの代わりに個別の拡張機能を追加
-    // highlightActiveLine()はGboardとの互換性問題があるため除外
-    lineNumbers(),
-    highlightActiveLineGutter(),
-    highlightSpecialChars(),
-    drawSelection(),
-    dropCursor(),
-    rectangularSelection(),
-    crosshairCursor(),
-    // highlightActiveLine(), // モバイルで範囲選択が中断される問題を回避
-    markdown(),
-    history(),
-    keymap.of([...defaultKeymap, ...historyKeymap]),
-    EditorView.updateListener.of((update) => {
-      if (update.docChanged && currentNote) {
-        updateNoteContent(currentNote.id, update.state.doc.toString())
-      }
-    }),
-  ]
-
-  // テーマがdarkの場合はダークテーマを追加
-  if (settings.theme === 'dark') {
-    extensions.push(editorDarkTheme)
-  }
-
-  const startState = EditorState.create({
-    doc: currentNote?.content || '',
-    extensions,
-  })
-
-  editorView = new EditorView({
-    state: startState,
-    parent: editorContainer,
-  })
-}
-```
+CodeMirrorのEditorStateとEditorViewを使用してエディタを初期化します。basicSetupの代わりに個別の拡張機能を追加し、テーマに応じたスタイルを適用します。
 
 ### モバイル互換性
 
@@ -58,19 +18,6 @@ CodeMirrorの`basicSetup`は多くの便利な拡張機能をバンドルして�
 
 **解決策**: `basicSetup`を使用せず、必要な拡張機能を個別にインポートし、`highlightActiveLine()`を除外する。
 
-```typescript
-import {
-  lineNumbers,
-  highlightActiveLineGutter,
-  highlightSpecialChars,
-  drawSelection,
-  dropCursor,
-  rectangularSelection,
-  crosshairCursor,
-  // highlightActiveLine は除外
-} from '@codemirror/view'
-```
-
 #### Gboard関連の既知の制約
 
 Android端末でGboardを使用している場合、空行（段落と段落の間の空白行）をタップするとスクロール位置が意図しない場所にジャンプする現象が発生します。これはGboardがCodeMirrorのフォーカス処理に介入することで起こるもので、CodeMirror側での修正は困難です。
@@ -81,32 +28,11 @@ Android端末でGboardを使用している場合、空行（段落と段落の�
 
 ### コンテンツリセット
 
-ノート切り替え時にエディタ内容を更新。
-
-```typescript
-function resetEditorContent(content: string) {
-  if (!editorView) return
-
-  const newState = EditorState.create({
-    doc: content,
-    extensions: editorView.state.extensions,
-  })
-
-  editorView.setState(newState)
-}
-```
+ノート切り替え時にエディタ内容を更新。EditorState.createで新しい状態を作成し、setStateで適用します。
 
 ### 自動保存
 
-エディタの変更を検知して自動保存。
-
-```typescript
-EditorView.updateListener.of((update) => {
-  if (update.docChanged && currentNote) {
-    updateNoteContent(currentNote.id, update.state.doc.toString())
-  }
-})
-```
+EditorView.updateListenerでドキュメントの変更を検知し、自動的にストアを更新します。
 
 ### Ctrl+S / Cmd+S でPush
 
@@ -114,33 +40,11 @@ EditorView.updateListener.of((update) => {
 
 エディタでCtrl+S（Macでは Cmd+S）を押すとGitHubにPushする機能。ブラウザの標準「ページを保存」ダイアログをオーバーライドします。
 
-#### 実装
+#### 動作
 
-```typescript
-// グローバルキーイベントハンドラ
-window.addEventListener('keydown', (e) => {
-  // Ctrl+S または Cmd+S を検出
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault() // ブラウザの保存ダイアログを防止
-    handleSaveToGitHub()
-  }
-})
-```
-
-#### 空コミット防止
-
-変更がない場合はPushをスキップし、不要なコミットを防止します。
-
-```typescript
-async function handleSaveToGitHub() {
-  // 変更がない場合はスキップ
-  if (!get(isDirty)) {
-    showToast('変更がありません', 'info')
-    return
-  }
-  // ... Push処理
-}
-```
+- windowのkeydownイベントでCtrl+S / Cmd+Sを検出
+- `e.preventDefault()`でブラウザの保存ダイアログを防止
+- isDirtyフラグで変更がない場合はPushをスキップ（空コミット防止）
 
 #### Vimモードとの共存
 
@@ -190,197 +94,31 @@ Vimモードでは、以下のカスタムコマンドが使用可能：
 - **Vimユーザーにとって自然な操作**: 標準的なVimコマンドで保存・終了が可能
 - **2ペイン対応**: 左右のペインで独立した操作が可能
 
-#### 実装
+#### 実装の仕組み
 
-##### 1. ペイン情報の管理
-
-各エディタにペイン情報を付与：
-
-```typescript
-// DOM要素にペイン情報をマーク
-editorView.dom.dataset.pane = pane // 'left' or 'right'
-```
-
-##### 2. グローバルコールバックマップ
-
-ペイン別にコールバックを登録：
-
-```typescript
-// window経由でペイン別コールバックを共有
-if (!window.editorCallbacks) {
-  window.editorCallbacks = {}
-}
-window.editorCallbacks[pane] = {
-  onSave,
-  onClose,
-  onSwitchPane,
-}
-```
-
-##### 3. フォーカス中のペイン判定
-
-実行時にフォーカスされているエディタのペインを取得：
-
-```typescript
-const getCurrentPane = () => {
-  const activeEditor = document.activeElement?.closest('.cm-editor')
-  return activeEditor?.getAttribute('data-pane') || null
-}
-```
-
-##### 4. Vimコマンドの定義
-
-グローバルに1回だけ定義し、実行時にペインを判定：
-
-```typescript
-// 初回のみVimコマンドを定義
-if (!window.vimCommandsInitialized) {
-  // :q コマンド
-  Vim.defineEx('quit', 'q', function () {
-    const paneId = getCurrentPane()
-    const callbacks = paneId ? window.editorCallbacks?.[paneId] : null
-    if (callbacks?.onClose) {
-      callbacks.onClose()
-    }
-  })
-
-  // スペースキーでペイン切り替え
-  Vim.defineAction('switchPane', function () {
-    const paneId = getCurrentPane()
-    const callbacks = paneId ? window.editorCallbacks?.[paneId] : null
-    if (callbacks?.onSwitchPane) {
-      callbacks.onSwitchPane()
-    }
-  })
-  Vim.mapCommand('<Space>', 'action', 'switchPane')
-
-  window.vimCommandsInitialized = true
-}
-```
-
-##### 型定義
-
-```typescript
-// src/global.d.ts
-interface Window {
-  editorCallbacks?: {
-    [paneId: string]: {
-      onSave?: (() => void) | null
-      onClose?: (() => void) | null
-      onSwitchPane?: (() => void) | null
-    }
-  }
-  vimCommandsInitialized?: boolean
-}
-```
+1. **ペイン情報の管理**: 各エディタのDOM要素に`data-pane`属性でペイン識別子（'left'/'right'）を付与
+2. **グローバルコールバックマップ**: `window.editorCallbacks`にペイン別のコールバック（onSave, onClose, onSwitchPane）を登録
+3. **フォーカス中のペイン判定**: `document.activeElement`から現在フォーカスされているエディタのペインを取得
+4. **Vimコマンドの定義**: グローバルに1回だけ定義し、実行時にペインを判定して適切なコールバックを呼び出す
 
 #### コマンドラインのスタイリング
 
-Vimコマンドライン（`:` 入力部分）のスタイルは、アプリのテーマに合わせて調整されます：
-
-```css
-.cm-vim-panel {
-  padding: 0.5rem 0.5rem 0.4rem 0.5rem;
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 1;
-  border-top: 1px solid var(--border-color);
-}
-
-.cm-vim-panel input {
-  margin: 1px 0 0 0.25rem; /* `:` と入力欄を垂直方向で揃える */
-}
-```
+Vimコマンドライン（`:` 入力部分）は`.cm-vim-panel`クラスでスタイリングされ、アプリのテーマ変数に連動します。
 
 ---
 
 ## パンくずナビゲーション
 
-現在位置を階層的に表示。
+現在位置を階層的に表示。各要素は`label`、`action`（クリック時の遷移先）、`id`、`type`（home/folder/note/settings）を持ちます。
 
-```typescript
-function getBreadcrumbs() {
-  const crumbs: Array<{
-    label: string
-    action: () => void
-    id: string
-    type: 'home' | 'folder' | 'note' | 'settings'
-  }> = []
-
-  // 常にホームを追加
-  crumbs.push({
-    label: 'Agasteer',
-    action: goHome,
-    id: 'home',
-    type: 'home',
-  })
-
-  // 設定画面の場合
-  if (currentView === 'settings') {
-    crumbs.push({
-      label: '設定',
-      action: goSettings,
-      id: 'settings',
-      type: 'settings',
-    })
-    return crumbs
-  }
-
-  // フォルダ階層を追加
-  if (currentFolder) {
-    const parentFolder = folders.find((f) => f.id === currentFolder.parentId)
-    if (parentFolder) {
-      crumbs.push({
-        label: parentFolder.name,
-        action: () => selectFolder(parentFolder),
-        id: parentFolder.id,
-        type: 'folder',
-      })
-    }
-    crumbs.push({
-      label: currentFolder.name,
-      action: () => selectFolder(currentFolder),
-      id: currentFolder.id,
-      type: 'folder',
-    })
-  }
-
-  // ノート編集中の場合
-  if (currentNote) {
-    crumbs.push({
-      label: currentNote.title,
-      action: () => {},
-      id: currentNote.id,
-      type: 'note',
-    })
-  }
-
-  return crumbs
-}
-```
+- 常にホームを先頭に追加
+- 設定画面の場合は「設定」のみ
+- ノート画面ではフォルダ階層（親→子）を表示
+- リーフ編集中はノートタイトルも表示
 
 ### インライン編集
 
-パンくずリストから直接名前を変更可能。
-
-```svelte
-{#each breadcrumbs as crumb}
-  <span>
-    {#if editingBreadcrumb === crumb.id}
-      {#if crumb.type === 'note'}
-        <input bind:this={titleInput} value={crumb.label} ... />
-      {:else if crumb.type === 'folder'}
-        <input bind:this={folderNameInput} value={crumb.label} ... />
-      {/if}
-    {:else}
-      <button on:click={crumb.action}>{crumb.label}</button>
-      <button on:click={() => startEditingBreadcrumb(crumb)}>✏️</button>
-    {/if}
-  </span>
-{/each}
-```
+パンくずリストから直接名前を変更可能。編集アイコンをクリックするとinput要素に切り替わり、その場で名前を編集できます。
 
 ---
 
@@ -388,68 +126,17 @@ function getBreadcrumbs() {
 
 確認ダイアログ、アラートダイアログ、入力ダイアログを統一的に管理。
 
-```typescript
-export interface ModalState {
-  show: boolean
-  message: string
-  type: 'confirm' | 'alert' | 'prompt'
-  callback: (() => void) | null
-  promptCallback?: ((value: string) => void) | null
-  placeholder?: string
-  position: ModalPosition
-}
+### モーダルの種類
 
-function showConfirm(message: string, onConfirm: () => void, position?: ModalPosition) {
-  modalState.set({ show: true, message, type: 'confirm', callback: onConfirm, position })
-}
+| 種類    | 関数          | 説明                                 |
+| ------- | ------------- | ------------------------------------ |
+| confirm | showConfirm() | はい/いいえの確認ダイアログ          |
+| alert   | showAlert()   | OKボタンのみの通知ダイアログ         |
+| prompt  | showPrompt()  | テキスト入力フィールド付きダイアログ |
 
-function showAlert(message: string, position?: ModalPosition) {
-  modalState.set({ show: true, message, type: 'alert', callback: null, position })
-}
+### 表示位置
 
-function showPrompt(
-  message: string,
-  onSubmit: (value: string) => void,
-  placeholder?: string,
-  position?: ModalPosition
-) {
-  modalState.set({
-    show: true,
-    message,
-    type: 'prompt',
-    callback: null,
-    promptCallback: onSubmit,
-    placeholder,
-    position,
-  })
-}
-```
-
-### 使用例
-
-```typescript
-// 削除確認
-showConfirm(
-  'このノートを削除しますか？',
-  () => {
-    deleteNote(targetNote)
-  },
-  'bottom-left'
-)
-
-// エラー通知
-showAlert('GitHub同期に失敗しました。')
-
-// 名前入力（新規ノート/リーフ作成時）
-showPrompt(
-  '新規ノート',
-  (name) => {
-    createNote({ name, parentId, pane })
-  },
-  '',
-  'bottom-left'
-)
-```
+`position`パラメータで表示位置を指定可能（center, bottom-left, bottom-right）。2ペイン表示時は左ペインのモーダルをbottom-left、右ペインをbottom-rightに表示します。
 
 ### 新規ノート/リーフ作成フロー
 
@@ -466,38 +153,11 @@ showPrompt(
 
 ### 2階層制限の実装
 
-ルートノート→サブノートの2階層までに制限。
-
-```typescript
-function createNote(parentId?: string) {
-  if (isOperationsLocked) return
-  const allNotes = $notes
-
-  // 階層制限チェック: サブノートの下にはサブノートを作成できない
-  if (parentId) {
-    const parentNote = allNotes.find((n) => n.id === parentId)
-    if (parentNote && parentNote.parentId) {
-      showAlert('サブノートの下にはサブノートを作成できません。')
-      return
-    }
-  }
-
-  // ... ノート作成処理
-}
-```
+ルートノート→サブノートの2階層までに制限。ノート作成時に`parentId`を持つノートの下には新しいノートを作成できないようチェックします。
 
 ### UIでの制御
 
-```svelte
-<script>
-  // リアクティブ宣言: currentNoteが変わるたびに再計算
-  $: canHaveSubNote = !currentNote.parentId
-</script>
-
-{#if canHaveSubNote}
-  <button on:click={onCreateNote}>新規サブノート</button>
-{/if}
-```
+`canHaveSubNote`フラグで「新規サブノート」ボタンの表示を制御。サブノートの下にはサブノートを作成できないため、ボタンを非表示にします。
 
 ### 階層構造
 

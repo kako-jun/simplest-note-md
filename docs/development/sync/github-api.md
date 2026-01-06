@@ -4,14 +4,7 @@ AgasteerのGitHub API統合について説明します。
 
 ## 認証
 
-Personal Access Tokenによるベーシック認証。
-
-```typescript
-const headers = {
-  Authorization: `Bearer ${settings.token}`,
-  'Content-Type': 'application/json',
-}
-```
+Personal Access Tokenによるベーシック認証。`Authorization: Bearer {token}`ヘッダーを使用します。
 
 ---
 
@@ -25,55 +18,13 @@ const headers = {
 - リポジトリにアクセス可能か確認
 - **実際のデータはPullしない**（設定画面で「ローカルの方が進んでいる」等のメッセージを出さないため）
 
-### 実装
+### 処理フロー
 
-```typescript
-export async function testGitHubConnection(settings: Settings): Promise<{
-  success: boolean
-  message: string
-  rateLimitInfo?: { remaining: number; resetMinutes: number }
-}> {
-  // 1. 設定値のバリデーション
-  const validation = validateGitHubSettings(settings)
-  if (!validation.valid) {
-    return { success: false, message: validation.message }
-  }
+1. 設定値のバリデーション
+2. ユーザー情報取得（トークン検証）
+3. リポジトリ存在確認
 
-  // 2. ユーザー情報取得（トークン検証）
-  const userRes = await fetchGitHubUser(settings.token)
-  if (!userRes.ok) {
-    // 401: 無効なトークン, 403: Rate limit等
-    return { success: false, message: 'github.invalidToken' }
-  }
-
-  // 3. リポジトリ存在確認
-  const repoRes = await fetchGitHubRepo(settings.repoName, settings.token)
-  if (!repoRes.ok) {
-    if (repoRes.status === 404) {
-      return { success: false, message: 'github.repoNotFound' }
-    }
-    if (repoRes.status === 403) {
-      return { success: false, message: 'github.noPermission' }
-    }
-    return { success: false, message: 'github.repoFetchFailed' }
-  }
-
-  return { success: true, message: 'github.connectionOk' }
-}
-```
-
-### UIフロー
-
-```
-設定画面
-    ↓
-「接続テスト」ボタンをクリック
-    ↓
-testGitHubConnection()実行
-    ↓
-    ├─ 成功 → 「接続OK（認証・リポジトリ参照に成功）」
-    └─ 失敗 → エラーメッセージ（トークン無効、リポジトリ不明等）
-```
+結果に応じて成功/失敗メッセージを返します。
 
 ### Pull/Pushとの違い
 
@@ -100,21 +51,6 @@ Push時は`.agasteer/notes/`と`.agasteer/archive/`の両方を処理します�
 
 **重要**: Archiveがロードされていない場合、既存の`archive/`ディレクトリを保持します。これにより、ユーザーがArchiveを見ていない状態でPushしても、アーカイブデータが消失しません。
 
-```typescript
-// 既存ツリーから.agasteer/以外のファイルと.agasteer/archive/を保持
-for (const item of existingTree.tree) {
-  if (!item.path.startsWith('.agasteer/notes/')) {
-    if (item.path.startsWith('.agasteer/archive/') && !$isArchiveLoaded) {
-      // Archiveがロードされていない場合は既存のSHAを保持
-      preserveItems.push(item)
-    } else if (!item.path.startsWith('.agasteer/')) {
-      // .agasteer/以外のファイル（README.md等）を保持
-      preserveItems.push(item)
-    }
-  }
-}
-```
-
 ### 処理フロー
 
 1. デフォルトブランチを取得
@@ -130,51 +66,9 @@ for (const item of existingTree.tree) {
 
 変更されていないファイルは既存のSHAを使用し、変更されたファイルのみcontentを送信することで、ネットワーク転送量を大幅削減。
 
-```typescript
-// SHA-1計算（Git blob形式）
-async function calculateGitBlobSha(content: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const contentBytes = encoder.encode(content)
-  const header = `blob ${contentBytes.length}\0` // UTF-8バイト数を使用
-  const headerBytes = encoder.encode(header)
-
-  const data = new Uint8Array(headerBytes.length + contentBytes.length)
-  data.set(headerBytes, 0)
-  data.set(contentBytes, headerBytes.length)
-
-  const hashBuffer = await crypto.subtle.digest('SHA-1', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-// リーフをTreeに追加
-for (const leaf of leaves) {
-  const path = buildPath(leaf, notes)
-  const existingSha = existingNotesFiles.get(path)
-
-  if (existingSha) {
-    const localSha = await calculateGitBlobSha(leaf.content)
-    if (localSha === existingSha) {
-      // 変化なし → 既存のSHAを使用（転送量削減）
-      treeItems.push({
-        path,
-        mode: '100644',
-        type: 'blob',
-        sha: existingSha,
-      })
-      continue
-    }
-  }
-
-  // 新規ファイルまたは変化あり → contentを送信
-  treeItems.push({
-    path,
-    mode: '100644',
-    type: 'blob',
-    content: leaf.content,
-  })
-}
-```
+- Git blob形式のSHA-1を`crypto.subtle.digest()`で計算
+- ローカルSHAと既存SHAが一致する場合はSHAのみ送信
+- 変化がある場合のみcontentを送信
 
 ### base_treeを使わない方式
 
@@ -190,26 +84,9 @@ for (const leaf of leaves) {
 - 完全に再構築
 - treeItemsに含めないファイルは自動的に削除される
 
-```typescript
-// notes/以外のファイルを保持
-for (const item of preserveItems) {
-  treeItems.push(item) // 既存のSHA
-}
-
-// notes/以下を再構築
-// .gitkeep、リーフのみをtreeItemsに追加
-```
-
 ### 強制更新（force: true）
 
-個人用アプリなので、ブランチ更新時に`force: true`を使用。
-
-```typescript
-{
-  sha: newCommitSha,
-  force: true, // 強制更新（他デバイスとの同時編集は非対応）
-}
-```
+個人用アプリなので、ブランチ更新時に`force: true`を使用します。
 
 **設計思想:**
 
@@ -219,56 +96,15 @@ for (const item of preserveItems) {
 
 ### 並行実行の防止
 
-`isPushing`フラグでダブルクリック等による並行実行を防止。
-
-```typescript
-let isPushing = false
-async function handleSaveToGitHub() {
-  if (isPushing) return
-  isPushing = true
-  try {
-    await executePush(...)
-  } finally {
-    isPushing = false
-  }
-}
-```
+`isPushing`フラグでダブルクリック等による並行実行を防止。try-finallyでロックの取得・解放を確実に行います。
 
 ### コミッター情報の固定値
 
-コミット時のユーザー名とメールアドレスは固定値を使用。設定画面での入力は不要。
-
-```typescript
-{
-  message: 'auto-sync',
-  tree: newTreeSha,
-  parents: [currentCommitSha],
-  committer: {
-    name: 'agasteer',
-    email: 'agasteer@example.com',
-  },
-  author: {
-    name: 'agasteer',
-    email: 'agasteer@example.com',
-  },
-}
-```
+コミット時のユーザー名とメールアドレスは固定値（`agasteer` / `agasteer@example.com`）を使用。設定画面での入力は不要。
 
 ### Push最適化（変更がない場合はスキップ）
 
 実質的な変更がない場合（すべてのファイルのSHAが既存と一致）は、コミットを作成せずに早期リターン。pushCountもインクリメントされない。
-
-```typescript
-// 変更があるか確認（contentを使っているアイテムがあるか）
-const hasChanges = treeItems.some((item) => 'content' in item)
-if (!hasChanges) {
-  // 変更がない場合は何もせずに成功を返す
-  return { success: true, message: '✅ 変更なし（Pushスキップ）' }
-}
-
-// 変更がある場合のみpushCountをインクリメント
-metadata.pushCount = currentPushCount + 1
-```
 
 **メリット:**
 
@@ -296,18 +132,6 @@ AgasteerはHome/Archiveの2つのワールドを持ち、それぞれ異なるPu
 - 通常のPull（起動時、手動）では`.agasteer/notes/`のみ取得
 - Archiveに初めて切り替えた時に`.agasteer/archive/`をPull
 - 一度ロードしたArchiveは`isArchiveLoaded`フラグで管理
-
-```typescript
-// Archiveへの切り替え時
-async function switchToArchive() {
-  if (!$isArchiveLoaded) {
-    // 初回アクセス時のみPull
-    await pullArchive($settings)
-    isArchiveLoaded.set(true)
-  }
-  currentWorld.set('archive')
-}
-```
 
 ### 空リポジトリの処理
 
@@ -345,21 +169,7 @@ UI活性化（ノート作成可能）
 
 #### 実装
 
-```typescript
-// tree取得後の処理
-if (treeRes.status === 404 || treeRes.status === 409) {
-  // 空のリポジトリ → 空のデータで成功扱い
-  options?.onStructure?.([], defaultMetadata, [])
-  options?.onPriorityComplete?.()
-  return {
-    success: true,
-    message: 'github.pullOk',
-    notes: [],
-    leaves: [],
-    metadata: defaultMetadata,
-  }
-}
-```
+ツリー取得で404/409が返された場合は空リポジトリとして正常処理し、空のデータで`onStructure`/`onPriorityComplete`コールバックを呼び出します。
 
 ### 優先度ベースの段階的ローディング（2025-11）
 
@@ -375,12 +185,10 @@ if (treeRes.status === 404 || treeRes.status === 409) {
 
 #### 優先度の定義
 
-```typescript
-export interface PullPriority {
-  leafPaths: string[] // 第1優先: URLで指定されたリーフのパス
-  noteIds: string[] // 第2優先: 第1優先リーフと同じノート配下
-}
-```
+**PullPriority インターフェース:**
+
+- `leafPaths`: 第1優先（URLで指定されたリーフのパス）
+- `noteIds`: 第2優先（第1優先リーフと同じノート配下）
 
 **優先度レベル:**
 
@@ -390,90 +198,31 @@ export interface PullPriority {
 
 #### コールバックインターフェース
 
-```typescript
-export interface PullOptions {
-  // ノート構造確定時（優先情報を返す）
-  onStructure?: (notes: Note[], metadata: Metadata) => PullPriority | void
-  // 各リーフ取得完了時
-  onLeaf?: (leaf: Leaf) => void
-  // 第1優先リーフ取得完了時（UIロック解除のタイミング）
-  onPriorityComplete?: () => void
-}
-```
+**PullOptions:**
 
-#### App.svelteでの使用例
-
-```typescript
-const options: PullOptions = {
-  onStructure: (notesFromGitHub, metadataFromGitHub) => {
-    // ノートを先に反映（ナビゲーション可能に）
-    notes.set(notesFromGitHub)
-    metadata.set(metadataFromGitHub)
-    // URLから優先情報を計算して返す
-    return getPriorityFromUrl(notesFromGitHub)
-  },
-  onLeaf: (leaf) => {
-    // 各リーフをストアに追加
-    leaves.update((current) => [...current, leaf])
-  },
-  onPriorityComplete: () => {
-    // UIロック解除、ガラス効果解除
-    isOperationsLocked = false
-    isLoadingUI = false
-    // URL復元
-    restoreStateFromUrl(true)
-  },
-}
-
-const result = await executePull($settings, options)
-```
+- `onStructure`: ノート構造確定時（優先情報を返す）
+- `onLeaf`: 各リーフ取得完了時
+- `onPriorityComplete`: 第1優先リーフ取得完了時（UIロック解除のタイミング）
 
 #### 優先度0リーフが0件の場合
 
-両方のペインがノートを表示している場合（`?left=ideas&right=SimpleNote1`）、第1優先リーフは存在しません。この場合、リーフ取得開始**前**に`onPriorityComplete`を呼び出してUIを即座に解放します。
-
-```typescript
-const priority1Count = sortedTargets.filter((t) => getPriority(t) === 0).length
-
-// 第1優先リーフが0件なら、リーフ取得開始前にUIロック解除
-if (priority1Count === 0) {
-  priority1CallbackFired = true
-  options?.onPriorityComplete?.()
-}
-```
+両方のペインがノートを表示している場合、第1優先リーフは存在しません。この場合、リーフ取得開始**前**に`onPriorityComplete`を呼び出してUIを即座に解放します。
 
 ### 交通整理（canSync関数）
 
-Pull/Push操作の排他制御を一元管理する関数。
+Pull/Push操作の排他制御を一元管理する関数。Pull中またはPush中は両方とも不可を返します。
 
-```typescript
-function canSync(): { canPull: boolean; canPush: boolean } {
-  // Pull中またはPush中は両方とも不可
-  if (isPulling || isPushing) {
-    return { canPull: false, canPush: false }
-  }
-  return { canPull: true, canPush: true }
-}
-```
-
-**使用箇所:**
-
-- `handleSaveToGitHub()`: `if (!canSync().canPush) return`
-- `handlePull()`: `if (!isInitial && !canSync().canPull) return`
-- Header: `pullDisabled={!canSync().canPull}`
+**使用箇所:** handleSaveToGitHub(), handlePull(), Headerコンポーネント
 
 これにより、ボタンクリックでもVimの`:w`でも、同じ条件でブロックされます。
 
 ### UI状態フラグ
 
-```typescript
-let isLoadingUI = false // ガラス効果・操作不可（優先リーフ完了で解除）
-let isPulling = false // Pull処理中（全完了で解除、URL更新スキップ用）
-let isPushing = false // Push処理中
-```
-
-- `isLoadingUI`: 優先リーフ取得完了で`false`に（ガラス効果解除）
-- `isPulling`: 全リーフ取得完了で`false`に（Pull/Pushボタン活性化）
+| フラグ      | 説明                                         |
+| ----------- | -------------------------------------------- |
+| isLoadingUI | ガラス効果・操作不可（優先リーフ完了で解除） |
+| isPulling   | Pull処理中（全完了で解除）                   |
+| isPushing   | Push処理中                                   |
 
 ### 技術的な最適化
 
@@ -483,20 +232,7 @@ let isPushing = false // Push処理中
 
 ### Base64デコード
 
-GitHub APIは改行付きのBase64を返すため、改行を削除してからデコード。
-
-```typescript
-let content = ''
-if (contentData.content) {
-  try {
-    // GitHub APIは改行付きBase64を返すので改行を削除
-    const base64 = contentData.content.replace(/\n/g, '')
-    content = decodeURIComponent(escape(atob(base64)))
-  } catch (e) {
-    content = ''
-  }
-}
-```
+GitHub APIは改行付きのBase64を返すため、改行を削除してから`atob()`でデコードします。
 
 ### 重要な仕様
 
@@ -520,23 +256,7 @@ Push回数カウント機能の実装中に、Push直後にPullしても`pushCou
 
 **解決策:**
 
-GitHub Contents API呼び出しにキャッシュバスター（タイムスタンプ）を付与。
-
-```typescript
-/**
- * GitHub Contents APIを呼ぶヘルパー関数（キャッシュバスター付き）
- */
-async function fetchGitHubContents(path: string, repoName: string, token: string) {
-  const url = `https://api.github.com/repos/${repoName}/contents/${path}?t=${Date.now()}`
-  return fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-}
-```
-
-このヘルパー関数を以下の箇所で使用：
+GitHub Contents API呼び出しにキャッシュバスター（`?t=${Date.now()}`）を付与。以下の箇所で使用：
 
 1. `fetchCurrentSha` - ファイルのSHA取得
 2. `pushAllWithTreeAPI` - Push時のmetadata.json取得
@@ -558,37 +278,16 @@ async function fetchGitHubContents(path: string, repoName: string, token: string
 
 ### パス定数
 
-```typescript
-// Home用パス
-const NOTES_PATH = '.agasteer/notes'
-const NOTES_METADATA_PATH = '.agasteer/notes/metadata.json'
+| パス                              | 説明                |
+| --------------------------------- | ------------------- |
+| `.agasteer/notes`                 | Home用ベースパス    |
+| `.agasteer/notes/metadata.json`   | Homeメタデータ      |
+| `.agasteer/archive`               | Archive用ベースパス |
+| `.agasteer/archive/metadata.json` | Archiveメタデータ   |
 
-// Archive用パス
-const ARCHIVE_PATH = '.agasteer/archive'
-const ARCHIVE_METADATA_PATH = '.agasteer/archive/metadata.json'
-```
+### パス生成ルール
 
-### パス生成関数
-
-```typescript
-function buildPath(leaf: Leaf, notes: Note[], world: WorldType = 'home'): string {
-  const basePath = world === 'home' ? NOTES_PATH : ARCHIVE_PATH
-  const note = notes.find((f) => f.id === leaf.noteId)
-  if (!note) return `${basePath}/${leaf.title}.md`
-
-  const folderPath = getFolderPath(note, notes)
-  return `${basePath}/${folderPath}/${leaf.title}.md`
-}
-
-function getFolderPath(note: Note, allNotes: Note[]): string {
-  const parentNote = note.parentId ? allNotes.find((f) => f.id === note.parentId) : null
-
-  if (parentNote) {
-    return `${parentNote.name}/${note.name}`
-  }
-  return note.name
-}
-```
+`buildPath()`関数でノート階層に基づいてパスを生成。
 
 **例:**
 
@@ -602,57 +301,16 @@ function getFolderPath(note: Note, allNotes: Note[]): string {
 
 Gitにはディレクトリの概念がないため、空のノート（リーフがないノート）を保持するために`.gitkeep`ファイルを使用。
 
-```typescript
-// 全ノートに対して.gitkeepを配置
-for (const note of notes) {
-  const notePath = getNotePath(note, notes)
-  const gitkeepPath = `${notePath}/.gitkeep`
-  const gitkeepExisting = existingNotesFiles.get(gitkeepPath)
+**Push時:**
 
-  treeItems.push({
-    path: gitkeepPath,
-    mode: '100644',
-    type: 'blob',
-    // 空ファイルなのでSHAは常に同じ
-    ...(gitkeepExisting === emptyGitkeepSha ? { sha: gitkeepExisting } : { content: '' }),
-  })
-}
-```
+- 全ノートに対して`.gitkeep`を配置
+- 空ファイルなのでSHAは常に同じ（既存SHAがあれば再利用）
 
-**Pull時の処理:**
+**Pull時:**
 
 1. まず`.gitkeep`ファイルから空のノート（リーフがないノート）を復元
 2. 次に`.md`ファイル（リーフ）を復元
 3. `.gitkeep`ファイル自体はユーザーには見えない
-
-```typescript
-// まず.gitkeepファイルから空ノートを復元
-const gitkeepPaths = entries.filter(
-  (e) =>
-    e.type === 'blob' &&
-    e.path.startsWith('notes/') &&
-    e.path.endsWith('.gitkeep') &&
-    e.path !== 'notes/.gitkeep' // notes/.gitkeepは除外
-)
-
-for (const entry of gitkeepPaths) {
-  const relativePath = entry.path.replace(/^notes\//, '').replace(/\/\.gitkeep$/, '')
-  const parts = relativePath.split('/').filter(Boolean)
-  if (parts.length === 0) continue
-
-  // .gitkeepがあるディレクトリのノートを復元
-  ensureNotePath(parts)
-}
-
-// 次に.mdファイル（リーフ）を復元
-const notePaths = entries.filter(
-  (e) =>
-    e.type === 'blob' &&
-    e.path.startsWith('notes/') &&
-    e.path.endsWith('.md') &&
-    !e.path.endsWith('.gitkeep') // .gitkeepは除外
-)
-```
 
 ---
 
@@ -682,13 +340,6 @@ const notePaths = entries.filter(
 
 ## エラーハンドリング
 
-- 各API呼び出しでエラーチェック
+- 各API呼び出しでエラーチェック（`response.ok`）
 - エラーメッセージをユーザーに表示
-- ネットワークエラーは catch で捕捉
-
-```typescript
-if (!response.ok) {
-  const error = await response.json()
-  return { success: false, message: `❌ エラー: ${error.message}` }
-}
-```
+- ネットワークエラーはtry-catchで捕捉

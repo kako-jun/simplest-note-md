@@ -51,21 +51,11 @@ git push origin main
 
 #### LocalStorageの確認
 
-```javascript
-// ブラウザコンソールで実行
-console.log('Settings:', localStorage.getItem('agasteer/settings'))
-console.log('Folders:', localStorage.getItem('agasteer/folders'))
-console.log('Notes:', localStorage.getItem('agasteer/notes'))
-```
+ブラウザコンソールで`localStorage.getItem('agasteer/settings')`等を実行して確認。
 
 #### LocalStorageのリセット
 
-```javascript
-localStorage.removeItem('agasteer/settings')
-localStorage.removeItem('agasteer/folders')
-localStorage.removeItem('agasteer/notes')
-location.reload()
-```
+ブラウザコンソールで`localStorage.removeItem('agasteer/settings')`を実行し、その後`location.reload()`でリロード。
 
 ---
 
@@ -77,38 +67,9 @@ location.reload()
    - エディタを開くまでCodeMirror（約600 KB）を読み込まない
    - 動的インポートで必要な時だけロード
 
-   ```typescript
-   // MarkdownEditor.svelte
-   async function loadCodeMirror() {
-     const [
-       { EditorState: ES },
-       { EditorView: EV, keymap: km },
-       { defaultKeymap: dk, history: h, historyKeymap: hk },
-       { markdown: md },
-       { basicSetup: bs },
-     ] = await Promise.all([
-       import('@codemirror/state'),
-       import('@codemirror/view'),
-       import('@codemirror/commands'),
-       import('@codemirror/lang-markdown'),
-       import('codemirror'),
-     ])
-   }
-   ```
-
 2. **marked/DOMPurifyの遅延ロード**
    - プレビューを開くまでmarkdown-tools（約64 KB）を読み込まない
    - 動的インポートで必要な時だけロード
-
-   ```typescript
-   // PreviewView.svelte
-   async function loadMarkdownTools() {
-     const [{ marked: m }, DOMPurifyModule] = await Promise.all([
-       import('marked'),
-       import('dompurify'),
-     ])
-   }
-   ```
 
 3. **Viteのマニュアルチャンク設定**
    - CodeMirror関連を独立チャンクに分離
@@ -116,46 +77,11 @@ location.reload()
    - svelte-i18nを独立チャンクに分離
    - ベンダーライブラリのキャッシュ効率を向上
 
-   ```typescript
-   // vite.config.ts
-   build: {
-     rollupOptions: {
-       output: {
-         manualChunks: {
-           'codemirror': ['codemirror', '@codemirror/view', '@codemirror/state', ...],
-           'markdown-tools': ['marked', 'dompurify'],
-           'i18n': ['svelte-i18n'],
-         },
-       },
-     },
-   }
-   ```
-
 4. **PWA対応（Service Worker）**
    - vite-plugin-pwaによるService Worker自動生成
    - 静的アセットのプリキャッシュ
    - GitHub API（5分間）のランタイムキャッシュ
    - オフライン基本動作のサポート
-
-   ```typescript
-   // vite.config.ts
-   VitePWA({
-     registerType: 'autoUpdate',
-     workbox: {
-       globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-       runtimeCaching: [
-         {
-           urlPattern: /^https:\/\/api\.github\.com\/.*/i,
-           handler: 'NetworkFirst',
-           options: {
-             cacheName: 'github-api-cache',
-             expiration: { maxAgeSeconds: 300 },
-           },
-         },
-       ],
-     },
-   })
-   ```
 
 5. **最適化効果**
    - ホーム画面初回読み込み：278.78 KB → 33.94 KB（gzip）**87.8%削減**
@@ -170,14 +96,8 @@ location.reload()
    - 不要な再計算を防ぐ
 
 2. **イミュータブル更新**
-
-   ```typescript
-   // ❌ ミュータブル（Svelteが変更を検知しない）
-   folders.push(newFolder)
-
-   // ✅ イミュータブル（検知される）
-   folders = [...folders, newFolder]
-   ```
+   - ミュータブル操作（`folders.push()`）はSvelteが変更を検知しない
+   - イミュータブル操作（`folders = [...folders, newFolder]`）は検知される
 
 3. **LocalStorageの書き込み最小化**
    - 変更時のみ`persist*()`を呼び出し
@@ -214,31 +134,16 @@ location.reload()
 ### 改善提案
 
 1. **トークンの暗号化**
-
-   ```typescript
-   import { AES, enc } from 'crypto-js'
-
-   function encryptToken(token: string, passphrase: string): string {
-     return AES.encrypt(token, passphrase).toString()
-   }
-
-   function decryptToken(encrypted: string, passphrase: string): string {
-     return AES.decrypt(encrypted, passphrase).toString(enc.Utf8)
-   }
-   ```
+   - crypto-jsのAES暗号化を使用
+   - パスフレーズで暗号化/復号化
 
 2. **トークンの有効期限管理**
    - 設定にexpiration dateを保存
    - 期限切れ時にアラート表示
 
 3. **Content Security Policy**
-   ```html
-   <!-- index.html -->
-   <meta
-     http-equiv="Content-Security-Policy"
-     content="default-src 'self'; script-src 'self'; connect-src 'self' https://api.github.com;"
-   />
-   ```
+   - index.htmlのmetaタグでCSPを設定
+   - `default-src 'self'`、`connect-src 'self' https://api.github.com`
 
 ---
 
@@ -292,18 +197,7 @@ Push回数カウント機能の実装中に、Push直後にPullしても`pushCou
 
 **解決策**:
 
-`fetchGitHubContents`ヘルパー関数を作成し、すべてのContents API呼び出しにキャッシュバスター（タイムスタンプ）を付与：
-
-```typescript
-async function fetchGitHubContents(path: string, repoName: string, token: string) {
-  const url = `https://api.github.com/repos/${repoName}/contents/${path}?t=${Date.now()}`
-  return fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-}
-```
+`fetchGitHubContents`ヘルパー関数を作成し、すべてのContents API呼び出しにキャッシュバスター（`?t=${Date.now()}`）を付与。
 
 **影響範囲**:
 

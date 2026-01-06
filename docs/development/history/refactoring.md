@@ -44,36 +44,24 @@ src/
 
 ### Svelteストアの導入
 
-```typescript
-// src/lib/stores.ts
-import { writable, derived } from 'svelte/store'
-import type { Settings, Folder, Note, View } from './types'
+**基本ストア（`src/lib/stores.ts`）:**
 
-// 基本ストア
-export const settings = writable<Settings>(defaultSettings)
-export const folders = writable<Folder[]>([])
-export const notes = writable<Note[]>([])
-export const currentView = writable<View>('home')
-export const currentFolder = writable<Folder | null>(null)
-export const currentNote = writable<Note | null>(null)
+| ストア名      | 型             | 説明           |
+| ------------- | -------------- | -------------- |
+| settings      | Settings       | アプリ設定     |
+| folders       | Folder[]       | フォルダ一覧   |
+| notes         | Note[]         | ノート一覧     |
+| currentView   | View           | 現在のビュー   |
+| currentFolder | Folder \| null | 選択中フォルダ |
+| currentNote   | Note \| null   | 選択中ノート   |
 
-// 派生ストア
-export const rootFolders = derived(folders, ($folders) =>
-  $folders.filter((f) => !f.parentId).sort((a, b) => a.order - b.order)
-)
+**派生ストア:**
 
-export const subfolders = derived([folders, currentFolder], ([$folders, $currentFolder]) =>
-  $currentFolder
-    ? $folders.filter((f) => f.parentId === $currentFolder.id).sort((a, b) => a.order - b.order)
-    : []
-)
-
-export const currentFolderNotes = derived([notes, currentFolder], ([$notes, $currentFolder]) =>
-  $currentFolder
-    ? $notes.filter((n) => n.folderId === $currentFolder.id).sort((a, b) => a.order - b.order)
-    : []
-)
-```
+| ストア名           | 説明                       |
+| ------------------ | -------------------------- |
+| rootFolders        | 親IDがないフォルダをソート |
+| subfolders         | currentFolderの子フォルダ  |
+| currentFolderNotes | currentFolder内のノート    |
 
 ### 成果
 
@@ -86,110 +74,38 @@ export const currentFolderNotes = derived([notes, currentFolder], ([$notes, $cur
 
 ## 3. ビジネスロジックの分離（実装済み）
 
-```typescript
-// src/lib/github.ts
-export async function saveToGitHub(
-  note: Note,
-  folders: Folder[],
-  settings: Settings
-): Promise<{ success: boolean; message: string }> {
-  // GitHub API呼び出しロジック
-}
-
-export async function fetchCurrentSha(path: string, settings: Settings): Promise<string | null> {
-  // SHA取得ロジック
-}
-
-// src/lib/storage.ts
-export function loadSettings(): Settings {
-  const stored = localStorage.getItem(SETTINGS_KEY)
-  return stored ? { ...defaultSettings, ...JSON.parse(stored) } : defaultSettings
-}
-
-export function saveSettings(settings: Settings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
-}
-```
+| モジュール       | 関数              | 説明                     |
+| ---------------- | ----------------- | ------------------------ |
+| `lib/github.ts`  | saveToGitHub()    | GitHub API呼び出し       |
+| `lib/github.ts`  | fetchCurrentSha() | SHA取得ロジック          |
+| `lib/storage.ts` | loadSettings()    | LocalStorageから読み込み |
+| `lib/storage.ts` | saveSettings()    | LocalStorageに保存       |
 
 ---
 
 ## 4. TypeScript型定義の強化
 
-```typescript
-// src/lib/types.ts
-export type UUID = string
+**主要な型定義（`src/lib/types.ts`）:**
 
-export interface Settings {
-  token: string
-  username: string
-  email: string
-  repoName: string
-  theme: ThemeType
-  customBgPrimary: string
-  customAccentColor: string
-}
-
-export type ThemeType = 'light' | 'dark' | 'blackboard' | 'kawaii' | 'custom'
-
-export interface Folder {
-  id: UUID
-  name: string
-  parentId?: UUID
-  order: number
-}
-
-export interface Note {
-  id: UUID
-  title: string
-  folderId: UUID
-  content: string
-  updatedAt: number
-  order: number
-}
-
-export type View = 'home' | 'settings' | 'edit' | 'folder'
-
-export interface Breadcrumb {
-  label: string
-  action: () => void
-  id: UUID
-  type: 'home' | 'folder' | 'note' | 'settings'
-}
-```
+| 型名       | 説明                                           |
+| ---------- | ---------------------------------------------- |
+| UUID       | string型のエイリアス                           |
+| Settings   | トークン、テーマ等の設定情報                   |
+| ThemeType  | 'light' \| 'dark' \| 'blackboard' 等           |
+| Folder     | id, name, parentId?, order                     |
+| Note       | id, title, folderId, content, updatedAt, order |
+| View       | 'home' \| 'settings' \| 'edit' \| 'folder'     |
+| Breadcrumb | label, action, id, type                        |
 
 ---
 
 ## 5. テストの導入
 
-```typescript
-// src/lib/__tests__/storage.test.ts
-import { describe, it, expect, beforeEach } from 'vitest'
-import { loadSettings, saveSettings } from '../storage'
+- vitestによるユニットテスト
+- `src/lib/__tests__/storage.test.ts`にテスト配置
+- LocalStorageの読み書きをテスト
 
-describe('LocalStorage operations', () => {
-  beforeEach(() => {
-    localStorage.clear()
-  })
-
-  it('should load default settings when none exist', () => {
-    const settings = loadSettings()
-    expect(settings.theme).toBe('light')
-  })
-
-  it('should persist and load settings', () => {
-    const testSettings = { ...defaultSettings, theme: 'dark' }
-    saveSettings(testSettings)
-    const loaded = loadSettings()
-    expect(loaded.theme).toBe('dark')
-  })
-})
-```
-
-**必要な依存関係:**
-
-```bash
-npm install -D vitest @vitest/ui @testing-library/svelte
-```
+**必要な依存関係:** `vitest`, `@vitest/ui`, `@testing-library/svelte`
 
 ---
 
@@ -313,24 +229,7 @@ Push処理をGit Tree APIに移行し、SHA比較による最適化を実装し�
 
 変更されていないファイルは既存のSHAを使用し、ネットワーク転送量を削減。
 
-**SHA-1計算:**
-
-```typescript
-async function calculateGitBlobSha(content: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const contentBytes = encoder.encode(content)
-  const header = `blob ${contentBytes.length}\0` // UTF-8バイト数
-  const headerBytes = encoder.encode(header)
-
-  const data = new Uint8Array(headerBytes.length + contentBytes.length)
-  data.set(headerBytes, 0)
-  data.set(contentBytes, headerBytes.length)
-
-  const hashBuffer = await crypto.subtle.digest('SHA-1', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-```
+**SHA-1計算:** `calculateGitBlobSha()`関数でGit Blob形式のSHA-1を計算
 
 **重要な修正:**
 
@@ -339,50 +238,18 @@ async function calculateGitBlobSha(content: string): Promise<string> {
 
 **最適化の効果:**
 
-```typescript
-// 変化なし → 既存のSHAを使用（転送なし）
-treeItems.push({
-  path,
-  mode: '100644',
-  type: 'blob',
-  sha: existingSha,
-})
-
-// 変化あり → contentを送信
-treeItems.push({
-  path,
-  mode: '100644',
-  type: 'blob',
-  content: leaf.content,
-})
-```
+| 状態     | 処理                          |
+| -------- | ----------------------------- |
+| 変化なし | 既存のSHAを使用（転送なし）   |
+| 変化あり | contentを送信（新規Blob作成） |
 
 ### Pull時のBase64デコード修正
 
-GitHub APIは改行付きのBase64を返すため、改行を削除してからデコード。
-
-```typescript
-// GitHub APIは改行付きBase64を返すので改行を削除
-const base64 = contentData.content.replace(/\n/g, '')
-content = decodeURIComponent(escape(atob(base64)))
-```
+GitHub APIは改行付きのBase64を返すため、改行を削除（`.replace(/\n/g, '')`）してからデコード。
 
 ### Push並行実行の防止
 
-`isPushing`フラグでダブルクリック等による並行実行を防止。
-
-```typescript
-let isPushing = false
-async function handleSaveToGitHub() {
-  if (isPushing) return
-  isPushing = true
-  try {
-    await executePush(...)
-  } finally {
-    isPushing = false
-  }
-}
-```
+`isPushing`フラグでダブルクリック等による並行実行を防止。関数開始時にtrueに設定し、finally句でfalseに戻す。
 
 ### 強制更新（force: true）
 
@@ -398,19 +265,9 @@ async function handleSaveToGitHub() {
 
 `generateUniqueName`を修正し、リーフ1から開始するように変更。
 
-```typescript
-// 修正前: リーフ、リーフ2、リーフ3...
-// 修正後: リーフ1、リーフ2、リーフ3...
-function generateUniqueName(baseName: string, existingNames: string[]): string {
-  let counter = 1
-  let name = `${baseName}${counter}`
-  while (existingNames.includes(name)) {
-    counter++
-    name = `${baseName}${counter}`
-  }
-  return name
-}
-```
+| 修正前                      | 修正後                       |
+| --------------------------- | ---------------------------- |
+| リーフ, リーフ2, リーフ3... | リーフ1, リーフ2, リーフ3... |
 
 ### 成果
 
@@ -430,13 +287,17 @@ function generateUniqueName(baseName: string, existingNames: string[]): string {
 
 **非対称な状態管理:**
 
-- 左ペイン: `currentView`, `currentNote`, `currentLeaf`（グローバルストア）
-- 右ペイン: `rightView`, `rightNote`, `rightLeaf`（ローカル変数）
+| ペイン | 状態変数                              | 管理方式         |
+| ------ | ------------------------------------- | ---------------- |
+| 左     | currentView, currentNote, currentLeaf | グローバルストア |
+| 右     | rightView, rightNote, rightLeaf       | ローカル変数     |
 
 **非対称な関数名:**
 
-- 左ペイン: `goHome()`, `selectNote()`, `createNote()`, `deleteNote()`等（サフィックスなし）
-- 右ペイン: `selectNoteRight()`, `createNoteRight()`等（Rightサフィックス）
+| ペイン | 関数例                                             | サフィックス |
+| ------ | -------------------------------------------------- | ------------ |
+| 左     | goHome(), selectNote(), createNote(), deleteNote() | なし         |
+| 右     | selectNoteRight(), createNoteRight()               | Right        |
 
 **問題の影響:**
 
@@ -448,30 +309,15 @@ function generateUniqueName(baseName: string, existingNames: string[]): string {
 
 #### 1. 状態管理の統一
 
-**グローバルストアから削除:**
+**グローバルストアから削除:** `currentView`, `currentNote`, `currentLeaf`, `subNotes`, `currentNoteLeaves`
 
-```typescript
-// 削除されたストア
-export const currentView = writable<View>('home')
-export const currentNote = writable<Note | null>(null)
-export const currentLeaf = writable<Leaf | null>(null)
-export const subNotes = derived([notes, currentNote], ...)
-export const currentNoteLeaves = derived([leaves, currentNote], ...)
-```
+**ローカル変数に統一（App.svelte内）:**
 
-**ローカル変数に統一:**
-
-```typescript
-// 左ペインの状態（App.svelte内のローカル変数）
-let leftNote: Note | null = null
-let leftLeaf: Leaf | null = null
-let leftView: View = 'home'
-
-// 右ペインの状態（App.svelte内のローカル変数）
-let rightNote: Note | null = null
-let rightLeaf: Leaf | null = null
-let rightView: View = 'home'
-```
+| 左ペイン | 右ペイン  | 型           |
+| -------- | --------- | ------------ |
+| leftNote | rightNote | Note \| null |
+| leftLeaf | rightLeaf | Leaf \| null |
+| leftView | rightView | View         |
 
 **設計思想:**
 
@@ -481,132 +327,52 @@ let rightView: View = 'home'
 
 #### 2. ナビゲーション関数の統合
 
-**すべての関数にpane引数を追加:**
+**すべての関数にpane引数を追加:** `type Pane = 'left' | 'right'`
 
-```typescript
-// Pane型の定義
-type Pane = 'left' | 'right'
+| 統合後の関数               | 説明           |
+| -------------------------- | -------------- |
+| goHome(pane)               | ホームに遷移   |
+| selectNote(note, pane)     | ノート選択     |
+| selectLeaf(leaf, pane)     | リーフ選択     |
+| createNote(parentId, pane) | ノート作成     |
+| createLeaf(pane)           | リーフ作成     |
+| deleteNote(pane)           | ノート削除     |
+| deleteLeaf(leafId, pane)   | リーフ削除     |
+| togglePreview(pane)        | プレビュー切替 |
 
-// 統合されたナビゲーション関数
-function goHome(pane: Pane)
-function selectNote(note: Note, pane: Pane)
-function selectLeaf(leaf: Leaf, pane: Pane)
-function createNote(parentId: string | undefined, pane: Pane)
-function createLeaf(pane: Pane)
-function deleteNote(pane: Pane)
-function deleteLeaf(leafId: string, pane: Pane)
-function togglePreview(pane: Pane)
-```
-
-**削除された関数:**
-
-- `selectNoteRight()` - `selectNote(note, 'right')`に統合
-- `selectLeafRight()` - `selectLeaf(leaf, 'right')`に統合
-- `createNoteRight()` - `createNote(parentId, 'right')`に統合
-- `createLeafRight()` - `createLeaf('right')`に統合
-- `togglePreviewRight()` - `togglePreview('right')`に統合
+**削除された関数:** `selectNoteRight()`, `selectLeafRight()`, `createNoteRight()`, `createLeafRight()`, `togglePreviewRight()` → 各々`(note/leaf, 'right')`に統合
 
 #### 3. パンくずリスト関数の統合
 
 **2つの関数を1つに統合:**
 
-```typescript
-// 統合前
-function getBreadcrumbs(view, note, leaf, allNotes): Breadcrumb[] // 左ペイン用
-function getBreadcrumbsRight(view, note, leaf, allNotes): Breadcrumb[] // 右ペイン用
+| 統合前                | 統合後                                           |
+| --------------------- | ------------------------------------------------ |
+| getBreadcrumbs()      | getBreadcrumbs(view, note, leaf, allNotes, pane) |
+| getBreadcrumbsRight() | （削除）                                         |
 
-// 統合後
-function getBreadcrumbs(view, note, leaf, allNotes, pane: Pane): Breadcrumb[]
-```
-
-**使用例:**
-
-```typescript
-$: breadcrumbs = getBreadcrumbs(leftView, leftNote, leftLeaf, $notes, 'left')
-$: breadcrumbsRight = getBreadcrumbs(rightView, rightNote, rightLeaf, $notes, 'right')
-```
+`pane`引数で左右を区別し、同じ関数で処理。
 
 #### 4. Pull処理の修正
 
 **Pull後の状態復元を左右両方に適用:**
 
-```typescript
-async function executePullInternal(isInitial: boolean) {
-  // IndexedDB全削除
-  await clearAllData()
-  notes.set([])
-  leaves.set([])
+1. IndexedDB全削除、notes/leavesストアをクリア
+2. 左右両方の状態を明示的にnullにリセット（`leftNote`, `leftLeaf`, `rightNote`, `rightLeaf`）
+3. Pull実行後、成功時は`restoreStateFromUrl()`を呼び出し
+4. 初回Pull以外でも`restoreStateFromUrl(false)`を呼ぶように修正
 
-  // 左右両方の状態をリセット
-  leftNote = null
-  leftLeaf = null
-  rightNote = null
-  rightLeaf = null
-
-  const result = await executePull($settings, isInitial)
-
-  if (result.success) {
-    updateNotes(result.notes)
-    updateLeaves(result.leaves)
-
-    // Pull後は常にURLから状態を復元（初回Pullも含む）
-    if (isInitial) {
-      restoreStateFromUrl(true)
-      isRestoringFromUrl = false
-    } else {
-      restoreStateFromUrl(false) // 追加：初回Pull以外でも復元
-    }
-  }
-}
-```
-
-**修正のポイント:**
-
-- 左右両方の状態を明示的にnullにリセット
-- 初回Pull以外でも`restoreStateFromUrl()`を呼ぶように修正
-- これにより、設定画面を閉じた後のPullでも状態が正しく復元される
+**修正のポイント:** 設定画面を閉じた後のPullでも状態が正しく復元される
 
 #### 5. コンポーネント呼び出しの修正
 
-**左ペイン:**
+コンポーネントのイベントハンドラにペイン指定を追加:
 
-```typescript
-<HomeView
-  onSelectNote={(note) => selectNote(note, 'left')}
-  onCreateNote={() => createNote(undefined, 'left')}
-/>
-
-<NoteView
-  onSelectLeaf={(leaf) => selectLeaf(leaf, 'left')}
-  onCreateLeaf={() => createLeaf('left')}
-  onDeleteNote={() => deleteNote('left')}
-/>
-
-<EditorFooter
-  onDelete={() => deleteLeaf(leftLeaf.id, 'left')}
-  onTogglePreview={() => togglePreview('left')}
-/>
-```
-
-**右ペイン:**
-
-```typescript
-<HomeView
-  onSelectNote={(note) => selectNote(note, 'right')}
-  onCreateNote={() => createNote(undefined, 'right')}
-/>
-
-<NoteView
-  onSelectLeaf={(leaf) => selectLeaf(leaf, 'right')}
-  onCreateLeaf={() => createLeaf('right')}
-  onDeleteNote={() => deleteNote('right')}
-/>
-
-<EditorFooter
-  onDelete={() => deleteLeaf(rightLeaf.id, 'right')}
-  onTogglePreview={() => togglePreview('right')}
-/>
-```
+| コンポーネント | 左ペイン例                                      | 右ペイン例                                       |
+| -------------- | ----------------------------------------------- | ------------------------------------------------ |
+| HomeView       | `onSelectNote={(n) => selectNote(n, 'left')}`   | `onSelectNote={(n) => selectNote(n, 'right')}`   |
+| NoteView       | `onCreateLeaf={() => createLeaf('left')}`       | `onCreateLeaf={() => createLeaf('right')}`       |
+| EditorFooter   | `onTogglePreview={() => togglePreview('left')}` | `onTogglePreview={() => togglePreview('right')}` |
 
 ### 成果
 
@@ -648,25 +414,13 @@ Version 6.0では、徹底的なコード重複削減とDRY原則の適用によ
 - App.svelteに`getBreadcrumbs()`, `extractH1Title()`, `updateH1Title()`が含まれていた
 - 約80行のロジックがApp.svelteに埋め込まれていた
 
-**分離後:**
+**分離後（`src/lib/breadcrumbs.ts`に配置）:**
 
-```typescript
-// src/lib/breadcrumbs.ts（新規作成）
-export function getBreadcrumbs(
-  view: View,
-  note: Note | null,
-  leaf: Leaf | null,
-  allNotes: Note[],
-  pane: Pane,
-  goHome: (pane: Pane) => void,
-  selectNote: (note: Note, pane: Pane) => void,
-  selectLeaf: (leaf: Leaf, pane: Pane) => void
-): Breadcrumb[]
-
-export function extractH1Title(content: string): string | null
-
-export function updateH1Title(content: string, newTitle: string): string
-```
+| 関数名           | 説明                                     |
+| ---------------- | ---------------------------------------- |
+| getBreadcrumbs() | パンくずリスト生成（pane引数で左右対応） |
+| extractH1Title() | コンテンツからH1タイトルを抽出           |
+| updateH1Title()  | コンテンツ内のH1タイトルを更新           |
 
 **成果:**
 
@@ -682,22 +436,14 @@ export function updateH1Title(content: string, newTitle: string): string
 - `handleDragStartNote()`, `handleDragStartLeaf()`等の重複関数
 - 型安全性が低い
 
-**分離後:**
+**分離後（`src/lib/drag-drop.ts`に配置）:**
 
-```typescript
-// src/lib/drag-drop.ts（新規作成）
-export function handleDragStart<T extends { id: string }>(item: T): void
-
-export function handleDragEnd(): void
-
-export function handleDragOver<T extends { id: string }>(item: T, callback: (item: T) => void): void
-
-export function reorderItems<T extends { order: number }>(
-  items: T[],
-  dragId: string,
-  dropId: string
-): T[]
-```
+| 関数名          | 説明                               |
+| --------------- | ---------------------------------- |
+| handleDragStart | ドラッグ開始（ジェネリック型対応） |
+| handleDragEnd   | ドラッグ終了                       |
+| handleDragOver  | ドラッグオーバー処理               |
+| reorderItems    | アイテム並び替え（order更新）      |
 
 **特徴:**
 
@@ -718,46 +464,16 @@ export function reorderItems<T extends { order: number }>(
 - HomeViewとNoteViewで同じノートカードUIが重複実装されていた
 - 約40行のHTMLとCSSが重複
 
-**解決策:**
+**解決策（`src/components/cards/NoteCard.svelte`を新規作成）:**
 
-```svelte
-<!-- src/components/cards/NoteCard.svelte（新規作成） -->
-<script lang="ts">
-  import type { Note } from '$lib/types'
-
-  export let note: Note
-  export let onSelect: (note: Note) => void
-  export let onDragStart: (note: Note) => void
-  export let onDragOver: (note: Note) => void
-  export let isDragOver: boolean = false
-  export let itemCount: number = 0
-</script>
-
-<div
-  class="note-card {isDragOver ? 'drag-over' : ''}"
-  on:click={() => onSelect(note)}
-  on:dragstart={() => onDragStart(note)}
-  on:dragover|preventDefault={() => onDragOver(note)}
-  draggable="true"
->
-  <div class="card-title">{note.name}</div>
-  <div class="card-meta">{itemCount} items</div>
-</div>
-```
-
-**使用例:**
-
-```svelte
-<!-- HomeView.svelte -->
-<NoteCard
-  {note}
-  onSelect={(n) => onSelectNote(n)}
-  onDragStart={(n) => handleDragStart(n)}
-  onDragOver={(n) => handleDragOver(n)}
-  isDragOver={dragOverId === note.id}
-  itemCount={getItemCount(note.id)}
-/>
-```
+| props       | 型                   | 説明               |
+| ----------- | -------------------- | ------------------ |
+| note        | Note                 | 表示するノート     |
+| onSelect    | (note: Note) => void | 選択時コールバック |
+| onDragStart | (note: Note) => void | ドラッグ開始       |
+| onDragOver  | (note: Note) => void | ドラッグオーバー   |
+| isDragOver  | boolean              | ドラッグ中フラグ   |
+| itemCount   | number               | 子アイテム数       |
 
 **成果:**
 
@@ -772,48 +488,15 @@ export function reorderItems<T extends { order: number }>(
 - fonts/backgrounds関連の6つの関数で重複したIndexedDB操作
 - 同じパターンのopen/transaction/put/get/deleteが繰り返される
 
-**解決策:**
+**解決策（汎用ヘルパー関数を追加）:**
 
-```typescript
-// src/lib/storage.ts
-// 汎用ヘルパー関数を追加
-export async function putItem<T>(storeName: string, key: string, value: T): Promise<void> {
-  const db = await openDB()
-  const tx = db.transaction(storeName, 'readwrite')
-  await tx.objectStore(storeName).put(value, key)
-  await tx.done
-}
+| 関数名     | 説明                           |
+| ---------- | ------------------------------ |
+| putItem    | 任意のストアにアイテムを保存   |
+| getItem    | 任意のストアからアイテムを取得 |
+| deleteItem | 任意のストアからアイテムを削除 |
 
-export async function getItem<T>(storeName: string, key: string): Promise<T | null> {
-  const db = await openDB()
-  const tx = db.transaction(storeName, 'readonly')
-  return (await tx.objectStore(storeName).get(key)) || null
-}
-
-export async function deleteItem(storeName: string, key: string): Promise<void> {
-  const db = await openDB()
-  const tx = db.transaction(storeName, 'readwrite')
-  await tx.objectStore(storeName).delete(key)
-  await tx.done
-}
-```
-
-**リファクタリング例:**
-
-```typescript
-// 修正前
-export async function saveFontToIndexedDB(arrayBuffer: ArrayBuffer): Promise<void> {
-  const db = await openDB()
-  const tx = db.transaction('fonts', 'readwrite')
-  await tx.objectStore('fonts').put(arrayBuffer, 'custom-font')
-  await tx.done
-}
-
-// 修正後
-export async function saveFontToIndexedDB(arrayBuffer: ArrayBuffer): Promise<void> {
-  await putItem<ArrayBuffer>('fonts', 'custom-font', arrayBuffer)
-}
-```
+**リファクタリング例:** `saveFontToIndexedDB()`を`putItem('fonts', 'custom-font', arrayBuffer)`で簡略化
 
 **成果:**
 
@@ -827,41 +510,14 @@ export async function saveFontToIndexedDB(arrayBuffer: ArrayBuffer): Promise<voi
 
 - 4つの関数（`saveToGitHub`, `pushAllWithTreeAPI`, `pullFromGitHub`, `testGitHubConnection`）で同じ設定検証が重複
 
-**解決策:**
+**解決策:** `validateGitHubSettings()`関数を作成し、トークン・リポジトリ名の検証を一元化
 
-```typescript
-// src/lib/github.ts
-export function validateGitHubSettings(settings: Settings): {
-  valid: boolean
-  message?: string
-} {
-  if (!settings.token || !settings.repoName) {
-    return { valid: false, message: 'GitHub設定が不完全です' }
-  }
-  if (!settings.repoName.includes('/')) {
-    return { valid: false, message: 'リポジトリ名は"owner/repo"形式で入力してください' }
-  }
-  return { valid: true }
-}
-```
+**検証内容:**
 
-**使用例:**
-
-```typescript
-export async function pushAllWithTreeAPI(
-  notes: Note[],
-  leaves: Leaf[],
-  settings: Settings,
-  existingFiles: GitHubFile[],
-  pushCount: number
-): Promise<{ success: boolean; message: string; pushCount?: number }> {
-  const validation = validateGitHubSettings(settings)
-  if (!validation.valid) {
-    return { success: false, message: validation.message! }
-  }
-  // ... Pushロジック
-}
-```
+| チェック項目     | エラーメッセージ                                 |
+| ---------------- | ------------------------------------------------ |
+| token/repoName空 | GitHub設定が不完全です                           |
+| repoNameに/なし  | リポジトリ名は"owner/repo"形式で入力してください |
 
 **成果:**
 
@@ -876,36 +532,7 @@ export async function pushAllWithTreeAPI(
 - 4つのFooterコンポーネント（HomeFooter, NoteFooter, EditorFooter, PreviewFooter）で保存ボタンが重複実装されていた
 - isDirty状態のバッジ表示ロジックが4箇所に分散
 
-**解決策:**
-
-```svelte
-<!-- src/components/buttons/SaveButton.svelte（新規作成） -->
-<script lang="ts">
-  import { isDirty } from '$lib/stores'
-  import { _ } from 'svelte-i18n'
-
-  export let onSave: () => void
-</script>
-
-<button on:click={onSave} class="save-button">
-  💾 {$_('common.save')}
-  {#if $isDirty}
-    <span class="notification-badge"></span>
-  {/if}
-</button>
-```
-
-**使用例:**
-
-```svelte
-<!-- EditorFooter.svelte -->
-<script lang="ts">
-  import SaveButton from '../buttons/SaveButton.svelte'
-  export let onSave: () => void
-</script>
-
-<SaveButton {onSave} />
-```
+**解決策:** `SaveButton.svelte`を新規作成し、保存ボタンとisDirtyバッジ表示を一元化
 
 **成果:**
 
@@ -920,51 +547,11 @@ export async function pushAllWithTreeAPI(
 - 左→右、右→左のスクロール同期で重複したロジック
 - `handleLeftPaneScroll()`, `handleRightPaneScroll()`の重複
 
-**解決策:**
+**解決策:** `handlePaneScroll(sourcePane, event)`に統合
 
-```typescript
-// src/App.svelte
-function handlePaneScroll(sourcePane: Pane, event: Event) {
-  const source = event.target as HTMLElement
-  const sourceScrollPercentage = source.scrollTop / (source.scrollHeight - source.clientHeight)
-
-  const targetPane = sourcePane === 'left' ? 'right' : 'left'
-  const targetElement = document.getElementById(`${targetPane}-pane`)
-
-  if (!targetElement) return
-
-  // 無限ループ防止フラグ
-  if (sourcePane === 'left') {
-    isScrollingSyncRight = true
-  } else {
-    isScrollingSyncLeft = true
-  }
-
-  const targetScrollTop =
-    sourceScrollPercentage * (targetElement.scrollHeight - targetElement.clientHeight)
-  targetElement.scrollTop = targetScrollTop
-
-  setTimeout(() => {
-    if (sourcePane === 'left') {
-      isScrollingSyncRight = false
-    } else {
-      isScrollingSyncLeft = false
-    }
-  }, 100)
-}
-```
-
-**使用例:**
-
-```svelte
-<div id="left-pane" on:scroll={(e) => handlePaneScroll('left', e)}>
-  <!-- 左ペインのコンテンツ -->
-</div>
-
-<div id="right-pane" on:scroll={(e) => handlePaneScroll('right', e)}>
-  <!-- 右ペインのコンテンツ -->
-</div>
-```
+- スクロール位置をパーセンテージで計算
+- 対象ペインを`sourcePane === 'left' ? 'right' : 'left'`で決定
+- 無限ループ防止フラグで相互呼び出しを抑制
 
 **成果:**
 
@@ -979,36 +566,14 @@ function handlePaneScroll(sourcePane: Pane, event: Event) {
 - 左右ペイン別のアップロード/削除関数が重複
 - `uploadBackgroundLeft()`, `uploadBackgroundRight()`等の重複
 
-**解決策:**
+**解決策（`src/lib/background.ts`）:**
 
-```typescript
-// src/lib/background.ts
-export async function uploadAndApplyBackground(
-  file: File,
-  pane: 'left' | 'right',
-  opacity: number
-): Promise<void> {
-  const arrayBuffer = await readFileAsArrayBuffer(file)
-  const key = pane === 'left' ? 'custom-left' : 'custom-right'
+| 関数名                            | 説明                                     |
+| --------------------------------- | ---------------------------------------- |
+| uploadAndApplyBackground()        | 背景画像のアップロードと適用（pane指定） |
+| removeAndDeleteCustomBackground() | 背景画像の削除（pane指定）               |
 
-  await putItem<ArrayBuffer>('backgrounds', key, arrayBuffer)
-
-  const url = URL.createObjectURL(new Blob([arrayBuffer]))
-  const root = document.documentElement
-  root.style.setProperty(`--background-image-${pane}`, `url(${url})`)
-  root.style.setProperty(`--background-opacity-${pane}`, opacity.toString())
-}
-
-export async function removeAndDeleteCustomBackground(pane: 'left' | 'right'): Promise<void> {
-  const key = pane === 'left' ? 'custom-left' : 'custom-right'
-
-  await deleteItem('backgrounds', key)
-
-  const root = document.documentElement
-  root.style.removeProperty(`--background-image-${pane}`)
-  root.style.removeProperty(`--background-opacity-${pane}`)
-}
-```
+pane引数（`'left' | 'right'`）で左右を区別し、`custom-left`/`custom-right`キーで保存。
 
 **成果:**
 
@@ -1051,14 +616,6 @@ src/components/settings/
 - 既存のModalコンポーネントを活用
 - すべての`alert()`呼び出しを`showAlert()`に置き換え
 
-```typescript
-// 修正前
-alert('リーフを削除できませんでした')
-
-// 修正後
-showAlert('リーフを削除できませんでした')
-```
-
 **成果:**
 
 - UIの一貫性が向上
@@ -1071,24 +628,7 @@ showAlert('リーフを削除できませんでした')
 - ノートのドラッグ&ドロップ時は強調表示があった
 - リーフのドラッグ&ドロップ時は強調表示がなかった
 
-**解決策:**
-
-NoteView.svelteに欠けていたスタイルを追加:
-
-```css
-.note-card {
-  /* 基本スタイル */
-}
-
-.note-card:hover {
-  /* ホバー時のスタイル */
-}
-
-.drag-over {
-  border: 2px solid var(--accent-color);
-  box-shadow: 0 0 10px rgba(var(--accent-color-rgb), 0.5);
-}
-```
+**解決策:** NoteView.svelteに`.drag-over`クラスのスタイル（ボーダー、シャドウ）を追加
 
 **成果:**
 
@@ -1155,65 +695,16 @@ Version 6.1では、すべてのボタンを`IconButton`コンポーネントと
 
 #### 1. IconButtonコンポーネントの作成
 
-**汎用的なアイコンボタン:**
+**汎用的なアイコンボタン（`src/components/buttons/IconButton.svelte`）:**
 
-```svelte
-<!-- src/components/buttons/IconButton.svelte -->
-<script lang="ts">
-  export let onClick: () => void
-  export let title = ''
-  export let ariaLabel = ''
-  export let disabled = false
-  export let variant: 'default' | 'primary' = 'default'
-  export let iconSize = 18
-</script>
-
-<button
-  type="button"
-  on:click={onClick}
-  {title}
-  aria-label={ariaLabel}
-  {disabled}
-  class="icon-button"
-  class:primary={variant === 'primary'}
-  style="--icon-size: {iconSize}px"
->
-  <slot />
-</button>
-
-<style>
-  .icon-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.25rem;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.2s;
-    position: relative;
-  }
-
-  .icon-button:hover:not(:disabled) {
-    opacity: 0.7;
-  }
-
-  .icon-button.primary {
-    color: var(--accent-color);
-  }
-
-  .icon-button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .icon-button :global(svg) {
-    width: var(--icon-size);
-    height: var(--icon-size);
-  }
-</style>
-```
+| props     | 型                     | 説明                   |
+| --------- | ---------------------- | ---------------------- |
+| onClick   | () => void             | クリック時コールバック |
+| title     | string                 | ツールチップ           |
+| ariaLabel | string                 | アクセシビリティ       |
+| disabled  | boolean                | 無効状態               |
+| variant   | 'default' \| 'primary' | スタイルバリアント     |
+| iconSize  | number                 | アイコンサイズ（px）   |
 
 **特徴:**
 
@@ -1225,44 +716,24 @@ Version 6.1では、すべてのボタンを`IconButton`コンポーネントと
 
 #### 2. 14個のアイコンコンポーネントの作成
 
-**SVGアイコンを独立したコンポーネント化:**
+**SVGアイコンを独立したコンポーネント化（`src/components/icons/`）:**
 
-```
-src/components/icons/
-├── SettingsIcon.svelte    # 設定（ヘッダー）
-├── HomeIcon.svelte        # ホーム（パンくずリスト）
-├── EditIcon.svelte        # 編集（パンくずリスト）
-├── ShareIcon.svelte       # シェア（パンくずリスト）
-├── SaveIcon.svelte        # 保存（フッター）
-├── DeleteIcon.svelte      # 削除（フッター）
-├── DownloadIcon.svelte    # ダウンロード（フッター）
-├── EyeIcon.svelte         # プレビュー（フッター）
-├── FolderPlusIcon.svelte  # ノート作成（フッター）
-├── FilePlusIcon.svelte    # リーフ作成（フッター）
-├── LinkIcon.svelte        # URLコピー（シェアメニュー）
-├── CopyIcon.svelte        # コピー（シェアメニュー）
-├── UploadIcon.svelte      # アップロード（シェアメニュー）
-└── FileEditIcon.svelte    # 編集（フッター）
-```
-
-**アイコンコンポーネントの例:**
-
-```svelte
-<!-- src/components/icons/SaveIcon.svelte -->
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-  <polyline points="17 21 17 13 7 13 7 21" />
-  <polyline points="7 3 7 8 15 8" />
-</svg>
-```
+| コンポーネント名 | 用途                           |
+| ---------------- | ------------------------------ |
+| SettingsIcon     | 設定（ヘッダー）               |
+| HomeIcon         | ホーム（パンくずリスト）       |
+| EditIcon         | 編集（パンくずリスト）         |
+| ShareIcon        | シェア（パンくずリスト）       |
+| SaveIcon         | 保存（フッター）               |
+| DeleteIcon       | 削除（フッター）               |
+| DownloadIcon     | ダウンロード（フッター）       |
+| EyeIcon          | プレビュー（フッター）         |
+| FolderPlusIcon   | ノート作成（フッター）         |
+| FilePlusIcon     | リーフ作成（フッター）         |
+| LinkIcon         | URLコピー（シェアメニュー）    |
+| CopyIcon         | コピー（シェアメニュー）       |
+| UploadIcon       | アップロード（シェアメニュー） |
+| FileEditIcon     | 編集（フッター）               |
 
 **特徴:**
 
@@ -1272,162 +743,19 @@ src/components/icons/
 
 #### 3. 既存コンポーネントのリファクタリング
 
-**Header.svelte:**
+各コンポーネントのSVG埋め込みボタンを`<IconButton><XxxIcon /></IconButton>`形式に置き換え:
 
-```svelte
-<!-- 修正前 -->
-<button class="settings-button" on:click={onSettingsClick}>
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" ...>
-    <!-- 長いSVGパス -->
-  </svg>
-</button>
-
-<!-- 修正後 -->
-<IconButton onClick={onSettingsClick} title={$_('header.settings')}>
-  <SettingsIcon />
-</IconButton>
-```
-
-**Breadcrumbs.svelte:**
-
-```svelte
-<!-- 修正前 -->
-<button class="breadcrumb-button" on:click={crumb.action}>
-  {#if index === 0}
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" ...>
-      <!-- 長いSVGパス -->
-    </svg>
-  {:else}
-    {crumb.label}
-  {/if}
-</button>
-
-<!-- 修正後 -->
-{#if index === 0}
-  <IconButton onClick={crumb.action} title={$_('breadcrumbs.goHome')}>
-    <HomeIcon />
-  </IconButton>
-{:else}
-  <button class="breadcrumb-button" on:click={crumb.action}>
-    {crumb.label}
-  </button>
-{/if}
-```
-
-**ShareButton.svelte:**
-
-```svelte
-<!-- 修正前 -->
-<button class="share-button" on:click={toggleMenu}>
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" ...>
-    <!-- 長いSVGパス -->
-  </svg>
-</button>
-<div class="share-menu">
-  <button class="menu-item" on:click={handleCopyUrl}>
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" ...>
-      <!-- 長いSVGパス -->
-    </svg>
-    <span>{$_('share.copyUrl')}</span>
-  </button>
-  <!-- 他のメニューアイテム -->
-</div>
-
-<!-- 修正後 -->
-<IconButton onClick={toggleMenu} title={$_('share.title')}>
-  <ShareIcon />
-</IconButton>
-<div class="share-menu">
-  <button class="menu-item" on:click={handleCopyUrl}>
-    <LinkIcon />
-    <span>{$_('share.copyUrl')}</span>
-  </button>
-  <!-- 他のメニューアイテム -->
-</div>
-```
-
-**SaveButton.svelte:**
-
-```svelte
-<!-- 修正前 -->
-<button type="button" class="primary save-button" on:click={onSave}>
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" ...>
-    <!-- 長いSVGパス -->
-  </svg>
-  {#if isDirty}
-    <span class="notification-badge"></span>
-  {/if}
-</button>
-
-<!-- 修正後 -->
-<div class="save-button-wrapper">
-  <IconButton onClick={onSave} title={$_('common.save')} variant="primary">
-    <SaveIcon />
-  </IconButton>
-  {#if isDirty}
-    <span class="notification-badge"></span>
-  {/if}
-</div>
-```
-
-**フッターコンポーネント（HomeFooter, NoteFooter, EditorFooter, PreviewFooter）:**
-
-```svelte
-<!-- 修正前 -->
-<button type="button" on:click={onDelete} {disabled}>
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" ...>
-    <!-- 長いSVGパス -->
-  </svg>
-</button>
-
-<!-- 修正後 -->
-<IconButton onClick={onDelete} title={$_('footer.deleteLeaf')} {disabled}>
-  <DeleteIcon />
-</IconButton>
-```
+| コンポーネント         | 修正内容                                               |
+| ---------------------- | ------------------------------------------------------ |
+| Header                 | 設定ボタン → IconButton + SettingsIcon                 |
+| Breadcrumbs            | ホームボタン → IconButton + HomeIcon                   |
+| ShareButton            | シェアボタン/メニュー → IconButton + 各種Icon          |
+| SaveButton             | 保存ボタン → IconButton + SaveIcon (variant='primary') |
+| 各Footerコンポーネント | 各アクションボタン → IconButton + 対応Icon             |
 
 #### 4. Footer.svelteの簡略化
 
-**不要なグローバルスタイルを削除:**
-
-```css
-/* 削除されたスタイル（約30行） */
-:global(.footer-fixed button) {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.2s;
-}
-
-:global(.footer-fixed button:hover) {
-  opacity: 0.7;
-}
-
-:global(.footer-fixed button.primary) {
-  color: var(--accent-color);
-}
-
-:global(.footer-fixed button svg) {
-  width: 18px;
-  height: 18px;
-}
-
-:global(.footer-fixed button:disabled) {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-:global(.footer-fixed .button-icon) {
-  margin: 0;
-}
-```
-
-これらのスタイルはすべて`IconButton.svelte`に集約されました。
+Footer.svelteから約30行のグローバルスタイル（`:global(.footer-fixed button)`等）を削除。これらのスタイルはすべて`IconButton.svelte`に集約。
 
 ### 成果
 
@@ -1497,200 +825,45 @@ Version 6.2では、SettingsView.svelteを完全にセクションごとのコ�
 
 #### 1. 7個の新規コンポーネントの作成
 
-**QRCodeSection.svelte:**
-
-- QRコード画像と説明の表示
-- props: なし（i18n のみ使用）
-
-**HelpLinks.svelte:**
-
-- READMEと動画へのヘルプリンク
-- props: なし（i18n のみ使用）
-
-**LanguageSelector.svelte:**
-
-- 言語選択ドロップダウン（日本語・英語）
-- props: `settings`, `onSettingsChange`
-- ロジック: `handleLocaleChange()`
-
-**ToolNameInput.svelte:**
-
-- ツール名入力フィールド
-- props: `settings`, `onSettingsChange`
-- ロジック: `handleToolNameInput()`
-
-**VimModeToggle.svelte:**
-
-- Vimモードのチェックボックス
-- props: `settings`, `onSettingsChange`
-- ロジック: `handleVimModeChange()`
-
-**AboutSection.svelte:**
-
-- アプリ情報、作者、スポンサーリンク
-- props: なし（i18n のみ使用）
-
-**VersionDisplay.svelte:**
-
-- バージョン番号の表示（ビルド日付を自動表示）
-- props: なし
-- 機能: `__BUILD_DATE__`を Vite define から取得
+| コンポーネント   | 説明                               | props                      |
+| ---------------- | ---------------------------------- | -------------------------- |
+| QRCodeSection    | QRコード画像と説明                 | なし                       |
+| HelpLinks        | READMEと動画へのヘルプリンク       | なし                       |
+| LanguageSelector | 言語選択ドロップダウン             | settings, onSettingsChange |
+| ToolNameInput    | ツール名入力フィールド             | settings, onSettingsChange |
+| VimModeToggle    | Vimモードのチェックボックス        | settings, onSettingsChange |
+| AboutSection     | アプリ情報、作者、スポンサーリンク | なし                       |
+| VersionDisplay   | バージョン番号表示（ビルド日付）   | なし                       |
 
 #### 2. SettingsView.svelteのリファクタリング
 
-**修正前:**
+**修正前:** 約490行（ハンドラー関数、HTML、スタイルが混在）
 
-```svelte
-<!-- 約490行 -->
-<script lang="ts">
-  // 3つのハンドラー関数（33行）
-  function handleToolNameInput(event: Event) {
-    /* ... */
-  }
-  function handleLocaleChange(event: Event) {
-    /* ... */
-  }
-  function handleVimModeChange(event: Event) {
-    /* ... */
-  }
-</script>
+**修正後:** 約100行（各セクションをコンポーネントとしてインポートして配置するだけ）
 
-<section class="settings-container">
-  <!-- QRコード表示（15行） -->
-  <div class="qr-code-container">...</div>
+設定画面の構造:
 
-  <!-- ヘルプリンク（45行） -->
-  <div class="help-links">...</div>
-
-  <!-- GitHub設定 -->
-  <GitHubSettings ... />
-
-  <!-- 言語選択（10行） -->
-  <label for="language">...</label>
-  <select id="language" ...>...</select>
-
-  <!-- テーマ選択 -->
-  <ThemeSelector ... />
-
-  <!-- ツール名入力（15行） -->
-  <div class="tool-name-field">...</div>
-
-  <!-- フォント -->
-  <FontCustomizer ... />
-
-  <!-- 背景画像 -->
-  <BackgroundCustomizer ... />
-
-  <!-- Vimモード（12行） -->
-  <div class="vim-mode-field">...</div>
-
-  <!-- Aboutセクション（65行） -->
-  <div class="about-section">...</div>
-
-  <!-- バージョン -->
-  <div class="version">v2025-11-24</div>
-</section>
-
-<style>
-  /* 約250行のスタイル定義 */
-</style>
 ```
-
-**修正後:**
-
-```svelte
-<!-- 約100行 -->
-<script lang="ts">
-  import { _ } from '../../lib/i18n'
-  import type { Settings, ThemeType } from '../../lib/types'
-  import QRCodeSection from '../settings/QRCodeSection.svelte'
-  import HelpLinks from '../settings/HelpLinks.svelte'
-  import GitHubSettings from '../settings/GitHubSettings.svelte'
-  import LanguageSelector from '../settings/LanguageSelector.svelte'
-  import ThemeSelector from '../settings/ThemeSelector.svelte'
-  import ToolNameInput from '../settings/ToolNameInput.svelte'
-  import FontCustomizer from '../settings/FontCustomizer.svelte'
-  import BackgroundCustomizer from '../settings/BackgroundCustomizer.svelte'
-  import VimModeToggle from '../settings/VimModeToggle.svelte'
-  import AboutSection from '../settings/AboutSection.svelte'
-  import VersionDisplay from '../settings/VersionDisplay.svelte'
-
-  export let settings: Settings
-  export let onSettingsChange: (payload: Partial<Settings>) => void
-  export let onThemeChange: (theme: ThemeType) => void
-  export let pullRunning: boolean = false
-  export let onPull: (isInitial?: boolean) => void
-</script>
-
-<section class="settings-container">
-  <div class="settings-content">
-    <h2>{$_('settings.title')}</h2>
-
-    <QRCodeSection />
-    <HelpLinks />
-
-    <div class="form-section">
-      <GitHubSettings {settings} {onSettingsChange} {pullRunning} {onPull} />
-      <hr />
-
-      <div class="form-row">
-        <div class="form-field">
-          <h3>{$_('settings.extras.title')}</h3>
-
-          <LanguageSelector {settings} {onSettingsChange} />
-          <ThemeSelector {settings} {onThemeChange} {onSettingsChange} />
-          <ToolNameInput {settings} {onSettingsChange} />
-          <FontCustomizer {settings} {onSettingsChange} />
-          <BackgroundCustomizer {settings} {onSettingsChange} />
-          <VimModeToggle {settings} {onSettingsChange} />
-        </div>
-      </div>
-    </div>
-
-    <AboutSection />
-  </div>
-
-  <VersionDisplay />
-</section>
-
-<style>
-  /* 最小限のレイアウトスタイルのみ（約48行） */
-</style>
+<QRCodeSection />
+<HelpLinks />
+<GitHubSettings />
+<LanguageSelector />
+<ThemeSelector />
+<ToolNameInput />
+<FontCustomizer />
+<BackgroundCustomizer />
+<VimModeToggle />
+<AboutSection />
+<VersionDisplay />
 ```
 
 #### 3. ビルド日付の自動生成（関連機能）
 
-**Vite設定にdefineを追加:**
-
-```typescript
-// vite.config.ts
-export default defineConfig({
-  define: {
-    __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0]),
-  },
-  ...
-})
-```
-
-**TypeScript型定義を追加:**
-
-```typescript
-// src/vite-env.d.ts（新規作成）
-declare global {
-  const __BUILD_DATE__: string
-}
-export {}
-```
-
-**VersionDisplay.svelteで使用:**
-
-```svelte
-<script lang="ts">
-  // __BUILD_DATE__ is injected at build time by Vite
-</script>
-
-<div class="version">v{__BUILD_DATE__}</div>
-```
+| 設定ファイル      | 内容                                              |
+| ----------------- | ------------------------------------------------- |
+| vite.config.ts    | `define: { __BUILD_DATE__: ... }` を追加          |
+| src/vite-env.d.ts | `declare global { const __BUILD_DATE__: string }` |
+| VersionDisplay    | `v{__BUILD_DATE__}` で表示                        |
 
 ### 成果
 

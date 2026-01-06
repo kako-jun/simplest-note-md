@@ -99,25 +99,12 @@ Agasteerの将来的な拡張計画と既知の課題について説明します
 
 `notes/metadata.json` を導入し、以下のメタ情報を永続化：
 
-```json
-{
-  "version": 1,
-  "pushCount": 42,
-  "notes": {
-    "仕事": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "order": 0
-    }
-  },
-  "leaves": {
-    "仕事/会議メモ.md": {
-      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-      "updatedAt": 1703000000000,
-      "order": 0
-    }
-  }
-}
-```
+| フィールド | 型     | 説明                                        |
+| ---------- | ------ | ------------------------------------------- |
+| version    | number | メタデータバージョン（現在は1）             |
+| pushCount  | number | Push回数（統計情報）                        |
+| notes      | object | ノート情報（パス → {id, order}）            |
+| leaves     | object | リーフ情報（パス → {id, updatedAt, order}） |
 
 **効果:**
 
@@ -172,13 +159,10 @@ Agasteerの将来的な拡張計画と既知の課題について説明します
 
 **2ペイン対応のクエリパラメータ設計**に移行し、ノート名・リーフ名のパスをURLに使用する：
 
-```
-# 現在（UUIDベース）
-https://example.com/agasteer?note=550e8400-e29b-41d4-a716-446655440000&leaf=7c9e6679-7425-40de-944b-e07fc1f90ae7
-
-# 新設計（パス文字列ベース、2ペイン対応）
-https://example.com/agasteer?left=/仕事/会議&right=/仕事/会議/議事録
-```
+| 形式   | URL例                                      |
+| ------ | ------------------------------------------ |
+| 現在   | `?note={UUID}&leaf={UUID}`                 |
+| 新設計 | `?left=/仕事/会議&right=/仕事/会議/議事録` |
 
 #### UI設計
 
@@ -227,14 +211,12 @@ https://example.com/agasteer?left=/仕事/会議&right=/仕事/会議/議事録
 
 #### URL例
 
-```
-# URLは常にダブルペイン形式
-?left=/仕事&right=/仕事/会議/議事録    # 左:仕事ノート一覧、右:議事録編集
-?left=/仕事/会議&right=/仕事/その他    # 左:会議サブノート、右:その他サブノート
+| URL                                   | 説明                                   |
+| ------------------------------------- | -------------------------------------- |
+| `?left=/仕事&right=/仕事/会議/議事録` | 左:仕事ノート一覧、右:議事録編集       |
+| `?left=/仕事/会議&right=/仕事/その他` | 左:会議サブノート、右:その他サブノート |
 
-# 縦長画面では右ペインがCSSで非表示になるだけで、URLは同じ
-# 画面を回転させれば右ペインが見えるようになる
-```
+縦長画面では右ペインがCSSで非表示になるだけで、URLは同じ。画面を回転させれば右ペインが見えるようになる。
 
 #### メリット
 
@@ -277,27 +259,13 @@ https://example.com/agasteer?left=/仕事/会議&right=/仕事/会議/議事録
 **完了した実装（コミット: 22b41d1）**
 
 1. **名前重複チェック**
-
-   ```typescript
-   // App.svelte
-   function generateUniqueName(baseName: string, existingNames: string[]): string {
-     let name = baseName
-     let counter = 1
-     while (existingNames.includes(name)) {
-       counter++
-       name = `${baseName}${counter}`
-     }
-     return name
-   }
-   ```
+   - `generateUniqueName()`関数をApp.svelteに実装
+   - 「ノート」→「ノート2」→「ノート3」のように自動採番
 
 2. **パス解決ロジック**
-
-   ```typescript
-   // src/lib/routing.ts
-   export function resolvePath(path: string, notes: Note[], leaves: Leaf[]): PathResolution
-   export function buildPath(note: Note | null, leaf: Leaf | null, notes: Note[]): string
-   ```
+   - `resolvePath()`: パス → ノート・リーフ
+   - `buildPath()`: ノート・リーフ → パス
+   - `src/lib/routing.ts`に配置
 
 3. **URLルーティング**
    - 現在: 1ペインのみ（`left` を使用）
@@ -314,32 +282,6 @@ https://example.com/agasteer?left=/仕事/会議&right=/仕事/会議/議事録
 
 実装方針:
 
-```svelte
-<main class="dual-pane-container">
-  <div class="left-pane">
-    <!-- 左ペインのビュー -->
-  </div>
-  <div class="right-pane">
-    <!-- 右ペインのビュー -->
-  </div>
-</main>
-```
-
-CSS:
-
-```css
-.dual-pane-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-@media (max-width: 768px) {
-  .dual-pane-container {
-    grid-template-columns: 1fr;
-  }
-  .right-pane {
-    display: none;
-  }
-}
-```
+- `<main class="dual-pane-container">`で左右2ペインに分割
+- CSS Gridで`grid-template-columns: 1fr 1fr`を使用
+- メディアクエリ（768px以下）で右ペインを非表示に

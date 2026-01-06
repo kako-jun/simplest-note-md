@@ -6,59 +6,10 @@
 
 ### 技術実装
 
-#### フォントの読み込みと保存
-
-```typescript
-// FileReader APIでフォントファイルを読み込み
-async function loadFontFile(file: File): Promise<CustomFont> {
-  const reader = new FileReader()
-  const arrayBuffer = await reader.readAsArrayBuffer(file)
-
-  return {
-    name: 'custom',
-    data: arrayBuffer,
-    type: file.type || 'font/ttf',
-  }
-}
-
-// IndexedDBに保存
-await saveCustomFont(font)
-```
-
-#### CSS @font-faceによる動的適用
-
-```typescript
-function applyCustomFont(font: CustomFont): void {
-  const blob = new Blob([font.data], { type: font.type })
-  const url = URL.createObjectURL(blob)
-
-  const style = document.createElement('style')
-  style.textContent = `
-    @font-face {
-      font-family: 'CustomUserFont';
-      src: url(${url}) format('truetype');
-    }
-
-    body, input, textarea, button, .cm-editor {
-      font-family: 'CustomUserFont', sans-serif !important;
-    }
-  `
-
-  document.head.appendChild(style)
-}
-```
-
-#### フォントの削除
-
-```typescript
-function removeCustomFont(): void {
-  // スタイル要素を削除するだけで、デフォルトCSSに自動的に戻る
-  if (currentFontStyleElement) {
-    currentFontStyleElement.remove()
-    currentFontStyleElement = null
-  }
-}
-```
+1. **フォントの読み込み**: FileReader APIでArrayBufferとして読み込み
+2. **保存**: IndexedDBの`fonts`ストアに保存
+3. **適用**: Blob URLを作成し、`@font-face`でCSS変数に設定
+4. **削除**: スタイル要素を削除するとデフォルトCSSに戻る
 
 ### UI/UX
 
@@ -111,61 +62,9 @@ function removeCustomFont(): void {
 
 ### 技術実装
 
-#### Google Fontsからのダウンロード
-
-```typescript
-const GOOGLE_FONTS_CSS_URL = 'https://fonts.googleapis.com/css2?family=BIZ+UDGothic&display=swap'
-
-async function fetchSystemMonoFontFromGoogle(): Promise<SystemMonoFont> {
-  // 1. CSSからwoff2 URLを抽出
-  const woff2Url = await extractWoff2UrlFromGoogleFonts(GOOGLE_FONTS_CSS_URL)
-
-  // 2. woff2ファイルをダウンロード
-  const response = await fetch(woff2Url)
-  const arrayBuffer = await response.arrayBuffer()
-
-  return {
-    name: 'system-mono',
-    data: arrayBuffer,
-    type: 'font/woff2',
-    version: '1.0',
-  }
-}
-```
-
-#### IndexedDBへのキャッシュ
-
-```typescript
-interface SystemMonoFont extends CustomFont {
-  version: string // バージョン管理用
-}
-
-// 既存のfontsストアを再利用
-await saveCustomFont(font) // キー: 'system-mono'
-```
-
-#### CSS変数への動的適用
-
-```typescript
-function applySystemMonoFont(font: CustomFont): void {
-  const blob = new Blob([font.data], { type: font.type })
-  const url = URL.createObjectURL(blob)
-
-  const style = document.createElement('style')
-  style.textContent = `
-    @font-face {
-      font-family: 'SystemMonoFont';
-      src: url(${url}) format('woff2');
-    }
-
-    :root {
-      --font-mono: 'SystemMonoFont', 'Courier New', Menlo, Consolas, monospace;
-    }
-  `
-
-  document.head.appendChild(style)
-}
-```
+1. **ダウンロード**: Google Fonts CSSからwoff2 URLを抽出してダウンロード
+2. **キャッシュ**: IndexedDBの`fonts`ストア（キー: `system-mono`）に保存
+3. **適用**: `--font-mono` CSS変数に設定
 
 ### 起動時の処理フロー
 
@@ -191,18 +90,7 @@ IndexedDBに 'system-mono' キーで検索
 
 ### バージョン管理
 
-```typescript
-const SYSTEM_MONO_FONT_VERSION = '1.0'
-
-// キャッシュ確認時にバージョンをチェック
-if (cached && cached.version === SYSTEM_MONO_FONT_VERSION) {
-  // キャッシュを使用
-} else {
-  // 再ダウンロード
-}
-```
-
-フォントを変更する場合は `SYSTEM_MONO_FONT_VERSION` を上げるだけで、全ユーザーに新しいフォントが配信されます。
+`SYSTEM_MONO_FONT_VERSION`定数でバージョンを管理。フォントを変更する場合はバージョンを上げるだけで、全ユーザーに新しいフォントが配信されます。
 
 ### 優先順位
 
@@ -241,90 +129,10 @@ if (cached && cached.version === SYSTEM_MONO_FONT_VERSION) {
 
 ### 技術実装
 
-#### 画像の読み込みと保存
-
-```typescript
-// FileReader APIで画像ファイルを読み込み
-async function loadBackgroundFile(file: File): Promise<CustomBackground> {
-  const reader = new FileReader()
-  const arrayBuffer = await reader.readAsArrayBuffer(file)
-
-  return {
-    name: 'custom-left', // または 'custom-right'
-    data: arrayBuffer,
-    type: file.type || 'image/jpeg',
-  }
-}
-
-// IndexedDBに保存
-await saveCustomBackground(background)
-```
-
-#### CSS ::before擬似要素による動的適用
-
-```typescript
-function applyCustomBackgrounds(
-  leftBackground: CustomBackground | null,
-  rightBackground: CustomBackground | null,
-  leftOpacity: number = 0.1,
-  rightOpacity: number = 0.1
-): void {
-  const style = document.createElement('style')
-  let css = `
-    /* 基本スタイル */
-    .main-pane {
-      position: relative;
-      background: var(--bg-primary); /* テーマの背景色 */
-    }
-
-    .main-pane > * {
-      position: relative;
-      z-index: 1;
-      background: transparent; /* 子要素の背景を透明化 */
-    }
-  `
-
-  // 左ペインの背景画像
-  if (leftBackground) {
-    const blob = new Blob([leftBackground.data], { type: leftBackground.type })
-    const url = URL.createObjectURL(blob)
-
-    css += `
-    .left-column .main-pane::before,
-    .settings-container::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-image: url(${url});
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      opacity: ${leftOpacity};
-      pointer-events: none;
-      z-index: 0;
-    }
-    `
-  }
-
-  // 右ペインの背景画像（同様）
-  document.head.appendChild(style)
-}
-```
-
-#### 画像の削除
-
-```typescript
-async function removeAndDeleteCustomBackgroundLeft(): Promise<void> {
-  await deleteCustomBackground('custom-left')
-
-  // 右ペインの背景を保持したまま再適用
-  const rightBackground = await loadCustomBackground('custom-right')
-  await applyCustomBackgrounds(null, rightBackground, 0.1, 0.1)
-}
-```
+1. **読み込み**: FileReader APIでArrayBufferとして読み込み
+2. **保存**: IndexedDBの`backgrounds`ストアに保存（キー: `custom-left` / `custom-right`）
+3. **適用**: `::before`擬似要素でテーマ背景色の上に半透明画像を重ねる
+4. **削除**: IndexedDBから削除し、もう片方のペインの背景を保持したまま再適用
 
 ### UI/UX
 
@@ -388,31 +196,15 @@ async function removeAndDeleteCustomBackgroundLeft(): Promise<void> {
 
 ### 実装の詳細
 
-#### z-indexによる重ね順
+**z-indexによる重ね順:**
 
-```
-z-index: 0  →  .main-pane::before（背景画像）
-               ↓
-               .main-pane（テーマの背景色）
-               ↓
-z-index: 1  →  .main-pane > *（コンテンツ）
-```
+| レイヤー | 要素                             | z-index |
+| -------- | -------------------------------- | ------- |
+| 下       | `.main-pane::before`（背景画像） | 0       |
+| 中       | `.main-pane`（テーマ背景色）     | -       |
+| 上       | `.main-pane > *`（コンテンツ）   | 1       |
 
-- **テーマの背景色**: `.main-pane { background: var(--bg-primary); }`
-- **背景画像**: `::before { opacity: 0.1; z-index: 0; }`
-- **コンテンツ**: `.main-pane > * { background: transparent; z-index: 1; }`
-
-#### CodeMirrorエディタの背景透過
-
-```css
-.cm-editor,
-.cm-scroller,
-.cm-content {
-  background: transparent !important;
-}
-```
-
-CodeMirrorは独自の背景色を持つため、`!important`で強制的に透過させる。
+CodeMirrorは独自の背景色を持つため、`!important`で強制的に透過させています。
 
 ### セキュリティ
 

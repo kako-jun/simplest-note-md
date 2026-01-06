@@ -6,30 +6,7 @@
 
 ### 実装
 
-#### Before（ボタン）
-
-```svelte
-<button class="title-button" on:click={onTitleClick}>
-  {title}
-</button>
-```
-
-#### After（リンク）
-
-```svelte
-<a
-  class="title-button"
-  href="/"
-  on:click={(e) => {
-    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
-      e.preventDefault()
-      onTitleClick()
-    }
-  }}
->
-  {title}
-</a>
-```
+ボタンを`<a>`タグに変更し、修飾キーなしの通常クリックのみ`e.preventDefault()`で既存動作を維持。
 
 ### 動作
 
@@ -41,16 +18,6 @@
 | **中クリック**                 | 新しいタブでホームを開く                   |
 | **Shift+クリック**             | 新しいウィンドウでホームを開く             |
 | **右クリック**                 | コンテキストメニュー（新しいタブで開く等） |
-
-### CSS
-
-リンクの下線を非表示：
-
-```css
-.title-button {
-  text-decoration: none;
-}
-```
 
 ### ユースケース
 
@@ -68,112 +35,37 @@ GitHub設定の入力欄（リポジトリ名・トークン）に「？」ア�
 
 ### 実装
 
-#### UIコンポーネント
-
-```svelte
-<div class="label-with-help">
-  <label for="github-token">
-    {$_('settings.github.token')} <span class="required">*</span>
-  </label>
-  <span class="help-icon" on:click={openTokenHelp} title="How to get GitHub token">
-    <svg><!-- ?アイコン --></svg>
-  </span>
-</div>
-```
-
-#### モーダル表示
-
-```svelte
-{#if showTokenHelp}
-  <div class="modal-overlay" on:click={closeTokenHelp}>
-    <div class="modal-content" on:click={(e) => e.stopPropagation()}>
-      <div class="modal-header">
-        <h3>{$_('settings.github.tokenHelp.title')}</h3>
-        <button class="close-button" on:click={closeTokenHelp}>×</button>
-      </div>
-      <div class="modal-body">
-        <img
-          src="/assets/github-token-help.png"
-          alt="How to create GitHub Personal Access Token"
-          class="help-image"
-        />
-        <p class="help-description">
-          {$_('settings.github.tokenHelp.description')}
-        </p>
-      </div>
-    </div>
-  </div>
-{/if}
-```
+ラベルの横に「？」アイコンを配置し、クリックでモーダルを表示。モーダルには説明画像とテキストを表示。
 
 ### デザイン
 
 #### ヘルプアイコン
 
-- **位置**: ラベルの右横
-- **サイズ**: 18×18px
-- **色**: アクセントカラー（opacity: 0.7）
-- **ホバー**: opacity: 1、scale: 1.1
-
-```css
-.help-icon {
-  display: inline-flex;
-  color: var(--accent-color);
-  opacity: 0.7;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.help-icon:hover {
-  opacity: 1;
-  transform: scale(1.1);
-}
-```
+| 項目   | 値                               |
+| ------ | -------------------------------- |
+| 位置   | ラベルの右横                     |
+| サイズ | 18×18px                          |
+| 色     | アクセントカラー（opacity: 0.7） |
+| ホバー | opacity: 1、scale: 1.1           |
 
 #### モーダル
 
-- **背景**: 半透明黒（rgba(0, 0, 0, 0.7)）
-- **コンテンツ**: 最大幅800px、角丸12px
-- **画像**: 100%幅、角丸8px
-- **閉じる**: ×ボタン（2rem、右上）
+| 項目       | 値                             |
+| ---------- | ------------------------------ |
+| 背景       | 半透明黒（rgba(0, 0, 0, 0.7)） |
+| コンテンツ | 最大幅800px、角丸12px          |
+| 画像       | 100%幅、角丸8px                |
+| 閉じる     | ×ボタン（2rem、右上）          |
 
 ### 説明画像
 
-#### リポジトリ名（github-repo-help.png）
-
-- GitHubリポジトリのURL表示
-- `username/repository-name` の形式を強調
-
-#### トークン（github-token-help.png）
-
-- GitHub → Settings → Developer settings
-- Personal access tokens → Tokens (classic)
-- Generate new token
-- repo権限にチェック
+| ファイル名            | 説明                   |
+| --------------------- | ---------------------- |
+| github-repo-help.png  | リポジトリ名の確認方法 |
+| github-token-help.png | トークンの取得手順     |
 
 **現状**: 仮画像（PLACEHOLDER）
 **今後**: 実際のスクリーンショットに差し替え可能
-
-### i18n対応
-
-翻訳ファイルに追加：
-
-```json
-{
-  "settings": {
-    "github": {
-      "repoHelp": {
-        "title": "リポジトリ名の確認方法",
-        "description": "GitHubでリポジトリを開き、URLから「ユーザー名/リポジトリ名」の形式で入力してください。"
-      },
-      "tokenHelp": {
-        "title": "GitHub Personal Access Tokenの取得方法",
-        "description": "上記の手順でGitHub Personal Access Tokenを取得できます。取得したトークンは大切に保管してください。"
-      }
-    }
-  }
-}
-```
 
 ### 仕様
 

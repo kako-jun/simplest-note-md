@@ -60,21 +60,12 @@ graph TB
 
 ### CodeMirrorエコシステム
 
-```typescript
-import { EditorState } from '@codemirror/state'
-import { EditorView, keymap } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { markdown } from '@codemirror/lang-markdown'
-import { oneDark } from '@codemirror/theme-one-dark'
-import { basicSetup } from 'codemirror'
-```
-
-- **state**: エディタの状態管理
-- **view**: レンダリングとUI
-- **commands**: 基本的な編集コマンド（Undo/Redo等）
-- **lang-markdown**: Markdown構文ハイライト
-- **theme-one-dark**: ダークテーマ
-- **basicSetup**: 行番号、フォールド等の基本機能
+- **@codemirror/state**: エディタの状態管理
+- **@codemirror/view**: レンダリングとUI
+- **@codemirror/commands**: 基本的な編集コマンド（Undo/Redo等）
+- **@codemirror/lang-markdown**: Markdown構文ハイライト
+- **@codemirror/theme-one-dark**: ダークテーマ
+- **codemirror (basicSetup)**: 行番号、フォールド等の基本機能
 
 ### 開発ツール
 
@@ -324,101 +315,19 @@ agasteer/
 
 - `types.ts`: TypeScript型定義（Settings, Note, Leaf, View, Pane, WorldType等）
 
-**WorldType:**
-
-```typescript
-// ワールド（Home/Archive）の識別子
-type WorldType = 'home' | 'archive'
-```
+**WorldType:** `'home' | 'archive'` - ワールド（Home/Archive）の識別子
 
 #### `src/main.ts`
 
-Svelteアプリケーションのエントリーポイント。
-
-```typescript
-import './app.css'
-import './lib/i18n' // i18n初期化
-import App from './App.svelte'
-
-const app = new App({
-  target: document.getElementById('app')!,
-})
-
-export default app
-```
+Svelteアプリケーションのエントリーポイント。app.css、i18n初期化をインポートし、App.svelteをマウントします。
 
 #### `src/app.css`
 
-CSS変数を使用したテーマシステムの実装。
-
-```css
-:root {
-  /* lightテーマのデフォルト値 */
-}
-:root[data-theme='dark'] {
-  /* darkテーマのオーバーライド */
-}
-:root[data-theme='blackboard'] {
-  /* ... */
-}
-:root[data-theme='kawaii'] {
-  /* ... */
-}
-:root[data-theme='custom'] {
-  /* ユーザー定義の変数 */
-}
-```
+CSS変数を使用したテーマシステム。`:root`にデフォルト値を定義し、`data-theme`属性で各テーマの変数をオーバーライドします。
 
 #### `vite.config.ts`
 
-パフォーマンス最適化とPWA対応を含むビルド設定。
-
-```typescript
-import { VitePWA } from 'vite-plugin-pwa'
-
-export default defineConfig({
-  plugins: [
-    svelte(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.github\.com\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'github-api-cache',
-              expiration: { maxAgeSeconds: 300 },
-            },
-          },
-        ],
-      },
-      manifest: {
-        name: 'Agasteer',
-        short_name: 'Agasteer',
-        description: 'A simple markdown note-taking app with GitHub sync',
-        theme_color: '#1a1a1a',
-        background_color: '#1a1a1a',
-        display: 'standalone',
-        start_url: '/',
-      },
-    }),
-  ],
-  base: '/',
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          codemirror: ['codemirror', '@codemirror/view', '@codemirror/state', ...],
-          'markdown-tools': ['marked', 'dompurify'],
-          i18n: ['svelte-i18n'],
-        },
-      },
-    },
-  },
-})
-```
+パフォーマンス最適化とPWA対応を含むビルド設定。vite-plugin-pwaでService Workerを自動生成し、manualChunksでcodemirror、markdown-tools、i18nを分離します。
 
 ---
 
@@ -433,29 +342,7 @@ export default defineConfig({
 **責務**: UIの表示とユーザーインタラクション
 
 **ビューコンポーネント:**
-
-```svelte
-<!-- App.svelte -->
-{#if leftView === 'home'}
-  <HomeView pane="left" ... />
-{:else if leftView === 'note'}
-  <NoteView pane="left" ... />
-{:else if leftView === 'edit'}
-  <EditorView pane="left" ... />
-{:else if leftView === 'preview'}
-  <PreviewView pane="left" ... />
-{:else if leftView === 'settings'}
-  <SettingsView pane="left" ... />
-{/if}
-
-<!-- 2ペイン表示時は右ペインも同様 -->
-{#if showTwoPane}
-  {#if rightView === 'home'}
-    <HomeView pane="right" ... />
-    <!-- ... -->
-  {/if}
-{/if}
-```
+App.svelteでleftView/rightViewに応じてHomeView, NoteView, EditorView, PreviewView, SettingsViewを切り替え。2ペイン表示時は左右それぞれ独立したビューを表示します。
 
 各ビューは独立したコンポーネントとして実装され、propsを通じてデータとイベントハンドラを受け取ります。
 
@@ -489,52 +376,18 @@ export default defineConfig({
 
 **責務**: アプリケーション全体の状態管理
 
-```typescript
-// Writable stores（Home用）
-export const settings = writable<Settings>(defaultSettings)
-export const notes = writable<Note[]>([])
-export const leaves = writable<Leaf[]>([])
-export const isDirty = writable<boolean>(false)
-export const toast = writable<Toast | null>(null)
+**Writableストア:**
 
-// Archive用ストア
-export const archiveNotes = writable<Note[]>([])
-export const archiveLeaves = writable<Leaf[]>([])
-export const isArchiveLoaded = writable<boolean>(false)
+- settings, notes, leaves, isDirty, toast（Home用）
+- archiveNotes, archiveLeaves, isArchiveLoaded（Archive用）
+- currentWorld（現在のワールド）
 
-// 現在のワールド
-export const currentWorld = writable<WorldType>('home')
+**Derivedストア:**
 
-// Derived stores（最小限に削減）
-export const allNotes = derived(notes, ($notes) => $notes.sort((a, b) => a.order - b.order))
-```
+- allNotes（ソート済みノート）
 
-**App.svelte内のワールド対応ヘルパー**:
-
-```svelte
-// 現在のワールドに応じたノート・リーフ（リアクティブ）
-$: currentNotes = $currentWorld === 'archive' ? $archiveNotes : $notes
-$: currentLeaves = $currentWorld === 'archive' ? $archiveLeaves : $leaves
-
-// 現在のワールドに応じた更新ヘルパー
-function setCurrentNotes(newNotes: Note[]): void {
-  if ($currentWorld === 'archive') {
-    updateArchiveNotes(newNotes)
-  } else {
-    updateNotes(newNotes)
-  }
-}
-
-function setCurrentLeaves(newLeaves: Leaf[]): void {
-  if ($currentWorld === 'archive') {
-    updateArchiveLeaves(newLeaves)
-  } else {
-    updateLeaves(newLeaves)
-  }
-}
-```
-
-これにより、ホーム/アーカイブを意識せずにノート・リーフを操作できます。
+**App.svelte内のワールド対応ヘルパー:**
+currentWorldに応じてcurrentNotes/currentLeavesをリアクティブに切り替え。setCurrentNotes/setCurrentLeavesでホーム/アーカイブを意識せずに操作可能。
 
 **注**: Version 5.0のリファクタリングにより、左右ペインの状態は**ローカル変数**で管理されるようになりました。`currentView`, `currentNote`, `currentLeaf`等のストアは削除され、完全な左右対称設計を実現しています。
 
@@ -542,22 +395,18 @@ function setCurrentLeaves(newLeaves: Leaf[]): void {
 
 **責務**: IndexedDB/LocalStorageへの読み書き
 
-```typescript
-// 汎用ヘルパー関数
-export async function putItem<T>(storeName: string, key: string, value: T): Promise<void>
-export async function getItem<T>(storeName: string, key: string): Promise<T | null>
-export async function deleteItem(storeName: string, key: string): Promise<void>
+**汎用ヘルパー関数:**
 
-// LocalStorage（設定のみ）
-export function saveSettings(settings: Settings): void
-export function loadSettings(): Settings
+- putItem, getItem, deleteItem（IndexedDB操作）
 
-// IndexedDB（ノート・リーフ・フォント・背景画像）
-export async function saveNotesToDB(notes: Note[]): Promise<void>
-export async function loadNotesFromDB(): Promise<Note[]>
-export async function saveLeavesToDB(leaves: Leaf[]): Promise<void>
-export async function loadLeavesFromDB(): Promise<Leaf[]>
-```
+**LocalStorage:**
+
+- saveSettings, loadSettings（設定のみ）
+
+**IndexedDB:**
+
+- saveNotesToDB, loadNotesFromDB（ノート）
+- saveLeavesToDB, loadLeavesFromDB（リーフ）
 
 ---
 
@@ -574,16 +423,9 @@ export async function loadLeavesFromDB(): Promise<Leaf[]>
 
 ### ビルドプロセス
 
-```bash
-# 開発サーバー起動
-npm run dev
-
-# 本番ビルド
-npm run build
-
-# ビルド結果のプレビュー
-npm run preview
-```
+- `npm run dev` - 開発サーバー起動
+- `npm run build` - 本番ビルド
+- `npm run preview` - ビルド結果のプレビュー
 
 ### パフォーマンス最適化（Version 6.1）
 
@@ -592,45 +434,10 @@ npm run preview
 大きなライブラリを動的インポートで必要な時だけロードすることで、初回表示を大幅に高速化しています。
 
 **CodeMirrorの遅延ロード:**
-
-```typescript
-// MarkdownEditor.svelte
-async function loadCodeMirror() {
-  const [
-    { EditorState: ES },
-    { EditorView: EV, keymap: km },
-    { defaultKeymap: dk, history: h, historyKeymap: hk },
-    { markdown: md },
-    { basicSetup: bs },
-  ] = await Promise.all([
-    import('@codemirror/state'),
-    import('@codemirror/view'),
-    import('@codemirror/commands'),
-    import('@codemirror/lang-markdown'),
-    import('codemirror'),
-  ])
-  // ...
-}
-
-onMount(async () => {
-  await loadCodeMirror()
-  initializeEditor()
-})
-```
+MarkdownEditor.svelteのonMountで`import()`を使用して@codemirror/\*を並列でロード。
 
 **marked/DOMPurifyの遅延ロード:**
-
-```typescript
-// PreviewView.svelte
-async function loadMarkdownTools() {
-  const [{ marked: m }, DOMPurifyModule] = await Promise.all([
-    import('marked'),
-    import('dompurify'),
-  ])
-  marked = m
-  DOMPurify = DOMPurifyModule.default
-}
-```
+PreviewView.svelteでマークダウン変換ライブラリを必要時にのみロード。
 
 #### マニュアルチャンク分割
 

@@ -12,38 +12,11 @@
 
 ### レスポンシブ実装
 
-```css
-.welcome-buttons {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-/* 狭い画面ではボタンを縦配置 */
-@media (max-width: 480px) {
-  .welcome-buttons {
-    flex-direction: column;
-  }
-
-  .welcome-buttons button {
-    width: 100%;
-  }
-}
-```
+狭い画面（480px以下）ではボタンを縦配置に自動切替。
 
 ### i18n対応
 
-```json
-{
-  "welcome": {
-    "title": "Agasteerへようこそ",
-    "description": "シンプルなMarkdownノートアプリ",
-    "getStarted": "始める",
-    "learnMore": "詳しく見る"
-  }
-}
-```
+`welcome.*`キーで日本語/英語の翻訳を提供。
 
 ---
 
@@ -62,10 +35,6 @@
 - 依存なし
 - Svelte/vanilla JS対応
 
-```bash
-npm install driver.js
-```
-
 ### ツアーステップ
 
 | #   | ステップ    | 要素ID              | 説明                                                     |
@@ -82,77 +51,32 @@ npm install driver.js
 
 ### トリガー条件
 
-```typescript
-// 初回Pull成功後にツアーを表示（まだ表示されていない場合）
-if (isInitial && !isTourShown()) {
-  // UIが落ち着いてからツアーを開始
-  setTimeout(() => startTour(), 500)
-}
-```
-
 - **表示タイミング**: 初回Pull成功後（500ms遅延）
 - **再表示防止**: LocalStorage (`agasteer_tour_shown`) で管理
 - **スキップ可能**: ×ボタンまたはオーバーレイクリックで閉じる
 
 ### ファイル構成
 
-```
-src/lib/tour.ts
-├── isTourShown()      # ツアー表示済み判定
-├── markTourShown()    # ツアー表示済みマーク
-├── getTourSteps()     # ステップ定義（i18n対応）
-├── startTour()        # ツアー開始
-└── resetTour()        # ツアーリセット（デバッグ用）
-
-src/App.css
-└── .driver-popover    # ツアーポップオーバーのカスタムスタイル
-
-src/lib/i18n/locales/
-├── ja.json            # 日本語翻訳（tour.*）
-└── en.json            # 英語翻訳（tour.*）
-```
+| ファイル                 | 説明                     |
+| ------------------------ | ------------------------ |
+| `src/lib/tour.ts`        | ツアーロジック           |
+| `src/App.css`            | ポップオーバーのスタイル |
+| `src/lib/i18n/locales/*` | 翻訳（tour.\*）          |
 
 ### 要素ID配置
 
-```
-Header.svelte
-├── #tour-pull         # Pullボタン wrapper
-└── #tour-settings     # 設定ボタン wrapper
-
-HomeFooter.svelte
-├── #tour-create-note  # ノート作成ボタン wrapper
-└── #tour-save         # Pushボタン（PushButton経由）
-
-NoteFooter.svelte
-└── #tour-create-leaf  # リーフ作成ボタン wrapper
-
-PushButton.svelte
-└── id prop            # 任意のIDを設定可能
-```
+| コンポーネント    | ID                | 説明             |
+| ----------------- | ----------------- | ---------------- |
+| Header.svelte     | #tour-pull        | Pullボタン       |
+| Header.svelte     | #tour-settings    | 設定ボタン       |
+| HomeFooter.svelte | #tour-create-note | ノート作成ボタン |
+| HomeFooter.svelte | #tour-save        | Pushボタン       |
+| NoteFooter.svelte | #tour-create-leaf | リーフ作成ボタン |
 
 ### カスタムCSS
 
-App.cssでdriver.jsのデフォルトスタイルを上書き:
-
-```css
-.driver-popover {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.driver-popover-navigation-btns .driver-popover-next-btn {
-  background: var(--accent);
-  color: var(--bg);
-}
-```
+App.cssでdriver.jsのデフォルトスタイルを上書きし、テーマのCSS変数に追従させています。
 
 ### デバッグ
 
-開発者コンソールでツアーをリセット:
-
-```javascript
-localStorage.removeItem('agasteer_tour_shown')
-location.reload()
-```
+開発者コンソールで`localStorage.removeItem('agasteer_tour_shown')`を実行してリロードするとツアーをリセットできます。
