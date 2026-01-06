@@ -639,6 +639,28 @@
           }
         }
         lastVisibleTime = now
+
+        // PWA復帰時のレイアウト修復（フッターが画面外に出る問題の対策）
+        requestAnimationFrame(() => {
+          // resizeイベントをトリガーしてレイアウトを再計算
+          window.dispatchEvent(new Event('resize'))
+
+          // フッターが画面内にあることを確認し、なければスクロールをリセット
+          const footers = document.querySelectorAll('.footer-fixed')
+          footers.forEach((footer) => {
+            const rect = footer.getBoundingClientRect()
+            if (rect.top > window.innerHeight || rect.bottom < 0) {
+              // フッターが画面外にある場合、親コンテナのスクロールをリセット
+              const parent = footer.closest('.left-column, .right-column')
+              if (parent) {
+                const mainPane = parent.querySelector('.main-pane')
+                if (mainPane) {
+                  mainPane.scrollTop = 0
+                }
+              }
+            }
+          })
+        })
       } else {
         lastVisibleTime = Date.now()
       }
@@ -1358,6 +1380,22 @@
     const tempIndex = selectedIndexLeft
     selectedIndexLeft = selectedIndexRight
     selectedIndexRight = tempIndex
+  }
+
+  function copyLeftToRight() {
+    // 左ペインの状態を右ペインにコピー
+    $rightNote = $leftNote
+    $rightLeaf = $leftLeaf
+    $rightView = $leftView
+    selectedIndexRight = selectedIndexLeft
+  }
+
+  function copyRightToLeft() {
+    // 右ペインの状態を左ペインにコピー
+    $leftNote = $rightNote
+    $leftLeaf = $rightLeaf
+    $leftView = $rightView
+    selectedIndexLeft = selectedIndexRight
   }
 
   // キーボードナビゲーション
@@ -2565,6 +2603,8 @@
       onSearchClick={toggleSearch}
       {isDualPane}
       onSwapPanes={swapPanes}
+      onCopyLeftToRight={copyLeftToRight}
+      onCopyRightToLeft={copyRightToLeft}
     />
     <!-- 検索ドロップダウン（ヘッダー右上、検索ボタンの下） -->
     <SearchBar onResultClick={handleSearchResultClick} />

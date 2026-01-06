@@ -263,3 +263,22 @@ select {
 - 一貫したデザイン
 
 ---
+
+## トースト通知
+
+各種操作の完了時にトースト通知を表示して、ユーザーにフィードバックを提供します。
+
+### 対応している操作
+
+| 操作       | i18nキー          |
+| ---------- | ----------------- |
+| ノート作成 | toast.noteCreated |
+| リーフ作成 | toast.leafCreated |
+| 移動       | toast.moved       |
+| 削除       | toast.deleted     |
+| アーカイブ | toast.archived    |
+| 復元       | toast.restored    |
+
+**関連ファイル**: `App.svelte`, `leaves.ts`, `notes.ts`, `ui.ts`
+
+---

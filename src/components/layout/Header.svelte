@@ -22,10 +22,32 @@
   export let onSearchClick: () => void
   export let isDualPane: boolean = false
   export let onSwapPanes: () => void = () => {}
+  export let onCopyLeftToRight: () => void = () => {}
+  export let onCopyRightToLeft: () => void = () => {}
 
   $: hasTitle = title.trim().length > 0
   $: showAppIcon = hasTitle && title.trim() === defaultSettings.toolName
+
+  let showPaneMenu = false
+
+  function togglePaneMenu() {
+    showPaneMenu = !showPaneMenu
+  }
+
+  function handleMenuAction(action: () => void) {
+    action()
+    showPaneMenu = false
+  }
+
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement
+    if (!target.closest('.pane-menu-container')) {
+      showPaneMenu = false
+    }
+  }
 </script>
+
+<svelte:window on:click={handleClickOutside} />
 
 <header>
   <StaleCheckIndicator />
@@ -55,14 +77,29 @@
     />
   </div>
   {#if isDualPane}
-    <div class="swap-button">
-      <IconButton
-        onClick={onSwapPanes}
-        title={$_('header.swapPanes')}
-        ariaLabel={$_('header.swapPanes')}
-      >
-        <SwapIcon />
-      </IconButton>
+    <div class="pane-menu-container">
+      <div class="swap-button">
+        <IconButton
+          onClick={togglePaneMenu}
+          title={$_('header.swapPanes')}
+          ariaLabel={$_('header.swapPanes')}
+        >
+          <SwapIcon />
+        </IconButton>
+      </div>
+      {#if showPaneMenu}
+        <div class="pane-menu">
+          <button on:click={() => handleMenuAction(onCopyLeftToRight)}>
+            {$_('header.copyLeftToRight')}
+          </button>
+          <button on:click={() => handleMenuAction(onSwapPanes)}>
+            {$_('header.swapPanes')}
+          </button>
+          <button on:click={() => handleMenuAction(onCopyRightToLeft)}>
+            {$_('header.copyRightToLeft')}
+          </button>
+        </div>
+      {/if}
     </div>
   {/if}
   <div class="header-right">
@@ -161,10 +198,13 @@
     pointer-events: none;
   }
 
-  .swap-button {
+  .pane-menu-container {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
+  }
+
+  .swap-button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -177,5 +217,42 @@
   .swap-button :global(svg) {
     width: 20px;
     height: 20px;
+  }
+
+  .pane-menu {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 0.25rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    z-index: 100;
+    min-width: max-content;
+  }
+
+  .pane-menu button {
+    display: block;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 0.875rem;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .pane-menu button:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .pane-menu button:not(:last-child) {
+    border-bottom: 1px solid var(--border);
   }
 </style>
