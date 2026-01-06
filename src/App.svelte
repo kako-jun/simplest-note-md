@@ -44,6 +44,8 @@
     archiveNotes,
     archiveLeaves,
     archiveMetadata,
+    updateArchiveNotes,
+    updateArchiveLeaves,
     isArchiveLoaded,
     currentWorld,
     initActivityDetection,
@@ -290,6 +292,27 @@
   // Pull/Push中はボタンを無効化（リアクティブに追跡）
   $: canPull = !$isPulling && !$isPushing
   $: canPush = !$isPulling && !$isPushing && isFirstPriorityFetched
+
+  // 現在のワールド（home/archive）に応じたノート・リーフ
+  $: currentNotes = $currentWorld === 'archive' ? $archiveNotes : $notes
+  $: currentLeaves = $currentWorld === 'archive' ? $archiveLeaves : $leaves
+
+  // 現在のワールドに応じたノート・リーフ更新ヘルパー
+  function setCurrentNotes(newNotes: Note[]): void {
+    if ($currentWorld === 'archive') {
+      updateArchiveNotes(newNotes)
+    } else {
+      updateNotes(newNotes)
+    }
+  }
+
+  function setCurrentLeaves(newLeaves: Leaf[]): void {
+    if ($currentWorld === 'archive') {
+      updateArchiveLeaves(newLeaves)
+    } else {
+      updateLeaves(newLeaves)
+    }
+  }
 
   // ========================================
   // Context API によるペイン間の状態共有
@@ -542,10 +565,18 @@
         // キャンセル時はIndexedDBから読み込んで操作可能にする
         await pullFromGitHub(true, async () => {
           try {
+            // 保留中の変更を先にIndexedDBへ保存
+            await flushPendingSaves()
+            // localStorage に保存されているダーティフラグを保存（後で復元するため）
+            const wasDirty = getPersistedDirtyFlag()
             const savedNotes = await loadNotes()
             const savedLeaves = await loadLeaves()
             notes.set(savedNotes)
             leaves.set(savedLeaves)
+            // リーフのisDirtyでは検出できない構造変更があった場合、isStructureDirtyを復元
+            if (wasDirty && !get(isDirty)) {
+              isStructureDirty.set(true)
+            }
             isFirstPriorityFetched = true
             restoreStateFromUrl(false)
           } catch (error) {
@@ -852,8 +883,7 @@
 
   function selectLeaf(leaf: Leaf, pane: Pane) {
     // 現在のワールドに応じたノートからリーフの親ノートを検索
-    const activeNotes = $currentWorld === 'archive' ? $archiveNotes : $notes
-    const note = activeNotes.find((n) => n.id === leaf.noteId)
+    const note = currentNotes.find((n) => n.id === leaf.noteId)
     if (note) {
       if (pane === 'left') {
         $leftNote = note
@@ -870,13 +900,13 @@
   async function handleSearchResultClick(result: SearchMatch) {
     if (result.matchType === 'note') {
       // ノートマッチ: ノートビューを開く
-      const note = $notes.find((n) => n.id === result.noteId)
+      const note = currentNotes.find((n) => n.id === result.noteId)
       if (note) {
         selectNote(note, 'left')
       }
     } else {
       // リーフタイトル/本文マッチ: リーフを開いて該当行にジャンプ
-      const leaf = $leaves.find((l) => l.id === result.leafId)
+      const leaf = currentLeaves.find((l) => l.id === result.leafId)
       if (leaf) {
         selectLeaf(leaf, 'left')
         // DOM更新を待ってから行ジャンプ
@@ -1365,12 +1395,12 @@
   // パンくずリストからの兄弟選択
   function selectSiblingFromBreadcrumb(id: string, type: 'note' | 'leaf', pane: Pane) {
     if (type === 'note') {
-      const note = $notes.find((n) => n.id === id)
+      const note = currentNotes.find((n) => n.id === id)
       if (note) {
         selectNote(note, pane)
       }
     } else if (type === 'leaf') {
-      const leaf = $leaves.find((l) => l.id === id)
+      const leaf = currentLeaves.find((l) => l.id === id)
       if (leaf) {
         selectLeaf(leaf, pane)
       }
@@ -1494,24 +1524,30 @@
     const actualId = isRight ? id.replace('-right', '') : id
 
     if (type === 'note') {
-      const currentNote = $notes.find((f) => f.id === actualId)
-      const siblingWithSameName = $notes.find(
+      const targetNote = currentNotes.find((f) => f.id === actualId)
+      const siblingWithSameName = currentNotes.find(
         (n) =>
           n.id !== actualId &&
-          (n.parentId || null) === (currentNote?.parentId || null) &&
+          (n.parentId || null) === (targetNote?.parentId || null) &&
           n.name.trim() === trimmed
       )
       if (siblingWithSameName) {
         showAlert($_('modal.duplicateNoteSameLevel'))
         return
       }
-      if (currentNote && currentNote.name === trimmed) {
+      if (targetNote && targetNote.name === trimmed) {
         refreshBreadcrumbs()
         editingBreadcrumb = null
         return
       }
-      updateNoteNameLib(actualId, trimmed)
-      const updatedNote = $notes.find((f) => f.id === actualId)
+
+      // ノート名を更新
+      const updatedNotes = currentNotes.map((n) =>
+        n.id === actualId ? { ...n, name: trimmed } : n
+      )
+      setCurrentNotes(updatedNotes)
+
+      const updatedNote = updatedNotes.find((f) => f.id === actualId)
       if (updatedNote) {
         if ($leftNote?.id === actualId) {
           $leftNote = updatedNote
@@ -1520,16 +1556,15 @@
           $rightNote = updatedNote
         }
       }
-      if (!$notes.some((f) => f.id === $leftNote?.id)) {
+      if (!currentNotes.some((f) => f.id === $leftNote?.id)) {
         $leftNote = null
       }
-      if (isRight && !$notes.some((f) => f.id === $rightNote?.id)) {
+      if (isRight && !currentNotes.some((f) => f.id === $rightNote?.id)) {
         $rightNote = null
       }
     } else if (type === 'leaf') {
-      const allLeaves = $leaves
-      const targetLeaf = allLeaves.find((n) => n.id === actualId)
-      const siblingLeafWithSameName = allLeaves.find(
+      const targetLeaf = currentLeaves.find((n) => n.id === actualId)
+      const siblingLeafWithSameName = currentLeaves.find(
         (l) => l.id !== actualId && l.noteId === targetLeaf?.noteId && l.title.trim() === trimmed
       )
       if (siblingLeafWithSameName) {
@@ -1549,12 +1584,12 @@
         updatedContent = updateH1Title(targetLeaf.content, trimmed)
       }
 
-      const updatedLeaves = allLeaves.map((n) =>
+      const updatedLeaves = currentLeaves.map((n) =>
         n.id === actualId
           ? { ...n, title: trimmed, content: updatedContent, updatedAt: Date.now() }
           : n
       )
-      updateLeaves(updatedLeaves)
+      setCurrentLeaves(updatedLeaves)
 
       if (targetLeaf) {
         leafStatsStore.updateLeafContent(actualId, updatedContent, targetLeaf.content)
@@ -1569,10 +1604,10 @@
           $rightLeaf = updatedLeaf
         }
       }
-      if (!$leaves.some((n) => n.id === $leftLeaf?.id)) {
+      if (!currentLeaves.some((n) => n.id === $leftLeaf?.id)) {
         $leftLeaf = null
       }
-      if (isRight && !$leaves.some((n) => n.id === $rightLeaf?.id)) {
+      if (isRight && !currentLeaves.some((n) => n.id === $rightLeaf?.id)) {
         $rightLeaf = null
       }
     }
@@ -1625,6 +1660,62 @@
     const targetNote = pane === 'left' ? $leftNote : $rightNote
     if (!targetNote) return
 
+    // アーカイブ内の場合は専用処理
+    if ($currentWorld === 'archive') {
+      const allNotes = $archiveNotes
+      const allLeaves = $archiveLeaves
+
+      const position = pane === 'left' ? 'bottom-left' : 'bottom-right'
+      const confirmMessage = targetNote.parentId
+        ? $_('modal.deleteSubNote')
+        : $_('modal.deleteRootNote')
+
+      showConfirm(
+        confirmMessage,
+        () => {
+          // 子孫ノートを収集
+          const descendantIds = new Set<string>()
+          const collectDescendants = (id: string) => {
+            descendantIds.add(id)
+            allNotes.filter((n) => n.parentId === id).forEach((n) => collectDescendants(n.id))
+          }
+          collectDescendants(targetNote.id)
+
+          const remainingNotes = allNotes.filter((n) => !descendantIds.has(n.id))
+          const remainingLeaves = allLeaves.filter((l) => !descendantIds.has(l.noteId))
+
+          archiveNotes.set(remainingNotes)
+          archiveLeaves.set(remainingLeaves)
+          isStructureDirty.set(true)
+
+          // ナビゲーション処理
+          const parentNote = targetNote.parentId
+            ? remainingNotes.find((n) => n.id === targetNote.parentId)
+            : null
+
+          const checkPane = (paneToCheck: Pane) => {
+            const currentNote = paneToCheck === 'left' ? $leftNote : $rightNote
+            const currentLeaf = paneToCheck === 'left' ? $leftLeaf : $rightLeaf
+            if (
+              currentNote?.id === targetNote.id ||
+              descendantIds.has(currentNote?.id ?? '') ||
+              (currentLeaf && descendantIds.has(currentLeaf.noteId))
+            ) {
+              if (parentNote) selectNote(parentNote, paneToCheck)
+              else goHome(paneToCheck)
+            }
+          }
+          checkPane('left')
+          checkPane('right')
+
+          showPushToast($_('toast.deleted'), 'success')
+        },
+        position
+      )
+      return
+    }
+
+    // Home内の場合は既存処理
     deleteNoteLib({
       targetNote,
       pane,
@@ -1653,8 +1744,35 @@
     })
   }
 
-  // ノートバッジ更新（notes.tsに委譲）
-  const updateNoteBadge = updateNoteBadgeLib
+  // ノートバッジ更新
+  function updateNoteBadge(noteId: string, badgeIcon: string, badgeColor: string) {
+    // アーカイブ内の場合は専用処理
+    if ($currentWorld === 'archive') {
+      const allNotes = $archiveNotes
+      const current = allNotes.find((n) => n.id === noteId)
+      if (!current) return
+
+      const nextIcon = normalizeBadgeValue(badgeIcon)
+      const nextColor = normalizeBadgeValue(badgeColor)
+
+      if (
+        normalizeBadgeValue(current.badgeIcon) === nextIcon &&
+        normalizeBadgeValue(current.badgeColor) === nextColor
+      ) {
+        return
+      }
+
+      const updated = allNotes.map((n) =>
+        n.id === noteId ? { ...n, badgeIcon: nextIcon, badgeColor: nextColor } : n
+      )
+      archiveNotes.set(updated)
+      isStructureDirty.set(true)
+      return
+    }
+
+    // Home内の場合は既存処理
+    updateNoteBadgeLib(noteId, badgeIcon, badgeColor)
+  }
 
   // ドラッグ&ドロップ（ノート）
   function handleDragStartNote(note: Note) {
@@ -1677,11 +1795,10 @@
     if (!draggedNote || draggedNote.id === targetNote.id) return
     if (draggedNote.parentId !== targetNote.parentId) return
 
-    const updatedNotes = reorderItems(draggedNote, targetNote, $notes, (n) =>
+    const updatedNotes = reorderItems(draggedNote, targetNote, currentNotes, (n) =>
       draggedNote!.parentId ? n.parentId === draggedNote!.parentId : !n.parentId
     )
-
-    updateNotes(updatedNotes)
+    setCurrentNotes(updatedNotes)
     dragStore.endDragNote()
   }
 
@@ -1790,6 +1907,46 @@
       return
     }
 
+    // アーカイブ内の場合は専用処理
+    if ($currentWorld === 'archive') {
+      const allLeaves = $archiveLeaves
+      const targetLeaf = allLeaves.find((l) => l.id === leafId)
+      if (!targetLeaf) return
+
+      // コンテンツの1行目が # 見出しの場合、リーフのタイトルも自動更新
+      const h1Title = extractH1Title(content)
+      let newTitle = h1Title || targetLeaf.title
+      let titleChanged = false
+
+      if (h1Title) {
+        const trimmed = h1Title.trim()
+        const hasDuplicate = allLeaves.some(
+          (l) => l.id !== leafId && l.noteId === targetLeaf.noteId && l.title.trim() === trimmed
+        )
+        if (hasDuplicate) {
+          showAlert($_('modal.duplicateLeafHeading'))
+          newTitle = targetLeaf.title
+        } else {
+          titleChanged = true
+        }
+      }
+
+      const updatedLeaf: Leaf = {
+        ...targetLeaf,
+        title: newTitle,
+        content,
+        updatedAt: Date.now(),
+      }
+      archiveLeaves.set(allLeaves.map((l) => (l.id === leafId ? updatedLeaf : l)))
+      isStructureDirty.set(true)
+
+      if ($leftLeaf?.id === leafId) $leftLeaf = updatedLeaf
+      if ($rightLeaf?.id === leafId) $rightLeaf = updatedLeaf
+      if (titleChanged) refreshBreadcrumbs()
+      return
+    }
+
+    // Home内の場合は既存処理
     const result = updateLeafContentLib({
       content,
       leafId,
@@ -1807,6 +1964,27 @@
   }
 
   function updateLeafBadge(leafId: string, badgeIcon: string, badgeColor: string) {
+    // アーカイブ内の場合は専用処理
+    if ($currentWorld === 'archive') {
+      const allLeaves = $archiveLeaves
+      const targetLeaf = allLeaves.find((l) => l.id === leafId)
+      if (!targetLeaf) return
+
+      const updatedLeaf: Leaf = {
+        ...targetLeaf,
+        badgeIcon: normalizeBadgeValue(badgeIcon),
+        badgeColor: normalizeBadgeValue(badgeColor),
+        updatedAt: Date.now(),
+      }
+      archiveLeaves.set(allLeaves.map((l) => (l.id === leafId ? updatedLeaf : l)))
+      isStructureDirty.set(true)
+
+      if ($leftLeaf?.id === leafId) $leftLeaf = updatedLeaf
+      if ($rightLeaf?.id === leafId) $rightLeaf = updatedLeaf
+      return
+    }
+
+    // Home内の場合は既存処理
     const updated = updateLeafBadgeLib(leafId, badgeIcon, badgeColor)
     if (updated) {
       if ($leftLeaf?.id === leafId) $leftLeaf = updated
@@ -1860,11 +2038,10 @@
     const updatedLeaves = reorderItems(
       draggedLeaf,
       targetLeaf,
-      $leaves,
+      currentLeaves,
       (l) => l.noteId === draggedLeaf!.noteId
     )
-
-    updateLeaves(updatedLeaves)
+    setCurrentLeaves(updatedLeaves)
     dragStore.endDragLeaf()
   }
 
@@ -1966,6 +2143,57 @@
   }
 
   function moveNoteTo(destNoteId: string | null, targetNote: Note) {
+    // アーカイブ内の場合は専用処理
+    if ($currentWorld === 'archive') {
+      const currentParent = targetNote.parentId || null
+      const nextParent = destNoteId
+
+      if (currentParent === nextParent) {
+        closeMoveModal()
+        return
+      }
+
+      const allNotes = $archiveNotes
+
+      // 移動先がサブノートの場合は不可
+      if (nextParent) {
+        const dest = allNotes.find((n) => n.id === nextParent)
+        if (!dest || dest.parentId) {
+          closeMoveModal()
+          return
+        }
+      }
+
+      // 重複チェック
+      const hasDuplicate = allNotes.some(
+        (n) =>
+          (n.parentId || null) === nextParent &&
+          n.id !== targetNote.id &&
+          n.name.trim() === targetNote.name.trim()
+      )
+      if (hasDuplicate) {
+        showAlert($_('modal.duplicateNoteDestination'))
+        closeMoveModal()
+        return
+      }
+
+      const updated = allNotes.map((n) =>
+        n.id === targetNote.id ? { ...n, parentId: nextParent || undefined } : n
+      )
+      archiveNotes.set(updated)
+      isStructureDirty.set(true)
+
+      const updatedNote = updated.find((n) => n.id === targetNote.id)
+      if (updatedNote) {
+        if ($leftNote?.id === targetNote.id) $leftNote = updatedNote
+        if ($rightNote?.id === targetNote.id) $rightNote = updatedNote
+        showPushToast($_('toast.moved'), 'success')
+      }
+      closeMoveModal()
+      return
+    }
+
+    // Home内の場合は既存処理
     const result = moveNoteToLib(targetNote, destNoteId, $_)
     if (result.success && result.updatedNote) {
       if ($leftNote?.id === targetNote.id) $leftNote = result.updatedNote
@@ -2214,15 +2442,12 @@
       return
     }
 
-    // 現在のワールドに応じたリーフリストを使用
-    const allLeaves = $currentWorld === 'archive' ? $archiveLeaves : $leaves
-
     // 選択テキストがあればそれをダウンロード
     const editorView = pane === 'left' ? leftEditorView : rightEditorView
     if (editorView && editorView.getSelectedText) {
       const selectedText = editorView.getSelectedText()
       if (selectedText) {
-        const targetLeaf = allLeaves.find((l) => l.id === leafId)
+        const targetLeaf = currentLeaves.find((l) => l.id === leafId)
         if (!targetLeaf) return
         const blob = new Blob([selectedText], { type: 'text/markdown' })
         const url = URL.createObjectURL(blob)
@@ -2238,7 +2463,7 @@
     }
 
     // 選択なしの場合は全文ダウンロード
-    const targetLeaf = allLeaves.find((l) => l.id === leafId)
+    const targetLeaf = currentLeaves.find((l) => l.id === leafId)
     if (!targetLeaf) return
     const blob = new Blob([targetLeaf.content], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
@@ -2258,9 +2483,7 @@
       return
     }
 
-    // 現在のワールドに応じたリーフリストを使用
-    const allLeaves = $currentWorld === 'archive' ? $archiveLeaves : $leaves
-    const targetLeaf = allLeaves.find((l) => l.id === leafId)
+    const targetLeaf = currentLeaves.find((l) => l.id === leafId)
     if (!targetLeaf) return
 
     try {
@@ -2741,7 +2964,7 @@
 
     <MoveModal
       show={moveModalOpen}
-      notes={$currentWorld === 'archive' ? $archiveNotes : $notes}
+      notes={currentNotes}
       targetNote={moveTargetNote}
       targetLeaf={moveTargetLeaf}
       pane={moveTargetPane}

@@ -509,6 +509,33 @@ export const currentWorld = writable<WorldType>('home')
 export const allNotes = derived(notes, ($notes) => $notes.sort((a, b) => a.order - b.order))
 ```
 
+**App.svelte内のワールド対応ヘルパー**:
+
+```svelte
+// 現在のワールドに応じたノート・リーフ（リアクティブ）
+$: currentNotes = $currentWorld === 'archive' ? $archiveNotes : $notes
+$: currentLeaves = $currentWorld === 'archive' ? $archiveLeaves : $leaves
+
+// 現在のワールドに応じた更新ヘルパー
+function setCurrentNotes(newNotes: Note[]): void {
+  if ($currentWorld === 'archive') {
+    updateArchiveNotes(newNotes)
+  } else {
+    updateNotes(newNotes)
+  }
+}
+
+function setCurrentLeaves(newLeaves: Leaf[]): void {
+  if ($currentWorld === 'archive') {
+    updateArchiveLeaves(newLeaves)
+  } else {
+    updateLeaves(newLeaves)
+  }
+}
+```
+
+これにより、ホーム/アーカイブを意識せずにノート・リーフを操作できます。
+
 **注**: Version 5.0のリファクタリングにより、左右ペインの状態は**ローカル変数**で管理されるようになりました。`currentView`, `currentNote`, `currentLeaf`等のストアは削除され、完全な左右対称設計を実現しています。
 
 #### 4. データ永続化層（lib/storage.ts）
