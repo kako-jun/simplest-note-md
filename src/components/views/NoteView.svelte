@@ -5,7 +5,7 @@
   import type { Note, Leaf } from '../../lib/types'
   import type { LeafSkeleton } from '../../lib/api'
   import { swipe } from '../../lib/actions'
-  import { dirtyNoteIds } from '../../lib/stores'
+  import { dirtyNoteIds, dirtyLeafIds } from '../../lib/stores'
   import NoteCard from '../cards/NoteCard.svelte'
   import BadgeButton from '../badges/BadgeButton.svelte'
 
@@ -210,7 +210,7 @@
             />
             <strong class="text-ellipsis">
               {item.leaf.title}
-              {#if item.leaf.isDirty}
+              {#if item.leaf.isDirty || $dirtyLeafIds.has(item.leaf.id)}
                 <span class="dirty-indicator" title={$_('leaf.unsaved')}></span>
               {/if}
             </strong>

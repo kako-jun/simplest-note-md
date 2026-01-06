@@ -55,6 +55,9 @@ export const isStructureDirty = writable<boolean>(false)
 // 構造変更があったノートのID（差分検出で自動更新）
 export const dirtyNoteIds = writable<Set<string>>(new Set())
 
+// 構造変更があったリーフのID（新規作成、タイトル変更、順序変更、移動）
+export const dirtyLeafIds = writable<Set<string>>(new Set())
+
 // ============================================
 // 最後にPushした状態のスナップショット（差分検出用）
 // ============================================
@@ -63,16 +66,22 @@ let lastPushedLeaves: Leaf[] = []
 let lastPushedArchiveNotes: Note[] = []
 let lastPushedArchiveLeaves: Leaf[] = []
 
+interface DirtyDetectionResult {
+  noteIds: Set<string>
+  leafIds: Set<string>
+}
+
 /**
- * 現在の状態と最後にPushした状態を比較し、変更があったノートIDを検出
+ * 現在の状態と最後にPushした状態を比較し、変更があったノートID・リーフIDを検出
  */
-function detectDirtyNoteIds(
+function detectDirtyIds(
   currentNotes: Note[],
   lastNotes: Note[],
   currentLeaves: Leaf[],
   lastLeaves: Leaf[]
-): Set<string> {
-  const dirtyIds = new Set<string>()
+): DirtyDetectionResult {
+  const dirtyNoteIds = new Set<string>()
+  const dirtyLeafIds = new Set<string>()
 
   const currentNoteMap = new Map(currentNotes.map((n) => [n.id, n]))
   const lastNoteMap = new Map(lastNotes.map((n) => [n.id, n]))
@@ -82,14 +91,14 @@ function detectDirtyNoteIds(
   // ノートの追加: 親ノートがdirty（ルートノートの場合はホームがdirtyだが、ノートIDはない）
   for (const note of currentNotes) {
     if (!lastNoteMap.has(note.id)) {
-      if (note.parentId) dirtyIds.add(note.parentId)
+      if (note.parentId) dirtyNoteIds.add(note.parentId)
     }
   }
 
   // ノートの削除: 親ノートがdirty
   for (const note of lastNotes) {
     if (!currentNoteMap.has(note.id)) {
-      if (note.parentId) dirtyIds.add(note.parentId)
+      if (note.parentId) dirtyNoteIds.add(note.parentId)
     }
   }
 
@@ -99,27 +108,28 @@ function detectDirtyNoteIds(
     if (lastNote) {
       if (note.name !== lastNote.name || note.order !== lastNote.order) {
         // 属性変更: そのノート自体（と親）がdirty
-        if (note.parentId) dirtyIds.add(note.parentId)
+        if (note.parentId) dirtyNoteIds.add(note.parentId)
       }
       if (note.parentId !== lastNote.parentId) {
         // 移動: 元の親と新しい親がdirty
-        if (lastNote.parentId) dirtyIds.add(lastNote.parentId)
-        if (note.parentId) dirtyIds.add(note.parentId)
+        if (lastNote.parentId) dirtyNoteIds.add(lastNote.parentId)
+        if (note.parentId) dirtyNoteIds.add(note.parentId)
       }
     }
   }
 
-  // リーフの追加: 親ノートがdirty
+  // リーフの追加: 親ノートがdirty、リーフ自体もdirty
   for (const leaf of currentLeaves) {
     if (!lastLeafMap.has(leaf.id)) {
-      dirtyIds.add(leaf.noteId)
+      dirtyNoteIds.add(leaf.noteId)
+      dirtyLeafIds.add(leaf.id)
     }
   }
 
-  // リーフの削除: 親ノートがdirty
+  // リーフの削除: 親ノートがdirty（リーフは存在しないのでdirtyLeafIdsには追加しない）
   for (const leaf of lastLeaves) {
     if (!currentLeafMap.has(leaf.id)) {
-      dirtyIds.add(leaf.noteId)
+      dirtyNoteIds.add(leaf.noteId)
     }
   }
 
@@ -128,51 +138,52 @@ function detectDirtyNoteIds(
     const lastLeaf = lastLeafMap.get(leaf.id)
     if (lastLeaf) {
       if (leaf.title !== lastLeaf.title || leaf.order !== lastLeaf.order) {
-        // 属性変更: 親ノートがdirty
-        dirtyIds.add(leaf.noteId)
+        // 属性変更: 親ノートがdirty、リーフ自体もdirty
+        dirtyNoteIds.add(leaf.noteId)
+        dirtyLeafIds.add(leaf.id)
       }
       if (leaf.noteId !== lastLeaf.noteId) {
-        // 移動: 元の親ノートと新しい親ノートがdirty
-        dirtyIds.add(lastLeaf.noteId)
-        dirtyIds.add(leaf.noteId)
+        // 移動: 元の親ノートと新しい親ノートがdirty、リーフ自体もdirty
+        dirtyNoteIds.add(lastLeaf.noteId)
+        dirtyNoteIds.add(leaf.noteId)
+        dirtyLeafIds.add(leaf.id)
       }
     }
   }
 
-  return dirtyIds
+  return { noteIds: dirtyNoteIds, leafIds: dirtyLeafIds }
 }
 
 /**
- * Home用の差分検出を実行してdirtyNoteIdsを更新
+ * Home用の差分検出を実行してdirtyNoteIds/dirtyLeafIdsを更新
  */
-function updateHomeDirtyNoteIds(currentNotes: Note[], currentLeaves: Leaf[]): void {
-  const homeDirty = detectDirtyNoteIds(
-    currentNotes,
-    lastPushedNotes,
-    currentLeaves,
-    lastPushedLeaves
-  )
+function updateHomeDirtyIds(currentNotes: Note[], currentLeaves: Leaf[]): void {
+  const homeDirty = detectDirtyIds(currentNotes, lastPushedNotes, currentLeaves, lastPushedLeaves)
   // Archiveの現在の状態を取得して統合
   const archiveNotesList = get(archiveNotes)
   const archiveLeavesList = get(archiveLeaves)
-  const archiveDirty = detectDirtyNoteIds(
+  const archiveDirty = detectDirtyIds(
     archiveNotesList,
     lastPushedArchiveNotes,
     archiveLeavesList,
     lastPushedArchiveLeaves
   )
   // 統合
-  const combined = new Set<string>()
-  homeDirty.forEach((id) => combined.add(id))
-  archiveDirty.forEach((id) => combined.add(id))
-  dirtyNoteIds.set(combined)
+  const combinedNotes = new Set<string>()
+  const combinedLeaves = new Set<string>()
+  homeDirty.noteIds.forEach((id) => combinedNotes.add(id))
+  archiveDirty.noteIds.forEach((id) => combinedNotes.add(id))
+  homeDirty.leafIds.forEach((id) => combinedLeaves.add(id))
+  archiveDirty.leafIds.forEach((id) => combinedLeaves.add(id))
+  dirtyNoteIds.set(combinedNotes)
+  dirtyLeafIds.set(combinedLeaves)
 }
 
 /**
- * Archive用の差分検出を実行してdirtyNoteIdsを更新
+ * Archive用の差分検出を実行してdirtyNoteIds/dirtyLeafIdsを更新
  */
-function updateArchiveDirtyNoteIds(currentNotes: Note[], currentLeaves: Leaf[]): void {
-  const archiveDirty = detectDirtyNoteIds(
+function updateArchiveDirtyIds(currentNotes: Note[], currentLeaves: Leaf[]): void {
+  const archiveDirty = detectDirtyIds(
     currentNotes,
     lastPushedArchiveNotes,
     currentLeaves,
@@ -181,17 +192,16 @@ function updateArchiveDirtyNoteIds(currentNotes: Note[], currentLeaves: Leaf[]):
   // Homeの現在の状態を取得して統合
   const homeNotesList = get(notes)
   const homeLeavesList = get(leaves)
-  const homeDirty = detectDirtyNoteIds(
-    homeNotesList,
-    lastPushedNotes,
-    homeLeavesList,
-    lastPushedLeaves
-  )
+  const homeDirty = detectDirtyIds(homeNotesList, lastPushedNotes, homeLeavesList, lastPushedLeaves)
   // 統合
-  const combined = new Set<string>()
-  homeDirty.forEach((id) => combined.add(id))
-  archiveDirty.forEach((id) => combined.add(id))
-  dirtyNoteIds.set(combined)
+  const combinedNotes = new Set<string>()
+  const combinedLeaves = new Set<string>()
+  homeDirty.noteIds.forEach((id) => combinedNotes.add(id))
+  archiveDirty.noteIds.forEach((id) => combinedNotes.add(id))
+  homeDirty.leafIds.forEach((id) => combinedLeaves.add(id))
+  archiveDirty.leafIds.forEach((id) => combinedLeaves.add(id))
+  dirtyNoteIds.set(combinedNotes)
+  dirtyLeafIds.set(combinedLeaves)
 }
 
 // 全体のダーティ判定（リーフ変更 or 構造変更）
@@ -246,6 +256,7 @@ export function setLastPushedSnapshot(
   }
   // スナップショット更新後はdirtyをクリア
   dirtyNoteIds.set(new Set())
+  dirtyLeafIds.set(new Set())
 }
 
 // 全変更をクリア
@@ -253,6 +264,7 @@ export function clearAllChanges(): void {
   clearAllDirty()
   isStructureDirty.set(false)
   dirtyNoteIds.set(new Set())
+  dirtyLeafIds.set(new Set())
 }
 
 // Pull成功時のリモートpushCountを保持（stale編集検出用）
@@ -322,7 +334,7 @@ export function updateNotes(newNotes: Note[]): void {
   // ノート構造の変更があったらダーティフラグを立てる
   isStructureDirty.set(true)
   // 差分検出でdirtyNoteIdsを更新
-  updateHomeDirtyNoteIds(newNotes, get(leaves))
+  updateHomeDirtyIds(newNotes, get(leaves))
 }
 
 export function updateLeaves(newLeaves: Leaf[]): void {
@@ -333,7 +345,7 @@ export function updateLeaves(newLeaves: Leaf[]): void {
   // リーフの追加/削除は構造変更としてマーク
   isStructureDirty.set(true)
   // 差分検出でdirtyNoteIdsを更新
-  updateHomeDirtyNoteIds(get(notes), newLeaves)
+  updateHomeDirtyIds(get(notes), newLeaves)
 }
 
 // ============================================
@@ -345,7 +357,7 @@ export function updateArchiveNotes(newNotes: Note[]): void {
   // TODO: アーカイブ用のIndexedDB永続化を実装
   isStructureDirty.set(true)
   // 差分検出でdirtyNoteIdsを更新
-  updateArchiveDirtyNoteIds(newNotes, get(archiveLeaves))
+  updateArchiveDirtyIds(newNotes, get(archiveLeaves))
 }
 
 export function updateArchiveLeaves(newLeaves: Leaf[]): void {
@@ -353,7 +365,7 @@ export function updateArchiveLeaves(newLeaves: Leaf[]): void {
   // TODO: アーカイブ用のIndexedDB永続化を実装
   isStructureDirty.set(true)
   // 差分検出でdirtyNoteIdsを更新
-  updateArchiveDirtyNoteIds(get(archiveNotes), newLeaves)
+  updateArchiveDirtyIds(get(archiveNotes), newLeaves)
 }
 
 /**
