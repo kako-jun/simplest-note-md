@@ -81,6 +81,61 @@ flowchart TD
 
 即座にロック取得し、try-finallyで確実に解放します。
 
+### Push処理の原子性と失敗時の安全性
+
+**PullとPushの構造的な違い:**
+
+| 処理 | 構造                 | API呼び出し数                  | 部分的失敗                     |
+| ---- | -------------------- | ------------------------------ | ------------------------------ |
+| Pull | 並列処理             | リーフ数だけ（100個なら100回） | あり得る（一部成功、一部失敗） |
+| Push | 単一トランザクション | 固定3回（Tree→Commit→Ref）     | なし（全成功か全失敗）         |
+
+**Push処理の3段階:**
+
+1. **Tree作成**: 全ファイルを1つのJSONで送信
+2. **Commit作成**: 上記Treeを指すCommitオブジェクトを作成
+3. **Ref更新**: ブランチのHEADを新Commitに向ける
+
+**各段階での失敗時の挙動:**
+
+```typescript
+// どの段階で失敗しても success: false を返す
+if (!newTreeRes.ok) {
+  return { success: false, message: 'github.treeCreateFailed' }
+}
+if (!newCommitRes.ok) {
+  return { success: false, message: 'github.commitCreateFailed' }
+}
+if (!updateRefRes.ok) {
+  return { success: false, message: 'github.branchUpdateFailed' }
+}
+```
+
+**ダーティフラグの扱い:**
+
+```typescript
+// App.svelte: 成功時のみダーティクリア
+if (result.variant === 'success') {
+  setLastPushedSnapshot(...)
+  clearAllChanges()  // ← 成功時のみ
+  lastPushTime.set(Date.now())
+}
+```
+
+失敗時はダーティフラグが維持されるため、ユーザーが再度Pushボタンを押すと全データが再送信されます（冪等性あり）。
+
+**Orphan Commitの扱い:**
+
+Commit作成は成功したがRef更新で失敗した場合、Commitオブジェクトは作られますがブランチから到達不可能（orphan）になります。
+
+- 次回Push時に別の新しいCommitを作成（重複するが無害）
+- GitHubのGC（garbage collection）で自動削除される
+- 実害がないため、特別な処理は不要
+
+**結論:**
+
+Push処理は単一のトランザクション的処理であり、「一部だけ送信成功」という状態は起きません。Pullのような並列処理特有の問題（一部失敗での全体失敗処理）は存在せず、現在の実装で十分安全です。
+
 ---
 
 ## Pull処理

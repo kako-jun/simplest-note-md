@@ -44,7 +44,7 @@
   .toast {
     background: var(--surface-1);
     color: var(--text);
-    border: 2px solid var(--border);
+    border: 2px solid color-mix(in srgb, var(--text) 40%, var(--bg) 60%);
     border-radius: 8px;
     padding: 0.5rem 0.75rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

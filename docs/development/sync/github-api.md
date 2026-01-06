@@ -112,6 +112,73 @@ Push時は`.agasteer/notes/`と`.agasteer/archive/`の両方を処理します�
 - pushCountが不必要にインクリメントされない
 - GitHubのコミット履歴が整理される
 
+### Push処理の安全性と失敗時の挙動
+
+#### 原子性（Atomicity）
+
+Push処理は以下の3段階で構成され、各段階で失敗した場合は即座に`success: false`を返します：
+
+1. **Tree作成** (`POST /git/trees`): 全ファイルを1つのJSONで送信
+2. **Commit作成** (`POST /git/commits`): 上記Treeを指すCommitオブジェクトを作成
+3. **Ref更新** (`PATCH /git/refs/heads/{branch}`): ブランチのHEADを新Commitに向ける
+
+```typescript
+// 各段階での失敗チェック
+if (!newTreeRes.ok) return { success: false, message: 'github.treeCreateFailed' }
+if (!newCommitRes.ok) return { success: false, message: 'github.commitCreateFailed' }
+if (!updateRefRes.ok) return { success: false, message: 'github.branchUpdateFailed' }
+
+// すべて成功した場合のみ
+return { success: true, message: 'github.pushOk', ... }
+```
+
+#### ダーティフラグの維持
+
+失敗時は`success: false`が返されるため、App.svelteの以下のロジックによりダーティフラグが維持されます：
+
+```typescript
+if (result.variant === 'success') {
+  clearAllChanges() // 成功時のみクリア
+  lastPushTime.set(Date.now())
+}
+// 失敗時はダーティフラグが残る → 次回Pushで再送信
+```
+
+#### 冪等性（Idempotency）
+
+ダーティフラグが維持されている限り、何度Pushしても同じ結果になります：
+
+- 失敗したPushを再実行 → 全データを再送信
+- 通信エラーで中断されたPush → 次回は最初から全データを送信
+- 「一部だけ送信された」という状態は起きない
+
+#### Orphan Commitの扱い
+
+**発生条件:**
+
+Commit作成は成功したがRef更新で失敗した場合（ネットワークタイムアウト等）。
+
+**影響:**
+
+- Commitオブジェクトは作られるがブランチから到達不可能（orphan）
+- GitHubのリポジトリには存在するが、通常の操作では見えない
+- 次回Push時に別の新しいCommitを作成（重複するが無害）
+
+**自動クリーンアップ:**
+
+GitHubのGC（garbage collection）が自動的に削除するため、特別な処理は不要。
+
+#### PullとPushの違い
+
+| 項目             | Pull                     | Push                     |
+| ---------------- | ------------------------ | ------------------------ |
+| API呼び出し      | リーフ数だけ（並列）     | 固定3回（直列）          |
+| 部分的失敗       | あり得る                 | なし                     |
+| 失敗時の特別処理 | 1つでも失敗なら全体失敗  | 各段階で失敗チェックのみ |
+| データ整合性     | isOperationsLockedで保護 | ダーティフラグで保護     |
+
+Push処理は単一のトランザクション的処理であり、Pullのような並列処理特有の問題は存在しません。
+
 ---
 
 ## Pull処理
