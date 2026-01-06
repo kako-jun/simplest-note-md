@@ -52,6 +52,9 @@ const hasAnyLeafDirty = derived(leaves, ($leaves) => $leaves.some((l) => l.isDir
 // ノート構造変更フラグ（作成/削除/名前変更など、リーフ以外の変更）
 export const isStructureDirty = writable<boolean>(false)
 
+// 構造変更があったノートのID（削除/アーカイブ時に親ノートをダーティ表示するため）
+export const dirtyNoteIds = writable<Set<string>>(new Set())
+
 // 全体のダーティ判定（リーフ変更 or 構造変更）
 export const isDirty = derived(
   [hasAnyLeafDirty, isStructureDirty],
@@ -78,15 +81,25 @@ export function clearAllDirty(): void {
   leaves.update(($leaves) => $leaves.map((l) => ({ ...l, isDirty: false })))
 }
 
-// 特定ノート配下のリーフがダーティかどうか
-export function isNoteDirty(noteId: string, $leaves: Leaf[]): boolean {
-  return $leaves.some((l) => l.noteId === noteId && l.isDirty)
+// 特定ノート配下のリーフがダーティかどうか（構造変更も含む）
+export function isNoteDirty(noteId: string, $leaves: Leaf[], $dirtyNoteIds: Set<string>): boolean {
+  return $leaves.some((l) => l.noteId === noteId && l.isDirty) || $dirtyNoteIds.has(noteId)
+}
+
+// ノートを構造変更ダーティとしてマーク（削除/アーカイブ時）
+export function addDirtyNoteId(noteId: string): void {
+  dirtyNoteIds.update(($ids) => {
+    const newIds = new Set($ids)
+    newIds.add(noteId)
+    return newIds
+  })
 }
 
 // 全変更をクリア
 export function clearAllChanges(): void {
   clearAllDirty()
   isStructureDirty.set(false)
+  dirtyNoteIds.set(new Set())
 }
 
 // Pull成功時のリモートpushCountを保持（stale編集検出用）

@@ -18,6 +18,7 @@
     isStructureDirty,
     setLeafDirty,
     clearAllChanges,
+    addDirtyNoteId,
     getPersistedDirtyFlag,
     isNoteDirty,
     lastPulledPushCount,
@@ -1163,6 +1164,11 @@
     await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
     isStructureDirty.set(true)
 
+    // 親ノートをダーティとしてマーク（赤丸表示用）
+    if (note.parentId) {
+      addDirtyNoteId(note.parentId)
+    }
+
     // スケルトンマップから移動したリーフを削除（Homeからアーカイブ時のみ）
     if (sourceWorld === 'home') {
       const leafIdsToRemove = leavesToMove.map((l) => l.id)
@@ -1327,6 +1333,9 @@
     // IndexedDBとdirtyフラグを更新
     await saveLeaves(sourceWorld === 'home' ? newSourceLeaves : $leaves)
     isStructureDirty.set(true)
+
+    // 親ノートをダーティとしてマーク（赤丸表示用）
+    addDirtyNoteId(leaf.noteId)
 
     // スケルトンマップから移動したリーフを削除（Homeからアーカイブ時のみ）
     if (sourceWorld === 'home' && leafSkeletonMap.has(leaf.id)) {
@@ -1587,10 +1596,15 @@
 
       const updatedLeaves = currentLeaves.map((n) =>
         n.id === actualId
-          ? { ...n, title: trimmed, content: updatedContent, updatedAt: Date.now() }
+          ? { ...n, title: trimmed, content: updatedContent, updatedAt: Date.now(), isDirty: true }
           : n
       )
       setCurrentLeaves(updatedLeaves)
+
+      // 親ノートをダーティとしてマーク（赤丸表示用）
+      if (targetLeaf) {
+        addDirtyNoteId(targetLeaf.noteId)
+      }
 
       if (targetLeaf) {
         leafStatsStore.updateLeafContent(actualId, updatedContent, targetLeaf.content)
@@ -1688,6 +1702,11 @@
           archiveNotes.set(remainingNotes)
           archiveLeaves.set(remainingLeaves)
           isStructureDirty.set(true)
+
+          // 親ノートをダーティとしてマーク（赤丸表示用）
+          if (targetNote.parentId) {
+            addDirtyNoteId(targetNote.parentId)
+          }
 
           // ナビゲーション処理
           const parentNote = targetNote.parentId
@@ -1863,6 +1882,9 @@
           archiveLeaves.set(allLeaves.filter((l) => l.id !== leafId))
           isStructureDirty.set(true)
 
+          // 親ノートをダーティとしてマーク（赤丸表示用）
+          addDirtyNoteId(targetLeaf.noteId)
+
           const note = allNotes.find((n) => n.id === targetLeaf.noteId)
           if (note) selectNote(note, pane)
           else goHome(pane)
@@ -1939,9 +1961,13 @@
         title: newTitle,
         content,
         updatedAt: Date.now(),
+        isDirty: true,
       }
       archiveLeaves.set(allLeaves.map((l) => (l.id === leafId ? updatedLeaf : l)))
       isStructureDirty.set(true)
+
+      // 親ノートをダーティとしてマーク（赤丸表示用）
+      addDirtyNoteId(targetLeaf.noteId)
 
       if ($leftLeaf?.id === leafId) $leftLeaf = updatedLeaf
       if ($rightLeaf?.id === leafId) $rightLeaf = updatedLeaf
@@ -2111,6 +2137,10 @@
       archiveLeaves.set([...remaining, movedLeaf])
       isStructureDirty.set(true)
 
+      // 元のノートと移動先のノートをダーティとしてマーク（赤丸表示用）
+      addDirtyNoteId(targetLeaf.noteId)
+      addDirtyNoteId(destNoteId)
+
       if ($leftLeaf?.id === targetLeaf.id) {
         $leftLeaf = movedLeaf
         $leftNote = destinationNote
@@ -2185,6 +2215,10 @@
       )
       archiveNotes.set(updated)
       isStructureDirty.set(true)
+
+      // 元の親ノートと移動先の親ノートをダーティとしてマーク（赤丸表示用）
+      if (currentParent) addDirtyNoteId(currentParent)
+      if (nextParent) addDirtyNoteId(nextParent)
 
       const updatedNote = updated.find((n) => n.id === targetNote.id)
       if (updatedNote) {

@@ -5,6 +5,7 @@
   import type { Note, Leaf } from '../../lib/types'
   import type { LeafSkeleton } from '../../lib/api'
   import { swipe } from '../../lib/actions'
+  import { dirtyNoteIds } from '../../lib/stores'
   import NoteCard from '../cards/NoteCard.svelte'
   import BadgeButton from '../badges/BadgeButton.svelte'
 
@@ -154,7 +155,8 @@
           note={subNote}
           dragOver={dragOverNoteId === subNote.id}
           isSelected={isActive && index === selectedIndex}
-          isDirty={allLeaves.some((l) => l.noteId === subNote.id && l.isDirty)}
+          isDirty={allLeaves.some((l) => l.noteId === subNote.id && l.isDirty) ||
+            $dirtyNoteIds.has(subNote.id)}
           onSelect={() => onSelectNote(subNote)}
           onDragStart={() => onDragStartNote(subNote)}
           onDragEnd={() => onDragEndNote()}
