@@ -201,7 +201,7 @@
   <HomeFooter
     onCreateNote={(name) => actions.createNote(undefined, pane, name)}
     onPush={actions.handlePushToGitHub}
-    disabled={!$state.isFirstPriorityFetched}
+    disabled={!$state.isPullCompleted}
     isDirty={$isDirty}
     pushDisabled={!$state.canPush}
     pushDisabledReason={$state.pushDisabledReason}
@@ -215,7 +215,7 @@
     onCreateSubNote={(name) => actions.createNote(currentNote.id, pane, name)}
     onCreateLeaf={(name) => actions.createLeaf(pane, name)}
     onPush={actions.handlePushToGitHub}
-    disabled={!$state.isFirstPriorityFetched}
+    disabled={!$state.isPullCompleted}
     isDirty={$isDirty}
     canHaveSubNote={!currentNote.parentId}
     pushDisabled={!$state.canPush}
@@ -233,7 +233,7 @@
     onDownload={() => actions.downloadLeafAsMarkdown(currentLeaf.id, pane)}
     onTogglePreview={() => actions.togglePreview(pane)}
     onPush={actions.handlePushToGitHub}
-    disabled={!$state.isFirstPriorityFetched && !isOfflineLeaf(currentLeaf.id)}
+    disabled={!$state.isPullCompleted && !isOfflineLeaf(currentLeaf.id)}
     isDirty={$isDirty}
     pushDisabled={!$state.canPush}
     pushDisabledReason={$state.pushDisabledReason}
@@ -250,7 +250,7 @@
     onDownload={() => actions.downloadLeafAsImage(currentLeaf.id, pane)}
     onToggleEdit={() => actions.togglePreview(pane)}
     onPush={actions.handlePushToGitHub}
-    disabled={!$state.isFirstPriorityFetched && !isOfflineLeaf(currentLeaf.id)}
+    disabled={!$state.isPullCompleted && !isOfflineLeaf(currentLeaf.id)}
     isDirty={$isDirty}
     pushDisabled={!$state.canPush}
     pushDisabledReason={$state.pushDisabledReason}

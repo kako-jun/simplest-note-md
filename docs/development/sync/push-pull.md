@@ -132,14 +132,23 @@ Pull処理は、ユーザーが早く編集を開始できるよう、優先度�
 
 1. **構造取得**: ノート構造とリーフスケルトンを取得
 2. **第一優先リーフ取得**: URLで指定されたリーフを最優先で取得
-3. **編集可能に**: `isFirstPriorityFetched = true`, `isLoadingUI = false`（ガラス効果解除）
+3. **閲覧・編集可能に**: `isFirstPriorityFetched = true`, `isLoadingUI = false`（全体のガラス効果解除）
 4. **残りのリーフ取得**: バックグラウンドで10並列取得（`CONTENT_FETCH_CONCURRENCY = 10`）
+5. **全操作可能に**: `isPullCompleted = true`（フッタのボタン有効化）
+
+**UI制御の段階:**
+
+- **第1段階完了まで**: 全体がガラス効果（`isLoadingUI = true`）で完全に操作不可
+- **第1段階完了後**: ガラス効果解除、リーフの閲覧・編集が可能、ただしフッタのボタン（作成・削除・移動など）は無効化（`!isPullCompleted`）
+- **第2段階完了後**: すべての操作が可能
+
+これにより、残りのリーフ取得中にユーザーが同名リーフを作成したり、まだ取得していないノートを削除するなどの矛盾を防ぎます。
 
 **PullOptionsコールバック:**
 
 - `onStructure`: ノートとメタデータをストアに設定し、URLから優先情報を返す
 - `onLeaf`: 各リーフをストアに追加
-- `onPriorityComplete`: 操作許可、ガラス効果解除、URL復元
+- `onPriorityComplete`: 閲覧・編集許可、ガラス効果解除、URL復元
 
 ### Pull中の編集保護
 
