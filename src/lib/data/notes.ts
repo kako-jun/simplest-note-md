@@ -5,7 +5,7 @@ import { get } from 'svelte/store'
 import type { Note, Leaf } from '../types'
 import type { Pane } from '../navigation'
 import { notes, leaves, updateNotes, updateLeaves } from '../stores'
-import { showAlert, showConfirm } from '../ui'
+import { showAlert, showConfirm, showPushToast } from '../ui'
 // 循環参照回避: utils/index.tsではなく、直接utils.tsからインポート
 import { generateUniqueName, normalizeBadgeValue } from '../utils/utils'
 
@@ -108,6 +108,8 @@ export function deleteNote(options: DeleteNoteOptions): void {
 
     // ナビゲーション処理
     onNavigate(pane, parentNote || null)
+
+    showPushToast(translate('toast.deleted'), 'success')
   }
 
   const confirmMessage = targetNote.parentId

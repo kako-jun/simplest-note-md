@@ -1131,6 +1131,10 @@
     checkPane('right')
     refreshBreadcrumbs()
     rebuildLeafStats($leaves, $notes)
+
+    // トースト表示
+    const toastKey = targetWorld === 'archive' ? 'toast.archived' : 'toast.restored'
+    showPushToast($_(toastKey), 'success')
   }
 
   async function moveLeafToWorld(leaf: Leaf, targetWorld: WorldType) {
@@ -1273,6 +1277,10 @@
     checkPane('right')
     refreshBreadcrumbs()
     rebuildLeafStats($leaves, $notes)
+
+    // トースト表示
+    const toastKey = targetWorld === 'archive' ? 'toast.archived' : 'toast.restored'
+    showPushToast($_(toastKey), 'success')
   }
 
   function closeLeaf(pane: Pane) {
@@ -1532,25 +1540,31 @@
       showPrompt(
         $_('footer.newNote'),
         (inputName) => {
-          createNoteLib({
+          const newNote = createNoteLib({
             parentId,
             pane,
             isOperationsLocked: !isFirstPriorityFetched,
             translate: $_,
             name: inputName,
           })
+          if (newNote) {
+            showPushToast($_('toast.noteCreated'), 'success')
+          }
         },
         '',
         position
       )
     } else {
-      createNoteLib({
+      const newNote = createNoteLib({
         parentId,
         pane,
         isOperationsLocked: !isFirstPriorityFetched,
         translate: $_,
         name,
       })
+      if (newNote) {
+        showPushToast($_('toast.noteCreated'), 'success')
+      }
     }
   }
 
@@ -1638,6 +1652,7 @@
           if (newLeaf) {
             leafStatsStore.addLeaf(newLeaf.id, newLeaf.content)
             selectLeaf(newLeaf, pane)
+            showPushToast($_('toast.leafCreated'), 'success')
           }
         },
         '',
@@ -1653,6 +1668,7 @@
       if (newLeaf) {
         leafStatsStore.addLeaf(newLeaf.id, newLeaf.content)
         selectLeaf(newLeaf, pane)
+        showPushToast($_('toast.leafCreated'), 'success')
       }
     }
   }
@@ -1805,7 +1821,12 @@
         $rightLeaf = result.movedLeaf
         $rightNote = result.destNote
       }
-      showPushToast('移動しました', 'success')
+      // スケルトンマップから移動したリーフを削除（noteIdが古いままになるため）
+      if (leafSkeletonMap.has(targetLeaf.id)) {
+        leafSkeletonMap.delete(targetLeaf.id)
+        leafSkeletonMap = new Map(leafSkeletonMap) // リアクティブ更新をトリガー
+      }
+      showPushToast($_('toast.moved'), 'success')
     }
     closeMoveModal()
   }
@@ -1815,7 +1836,7 @@
     if (result.success && result.updatedNote) {
       if ($leftNote?.id === targetNote.id) $leftNote = result.updatedNote
       if ($rightNote?.id === targetNote.id) $rightNote = result.updatedNote
-      showPushToast('移動しました', 'success')
+      showPushToast($_('toast.moved'), 'success')
     }
     closeMoveModal()
   }
