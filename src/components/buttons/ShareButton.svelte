@@ -6,12 +6,14 @@
   import LinkIcon from '../icons/LinkIcon.svelte'
   import CopyIcon from '../icons/CopyIcon.svelte'
   import UploadIcon from '../icons/UploadIcon.svelte'
+  import QRCodeDisplay from '../QRCodeDisplay.svelte'
 
   export let onCopyUrl: () => void
   export let onCopyMarkdown: () => void
   export let onShareImage: (() => void) | null = null
   export let onShareSelectionImage: (() => void) | null = null
   export let getHasSelection: (() => boolean) | null = null
+  export let getMarkdownContent: (() => string) | null = null
   export let isPreview: boolean = false
 
   let showMenu = false
@@ -106,6 +108,11 @@
           >
         </button>
       {/if}
+
+      {#if getMarkdownContent}
+        <div class="menu-divider" />
+        <QRCodeDisplay getContent={getMarkdownContent} />
+      {/if}
     </div>
   {/if}
 </div>
@@ -139,6 +146,13 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  .menu-divider {
+    height: 1px;
+    background: var(--text-muted);
+    opacity: 0.3;
+    margin: 0.5rem 0;
   }
 
   .menu-item {

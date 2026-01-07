@@ -20,6 +20,7 @@
   export let onShareSelectionImage: (() => void) | null = null
   export let isPreview: boolean = false
   export let getHasSelection: (() => boolean) | null = null
+  export let getMarkdownContent: (() => string) | null = null
   export let onSelectSibling: ((id: string, type: 'note' | 'leaf') => void) | null = null
   /** 現在のワールド */
   export let currentWorld: WorldType = 'home'
@@ -291,6 +292,7 @@
       {onShareSelectionImage}
       {isPreview}
       {getHasSelection}
+      {getMarkdownContent}
     />
   {/if}
 </div>
