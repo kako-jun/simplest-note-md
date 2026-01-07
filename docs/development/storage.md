@@ -275,8 +275,9 @@ Agasteerのデータ永続化スキーマについて説明します。
 
 1. Push前に既存の `metadata.json` から `pushCount` を取得
 2. `pushCount + 1` を新しい `metadata.json` に保存
-3. Pull時に `pushCount` を取得してSvelteストアに保存
-4. ホーム画面で `$metadata.pushCount` として表示
+3. Push成功後にリモートから最新の `pushCount` を取得して `lastPulledPushCount` ストアを更新
+4. Pull時も `pushCount` を取得して `lastPulledPushCount` に保存
+5. ホーム画面で `lastPulledPushCount` として表示
 
 ### 同期タイミング
 

@@ -40,7 +40,7 @@ Push/Pull処理は、それぞれ**1つの統合関数**に集約されていま
 4. Staleチェック（共通関数で時刻も更新）
 5. Stale編集の場合は確認（ロックを保持したまま await）
 6. Push実行
-7. 結果処理（成功時はダーティクリア、pushCount更新）
+7. 結果処理（成功時はダーティクリア、リモートからpushCount取得）
 8. ロック解放（finallyで必ず実行）
 
 ### Push処理フロー
@@ -58,7 +58,7 @@ flowchart TD
     Confirm -->|OK| Push[Push実行]
     Confirm -->|Cancel| Unlock
     Push --> Success{成功?}
-    Success -->|Yes| Clear[ダーティクリア<br/>pushCount++]
+    Success -->|Yes| Clear[ダーティクリア<br/>pushCount取得]
     Success -->|No| Notify[エラー通知]
     Clear --> Unlock[isPushing = false]
     Notify --> Unlock
@@ -275,7 +275,7 @@ Push回数は `metadata.json` の `pushCount` フィールドに保存されま�
 
 ### UI表示
 
-HomeView.svelte でホーム画面の右下に`$metadata.pushCount`を統計情報として表示します。
+StatsPanel.svelte でホーム画面の右下に`lastPulledPushCount`を統計情報として表示します。Push成功後はリモートから最新の`pushCount`を取得して更新するため、常に正確な値が表示されます。
 
 ---
 

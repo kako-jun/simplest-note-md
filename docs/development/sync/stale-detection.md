@@ -39,7 +39,7 @@ metadata.jsonが存在しない（404）場合は`-1`を返します。これに
 
 ### Push成功後のpushCount更新
 
-Push成功後は、ローカルの`lastPulledPushCount`を+1して更新。これにより、連続Pushでstale警告が出ることを防ぎます。
+Push成功後は、`fetchRemotePushCount()`でリモートから最新の`pushCount`を取得して`lastPulledPushCount`を更新。これにより、連続Pushでstale警告が出ることを防ぎ、UIに正確な値を表示します。
 
 ### 動作フロー
 
@@ -48,7 +48,7 @@ Push成功後は、ローカルの`lastPulledPushCount`を+1して更新。こ�
 3. **このデバイスでPush** → `checkIfStaleEdit`でリモートの`pushCount`を取得
 4. **比較** → `remotePushCount > lastPulledPushCount`ならstale
 5. **警告表示** → ユーザーが確認後にPush、またはキャンセル
-6. **Push成功** → `lastPulledPushCount`を+1
+6. **Push成功** → リモートから最新の`pushCount`を取得して`lastPulledPushCount`を更新
 
 ### 定期的なstaleチェック
 
