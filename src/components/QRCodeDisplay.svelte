@@ -45,12 +45,20 @@
 </script>
 
 {#if !qrExceeded && qrDataUrl}
+  <div class="qr-divider" />
   <div class="qr-section">
     <img src={qrDataUrl} alt="QR Code" class="qr-image" />
   </div>
 {/if}
 
 <style>
+  .qr-divider {
+    height: 1px;
+    background: var(--text-muted);
+    opacity: 0.3;
+    margin: 0.5rem 0;
+  }
+
   .qr-section {
     display: flex;
     flex-direction: column;

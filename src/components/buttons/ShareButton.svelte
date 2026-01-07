@@ -110,7 +110,6 @@
       {/if}
 
       {#if getMarkdownContent}
-        <div class="menu-divider" />
         <QRCodeDisplay getContent={getMarkdownContent} />
       {/if}
     </div>
@@ -146,13 +145,6 @@
       opacity: 1;
       transform: translateY(0);
     }
-  }
-
-  .menu-divider {
-    height: 1px;
-    background: var(--text-muted);
-    opacity: 0.3;
-    margin: 0.5rem 0;
   }
 
   .menu-item {
