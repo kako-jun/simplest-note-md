@@ -101,8 +101,7 @@
     "title": "設定",
     "qrCodeDescription": "スマホ用QRコード",
     "help": {
-      "text": "使い方（テキスト）",
-      "video": "使い方（動画）"
+      "text": "使い方"
     },
     "github": {
       "title": "GitHub連携",
@@ -123,7 +122,9 @@
       "email": "コミットメールアドレス",
       "emailPlaceholder": "you@example.com",
       "testConnection": "接続テスト",
-      "testing": "テスト中…"
+      "testing": "テスト中…",
+      "videoGuideHint": "設定方法がわからない場合は",
+      "videoGuide": "動画で見る"
     },
     "extras": {
       "title": "おまけ",

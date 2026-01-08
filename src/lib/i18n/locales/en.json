@@ -101,8 +101,7 @@
     "title": "Settings",
     "qrCodeDescription": "QR Code for Mobile",
     "help": {
-      "text": "How to Use (Text)",
-      "video": "How to Use (Video)"
+      "text": "How to Use"
     },
     "github": {
       "title": "GitHub Integration",
@@ -123,7 +122,9 @@
       "email": "Commit Email",
       "emailPlaceholder": "you@example.com",
       "testConnection": "Test Connection",
-      "testing": "Testing..."
+      "testing": "Testing...",
+      "videoGuideHint": "Need help with setup?",
+      "videoGuide": "Watch video"
     },
     "extras": {
       "title": "Extras",

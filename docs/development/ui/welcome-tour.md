@@ -52,7 +52,7 @@
 ### トリガー条件
 
 - **表示タイミング**: 初回Pull成功後（500ms遅延）
-- **再表示防止**: LocalStorage (`agasteer_tour_shown`) で管理
+- **再表示防止**: LocalStorage (`agasteer.state.tourShown`) で管理
 - **スキップ可能**: ×ボタンまたはオーバーレイクリックで閉じる
 
 ### ファイル構成
@@ -79,4 +79,10 @@ App.cssでdriver.jsのデフォルトスタイルを上書きし、テーマのC
 
 ### デバッグ
 
-開発者コンソールで`localStorage.removeItem('agasteer_tour_shown')`を実行してリロードするとツアーをリセットできます。
+開発者コンソールで以下を実行してリロードするとツアーをリセットできます:
+
+```js
+const data = JSON.parse(localStorage.getItem('agasteer'))
+data.state.tourShown = false
+localStorage.setItem('agasteer', JSON.stringify(data))
+```
