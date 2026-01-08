@@ -114,7 +114,7 @@ Agasteerで、シンプルで透明なノート体験を始めましょう。
 
 AI時代は、子どもも大人もおねーさんもGitHubを持っておくと楽しいです。
 
-→ [初期設定ガイド](./docs/user-guide/ja/getting-started.md)
+→ [クイックスタート](./docs/user-guide/ja/quick-start.md)
 
 ---
 

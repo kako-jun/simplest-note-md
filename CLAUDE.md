@@ -10,11 +10,12 @@
 ### ユーザー向けドキュメント
 
 - **[ユーザーガイド](./docs/user-guide/ja/index.md)** - Agasteerの使い方
-  - [初期設定とクイックスタート](./docs/user-guide/ja/getting-started.md)
-  - [ノートとリーフの管理](./docs/user-guide/ja/basic-features.md)
-  - [応用機能（2ペイン、プレビュー、Vimモード）](./docs/user-guide/ja/advanced-features.md)
-  - [GitHub連携](./docs/user-guide/ja/github-sync.md)
-  - [カスタマイズ（テーマ、フォント、背景画像）](./docs/user-guide/ja/customization.md)
+  - [クイックスタート](./docs/user-guide/ja/quick-start.md)
+  - [GitHub連携セットアップ](./docs/user-guide/ja/github-setup.md)
+  - [基本操作](./docs/user-guide/ja/basic-usage.md)
+  - [カスタマイズ](./docs/user-guide/ja/customization.md)
+  - [便利な機能](./docs/user-guide/ja/features.md)
+  - [パワーユーザー向け](./docs/user-guide/ja/power-user.md)
   - [よくある質問（FAQ）](./docs/user-guide/ja/faq.md)
 
 ### 開発者向けドキュメント

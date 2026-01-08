@@ -117,5 +117,5 @@ Tokens cannot be displayed again. Generate a new token.
 
 ## Related Documentation
 
-- [GitHub Sync](./github-sync.md)
+- [User Guide](./index.md)
 - [FAQ](./faq.md)

@@ -117,5 +117,6 @@ GitHubのAPIを使用するためのトークンを取得します。
 
 ## 関連ドキュメント
 
-- [GitHub連携](./github-sync.md)
+- [基本操作](./basic-usage.md) - Push/Pullの使い方
+- [パワーユーザー向け](./power-user.md) - GitHub連携の詳細
 - [よくある質問（FAQ）](./faq.md)
