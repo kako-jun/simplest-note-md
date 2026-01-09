@@ -13,6 +13,7 @@
   export let onShareImage: (() => void) | null = null
   export let onShareSelectionImage: (() => void) | null = null
   export let getHasSelection: (() => boolean) | null = null
+  export let getSelectedText: (() => string) | null = null
   export let getMarkdownContent: (() => string) | null = null
   export let isPreview: boolean = false
 
@@ -110,7 +111,15 @@
       {/if}
 
       {#if getMarkdownContent}
-        <QRCodeDisplay getContent={getMarkdownContent} />
+        <QRCodeDisplay
+          getContent={() => {
+            if (currentHasSelection && getSelectedText) {
+              const selected = getSelectedText()
+              if (selected) return selected
+            }
+            return getMarkdownContent()
+          }}
+        />
       {/if}
     </div>
   {/if}

@@ -2567,6 +2567,12 @@
     return editorView.getSelectedText() !== ''
   }
 
+  function getSelectedText(pane: Pane): string {
+    const editorView = pane === 'left' ? leftEditorView : rightEditorView
+    if (!editorView || !editorView.getSelectedText) return ''
+    return editorView.getSelectedText()
+  }
+
   // ========================================
   // paneActions Context 設定
   // ========================================
@@ -2623,6 +2629,7 @@
     handleShareImage,
     handleShareSelectionImage,
     getHasSelection,
+    getSelectedText,
 
     // スクロール
     handleLeftScroll,

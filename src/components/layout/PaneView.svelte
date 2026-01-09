@@ -102,6 +102,7 @@
   onShareSelectionImage={() => actions.handleShareSelectionImage(pane)}
   isPreview={currentView === 'preview'}
   getHasSelection={() => actions.getHasSelection(pane)}
+  getSelectedText={() => actions.getSelectedText(pane)}
   getMarkdownContent={currentLeaf ? () => currentLeaf.content : null}
   onSelectSibling={(id, type) => actions.selectSiblingFromBreadcrumb(id, type, pane)}
   currentWorld={$state.currentWorld}

@@ -67,6 +67,7 @@ export interface PaneActions {
   handleShareImage: (pane: Pane) => void
   handleShareSelectionImage: (pane: Pane) => void
   getHasSelection: (pane: Pane) => boolean
+  getSelectedText: (pane: Pane) => string
 
   // スクロール
   handleLeftScroll: (scrollTop: number, scrollHeight: number) => void
