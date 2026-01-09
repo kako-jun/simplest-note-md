@@ -1,14 +1,14 @@
-# GitHub Setup Guide
+# GitHub Integration Setup Guide
 
-Agasteer uses GitHub as the storage for your notes. Without GitHub integration, you can only use temporary offline notes stored in your browser (which will be lost if you clear browser data).
+Agasteer uses GitHub as the storage location for your notes. Without GitHub integration, you can only use temporary offline notes in your browser (notes will be deleted if you clear browser data).
 
 With GitHub integration:
 
-- Notes are saved to GitHub, **accessible from any device**
+- Notes are saved to GitHub and **accessible from any device**
 - **Automatic sync** between PC and mobile
-- **Automatic backup** of all your notes
+- **Backups** of your notes are automatically saved
 
-Setup requires **creating a repository** and **obtaining a Personal Access Token**. Follow the steps below (about 5-10 minutes).
+Setup requires **creating a repository** and **obtaining a Personal Access Token**. Follow the steps below (approximately 5-10 minutes).
 
 ---
 
@@ -18,7 +18,7 @@ Create a GitHub repository to store your notes.
 
 ### Step 1: Select New repository
 
-Log in to GitHub and click the "+" button in the top right, then select "New repository".
+Log in to GitHub and select "New repository" from the "+" button in the top right corner.
 
 ![New repository](../../images/setup/r1.webp)
 
@@ -28,23 +28,23 @@ Create the repository with the following settings:
 
 ![Create repository](../../images/setup/r2.webp)
 
-|  #  | Field                 | Setting                                   |
+| No. | Item                  | Setting                                   |
 | :-: | --------------------- | ----------------------------------------- |
-|  ①  | **Repository name**   | Any name you like (e.g., `memo`, `notes`) |
-|  ②  | **Visibility**        | Select "Private"                          |
-|  ③  | **Create repository** | Click the button                          |
+|  1  | **Repository name**   | Any name you like (e.g., `memo`, `notes`) |
+|  2  | **Visibility**        | Select "Private"                          |
+|  3  | **Create repository** | Click the button                          |
 
-Enter the repository name (e.g., `memo`) in Agasteer's settings screen.
+Enter the repository name you created (e.g., `memo`) in Agasteer's settings screen.
 
 ---
 
-## 2. Get a Personal Access Token
+## 2. Obtain a Personal Access Token
 
-Obtain a token to use the GitHub API.
+Obtain a token to use GitHub's API.
 
 ### Step 1: Open Settings
 
-Click your profile icon in the top right and select "Settings".
+Click your profile icon in the top right corner and select "Settings".
 
 ![Settings](../../images/setup/k1.webp)
 
@@ -62,23 +62,23 @@ Select "Personal access tokens" → "Fine-grained tokens", then click "Generate 
 
 ### Step 4: Configure the token
 
-Configure the following settings:
+Configure the following items:
 
 ![Token settings](../../images/setup/k4.webp)
 
-|  #  | Field                 | Setting                                                                                                                    |
-| :-: | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-|  ①  | **Token name**        | A descriptive name (e.g., `agasteer`)                                                                                      |
-|  ②  | **Expiration**        | Choose any expiration (e.g., 90 days). "No expiration" is convenient but setting an expiration is recommended for security |
-|  ③  | **Repository access** | Select "Only select repositories" and choose the repository you created                                                    |
-|  ④  | **Permissions**       | Set "Contents" to "Read and write"                                                                                         |
-|  ⑤  | **Generate token**    | Click the button                                                                                                           |
+| No. | Item                  | Setting                                                                                                                |
+| :-: | --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+|  1  | **Token name**        | A descriptive name (e.g., `agasteer`)                                                                                  |
+|  2  | **Expiration**        | Select any expiration period (e.g., 90 days). "No expiration" is convenient but expiration is recommended for security |
+|  3  | **Repository access** | Select "Only select repositories" and choose the repository you created                                                |
+|  4  | **Permissions**       | Set "Contents" to "Read and write"                                                                                     |
+|  5  | **Generate token**    | Click the button                                                                                                       |
 
 ### Step 5: Copy the token
 
 Copy the generated token.
 
-> **Important**: The token is only shown once. Make sure to copy it on this screen.
+> **Important**: The token is only displayed once. Make sure to copy it from this screen.
 
 ![Copy token](../../images/setup/k5.webp)
 
@@ -91,9 +91,9 @@ Enter the copied token in Agasteer's settings screen.
 1. Open Agasteer's settings screen
 2. Enter `username/repository-name` in "GitHub Repository" (e.g., `kako-jun/memo`)
 3. Enter the copied token in "GitHub Token"
-4. Click "Pull" to test the connection
+4. Test the connection with the "Pull" button
 
-If configured correctly, your notes will sync with GitHub.
+If the settings are correct, your notes will sync with GitHub.
 
 ---
 
@@ -107,9 +107,9 @@ If configured correctly, your notes will sync with GitHub.
 ### "Not Found" error
 
 - Verify the repository name is in `username/repository-name` format
-- Check if the token has access to the correct repository
+- Check if the token has access permissions to the correct repository
 
-### Forgot your token?
+### If you forgot your token
 
 Tokens cannot be displayed again. Generate a new token.
 
@@ -117,5 +117,6 @@ Tokens cannot be displayed again. Generate a new token.
 
 ## Related Documentation
 
-- [User Guide](./index.md)
+- [Basic Operations](./basic-usage.md) - How to use Push/Pull
+- [Power User](./power-user.md) - GitHub integration details
 - [FAQ](./faq.md)

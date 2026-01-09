@@ -1,0 +1,70 @@
+# Archive
+
+Store notes/leaves you no longer use in a separate location. Not deleted, so you can always restore them.
+
+---
+
+## Two Worlds
+
+Agasteer has two independent spaces.
+
+| World       | Purpose                    | Pull                  |
+| ----------- | -------------------------- | --------------------- |
+| **Home**    | Notes/leaves for daily use | Auto-Pull on startup  |
+| **Archive** | Things no longer in use    | Pull only when opened |
+
+> **Tip**: Archive is completely separate from Home, keeping Home lightweight.
+
+---
+
+## How to Switch Worlds
+
+1. Tap "**›**" on the left end of the breadcrumb (`Home > ...`)
+2. A dropdown appears
+3. Select **Home** or **Archive**
+
+### First Access
+
+- When opening Archive for the first time, data is Pulled from GitHub (may take a few seconds)
+- From the second time, it's cached and displays instantly
+
+### Quick Return to Home
+
+Tap the title "Agasteer" in the top-left header → Returns to Home top from anywhere
+
+---
+
+## How to Archive
+
+1. Open the note or leaf you want to archive
+2. Tap the "**Archive**" button in the footer
+3. Tap "OK" in the confirmation dialog
+
+### Behavior After Archiving
+
+- Moved to the Archive world
+- **Hierarchy structure is preserved**
+  - Example: `NoteA/SubNoteB/LeafC` → Same hierarchy in Archive
+- Archiving a note → Sub-notes and leaves inside move together
+- Auto-navigates to parent note after operation
+
+### When Same Name Exists
+
+If a note/leaf with the same name exists in Archive, a suffix is automatically added.
+
+Example: `Note1` → `Note1_1`
+
+---
+
+## How to Restore
+
+1. Switch to the **Archive** world
+2. Open the note or leaf you want to restore
+3. Tap the "**Restore**" button in the footer
+4. Tap "OK" in the confirmation dialog
+
+### Behavior After Restoring
+
+- Returned to the Home world
+- Hierarchy structure is preserved
+- If same name exists in Home, a suffix is automatically added
