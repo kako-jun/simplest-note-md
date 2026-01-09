@@ -160,13 +160,13 @@
         "rightPane": "Right Pane",
         "preview": "Preview",
         "select": "Select Image",
-        "reset": "Reset to Default",
+        "reset": "Clear",
         "uploading": "Uploading...",
         "invalidFormat": "Supported formats: .jpg, .jpeg, .png, .webp, .gif",
         "uploadFailedLeft": "Failed to load left pane background",
         "uploadFailedRight": "Failed to load right pane background",
-        "resetFailedLeft": "Failed to reset left pane background",
-        "resetFailedRight": "Failed to reset right pane background",
+        "resetFailedLeft": "Failed to clear left pane background",
+        "resetFailedRight": "Failed to clear right pane background",
         "opacity": "Opacity"
       }
     },
