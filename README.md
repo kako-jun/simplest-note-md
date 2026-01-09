@@ -55,7 +55,7 @@
 | **Mobile & Desktop**   | Vim mode for fast editing on PC, touch-friendly on mobile     |
 | **Customizable**       | Themes, ruled-line mode, custom fonts, background images      |
 
-→ See [User Guide](./docs/user-guide/ja/index.md) for details
+→ See [User Guide](./docs/user-guide/en/index.md) for details
 
 ---
 
@@ -114,7 +114,7 @@ If you've been thinking "I should make a GitHub account someday," this is your c
 
 In the AI era, having a GitHub account opens up many possibilities.
 
-→ [Quick Start](./docs/user-guide/ja/quick-start.md)
+→ [Quick Start](./docs/user-guide/en/quick-start.md)
 
 ---
 
@@ -122,7 +122,7 @@ In the AI era, having a GitHub account opens up many possibilities.
 
 ### For Users
 
-→ **[User Guide](./docs/user-guide/ja/index.md)** - Setup, basic usage, advanced features, customization
+→ **[User Guide](./docs/user-guide/en/index.md)** - Setup, basic usage, advanced features, customization
 
 ### For Developers
 
