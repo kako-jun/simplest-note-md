@@ -58,11 +58,11 @@ export const waitForSwCheck: Promise<void> = new Promise((resolve) => {
       const message = document.createElement('div')
       message.style.cssText = `
         color: white;
-        font-size: 1.2rem;
+        font-size: 0.9rem;
         text-align: center;
-        padding: 2rem;
+        padding: 1.5rem 2rem;
         background: rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
+        border-radius: 8px;
         backdrop-filter: blur(10px);
       `
       const isJapanese = navigator.language.startsWith('ja')
