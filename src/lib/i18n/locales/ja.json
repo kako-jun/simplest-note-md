@@ -166,7 +166,8 @@
         "uploadFailedLeft": "左ペインの背景画像の読み込みに失敗しました",
         "uploadFailedRight": "右ペインの背景画像の読み込みに失敗しました",
         "resetFailedLeft": "左ペインの背景画像のリセットに失敗しました",
-        "resetFailedRight": "右ペインの背景画像のリセットに失敗しました"
+        "resetFailedRight": "右ペインの背景画像のリセットに失敗しました",
+        "opacity": "濃さ"
       }
     },
     "about": {

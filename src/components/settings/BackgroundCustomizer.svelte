@@ -1,7 +1,11 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import type { Settings } from '../../lib/types'
-  import { uploadAndApplyBackground, removeAndDeleteCustomBackground } from '../../lib/ui'
+  import {
+    uploadAndApplyBackground,
+    removeAndDeleteCustomBackground,
+    loadAndApplyCustomBackgrounds,
+  } from '../../lib/ui'
   import { showAlert } from '../../lib/ui'
 
   export let settings: Settings
@@ -12,7 +16,23 @@
   let backgroundLeftUploading = false
   let backgroundRightUploading = false
 
-  const BACKGROUND_OPACITY = 0.1
+  const DEFAULT_OPACITY = 0.1
+  const MIN_OPACITY = 0.05
+  const MAX_OPACITY = 0.5
+  const OPACITY_STEP = 0.05
+
+  // 透明度変更ハンドラー
+  async function handleOpacityChange(pane: 'left' | 'right', value: number) {
+    const opacityKey = pane === 'left' ? 'backgroundOpacityLeft' : 'backgroundOpacityRight'
+    settings[opacityKey] = value
+    onSettingsChange({ [opacityKey]: value })
+
+    // 背景を再適用
+    await loadAndApplyCustomBackgrounds(
+      settings.backgroundOpacityLeft ?? DEFAULT_OPACITY,
+      settings.backgroundOpacityRight ?? DEFAULT_OPACITY
+    )
+  }
 
   type Pane = 'left' | 'right'
 
@@ -53,14 +73,14 @@
         backgroundRightUploading = true
       }
 
-      await uploadAndApplyBackground(file, pane, BACKGROUND_OPACITY)
+      await uploadAndApplyBackground(file, pane, DEFAULT_OPACITY)
 
       // 設定を更新
       settings[hasCustomKey] = true
-      settings[opacityKey] = BACKGROUND_OPACITY
+      settings[opacityKey] = DEFAULT_OPACITY
       onSettingsChange({
         [hasCustomKey]: true,
-        [opacityKey]: BACKGROUND_OPACITY,
+        [opacityKey]: DEFAULT_OPACITY,
       })
     } catch (error) {
       console.error(`Failed to upload ${pane} background:`, error)
@@ -89,10 +109,10 @@
 
       // 設定を更新
       settings[hasCustomKey] = false
-      settings[opacityKey] = BACKGROUND_OPACITY
+      settings[opacityKey] = DEFAULT_OPACITY
       onSettingsChange({
         [hasCustomKey]: false,
-        [opacityKey]: BACKGROUND_OPACITY,
+        [opacityKey]: DEFAULT_OPACITY,
       })
     } catch (error) {
       console.error(`Failed to reset ${pane} background:`, error)
@@ -152,6 +172,25 @@
           </button>
         {/if}
       </div>
+      {#if settings.hasCustomBackgroundLeft}
+        <label class="opacity-control">
+          <span class="opacity-label">
+            {$_('settings.extras.background.opacity')}
+            <span class="opacity-value"
+              >{Math.round((settings.backgroundOpacityLeft ?? DEFAULT_OPACITY) * 100)}%</span
+            >
+          </span>
+          <input
+            type="range"
+            class="opacity-slider"
+            min={MIN_OPACITY}
+            max={MAX_OPACITY}
+            step={OPACITY_STEP}
+            value={settings.backgroundOpacityLeft ?? DEFAULT_OPACITY}
+            on:input={(e) => handleOpacityChange('left', parseFloat(e.currentTarget.value))}
+          />
+        </label>
+      {/if}
     </div>
 
     <!-- Right Pane -->
@@ -202,6 +241,25 @@
           </button>
         {/if}
       </div>
+      {#if settings.hasCustomBackgroundRight}
+        <label class="opacity-control">
+          <span class="opacity-label">
+            {$_('settings.extras.background.opacity')}
+            <span class="opacity-value"
+              >{Math.round((settings.backgroundOpacityRight ?? DEFAULT_OPACITY) * 100)}%</span
+            >
+          </span>
+          <input
+            type="range"
+            class="opacity-slider"
+            min={MIN_OPACITY}
+            max={MAX_OPACITY}
+            step={OPACITY_STEP}
+            value={settings.backgroundOpacityRight ?? DEFAULT_OPACITY}
+            on:input={(e) => handleOpacityChange('right', parseFloat(e.currentTarget.value))}
+          />
+        </label>
+      {/if}
     </div>
   </div>
 </div>
@@ -297,5 +355,65 @@
     width: 18px;
     height: 18px;
     flex-shrink: 0;
+  }
+
+  .opacity-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+  }
+
+  .opacity-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .opacity-value {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .opacity-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--surface-1);
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .opacity-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+
+  .opacity-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+
+  .opacity-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+    transition: transform 0.15s;
+  }
+
+  .opacity-slider::-moz-range-thumb:hover {
+    transform: scale(1.1);
   }
 </style>

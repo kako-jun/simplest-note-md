@@ -166,7 +166,8 @@
         "uploadFailedLeft": "Failed to load left pane background",
         "uploadFailedRight": "Failed to load right pane background",
         "resetFailedLeft": "Failed to reset left pane background",
-        "resetFailedRight": "Failed to reset right pane background"
+        "resetFailedRight": "Failed to reset right pane background",
+        "opacity": "Opacity"
       }
     },
     "importExport": {
