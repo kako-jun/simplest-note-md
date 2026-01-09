@@ -62,11 +62,13 @@ const THEME_OPTIONS: ThemeType[] = ['yomi', 'campus', 'greenboard', 'whiteboard'
 export interface AppState {
   isDirty: boolean
   tourShown: boolean
+  saveGuideShown: boolean
 }
 
 const defaultState: AppState = {
   isDirty: false,
   tourShown: false,
+  saveGuideShown: false,
 }
 
 /**
@@ -194,6 +196,20 @@ export function isTourShown(): boolean {
  */
 export function setTourShown(shown: boolean): void {
   updateAppState({ tourShown: shown })
+}
+
+/**
+ * 保存ガイド表示済みフラグを取得
+ */
+export function isSaveGuideShown(): boolean {
+  return loadStorageData().state.saveGuideShown ?? false
+}
+
+/**
+ * 保存ガイド表示済みフラグを設定
+ */
+export function setSaveGuideShown(shown: boolean): void {
+  updateAppState({ saveGuideShown: shown })
 }
 
 // DB接続監視用のコールバック

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
+  import { isSaveGuideShown, dismissSaveGuide } from '../../lib/tour'
   import OctocatPushIcon from '../icons/OctocatPushIcon.svelte'
 
   export let onPush: () => void
@@ -12,14 +13,22 @@
   /** DOM ID（ツアー用） */
   export let id: string = ''
 
+  // 初めてダーティになった時かつガイド未表示かつボタンが有効なら吹き出しを表示
+  $: showGuide = isDirty && !isSaveGuideShown() && !disabled
+
   function handleClick() {
     if (disabled) {
       if (disabledReason && onDisabledClick) {
         onDisabledClick(disabledReason)
       }
     } else {
+      dismissSaveGuide()
       onPush()
     }
+  }
+
+  function handleDismiss() {
+    dismissSaveGuide()
   }
 </script>
 
@@ -37,6 +46,14 @@
   </button>
   {#if isDirty}
     <span class="notification-badge"></span>
+  {/if}
+  {#if showGuide}
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <div class="guide-tooltip" on:click|stopPropagation={handleDismiss}>
+      <span class="guide-text">{$_('guide.saveToGitHub')}</span>
+      <span class="guide-close">×</span>
+    </div>
   {/if}
 </div>
 
@@ -80,5 +97,42 @@
     background: #ef4444;
     border-radius: 50%;
     pointer-events: none;
+  }
+
+  .guide-tooltip {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    margin-bottom: 20px;
+    padding: 8px 12px;
+    background-color: var(--accent);
+    color: var(--bg);
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+  }
+
+  .guide-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: 12px;
+    border: 5px solid transparent;
+    border-top-color: var(--accent);
+  }
+
+  .guide-close {
+    opacity: 0.8;
+    font-size: 14px;
+  }
+
+  .guide-close:hover {
+    opacity: 1;
   }
 </style>

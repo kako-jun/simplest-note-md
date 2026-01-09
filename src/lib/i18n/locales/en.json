@@ -302,6 +302,7 @@
   },
   "guide": {
     "createNote": "Click here to create a note",
-    "createLeaf": "Click here to create a leaf"
+    "createLeaf": "Click here to create a leaf",
+    "saveToGitHub": "Save to GitHub to keep your data"
   }
 }

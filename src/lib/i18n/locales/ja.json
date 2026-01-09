@@ -303,6 +303,7 @@
   },
   "guide": {
     "createNote": "ここをクリックしてノートを作成",
-    "createLeaf": "ここをクリックしてリーフを作成"
+    "createLeaf": "ここをクリックしてリーフを作成",
+    "saveToGitHub": "GitHubに保存してデータを残しましょう"
   }
 }
