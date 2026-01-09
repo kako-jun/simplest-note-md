@@ -9,30 +9,30 @@
 
 <p align="center">
   <strong>The Simplest Markdown App with GitHub Sync</strong><br>
-  <em>GitHubと直接つながる、最もシンプルなMarkdownノートアプリ</em>
+  <em>A markdown note app that connects directly to GitHub</em>
 </p>
 
 <p align="center">
-  <sub>🔊 <b>Agasteer</b> [æɡəstíːr] — アガスティーア</sub>
+  <sub>🔊 <b>Agasteer</b> [æɡəstíːr]</sub>
 </p>
 
 <p align="center">
-  <a href="https://agasteer.llll-ll.com"><strong>▶ 今すぐ試す → agasteer.llll-ll.com</strong></a>
+  <a href="https://agasteer.llll-ll.com"><strong>▶ Try it now → agasteer.llll-ll.com</strong></a>
 </p>
 
 <p align="center">
-  <sub>インストール不要・ブラウザで開くだけ（GitHubアカウントが必要です）</sub>
+  <sub>No installation required - Just open in browser (GitHub account needed)</sub>
 </p>
 
-<!-- TODO: デモGIF（5-10秒、2ペイン表示とPush/Pullの様子） -->
+<!-- TODO: Demo GIF (5-10 sec, showing 2-pane view and Push/Pull) -->
 <p align="center">
   <img src="./docs/assets/demo.gif" alt="Agasteer Demo" width="600">
 </p>
 
-<!-- TODO: YouTube紹介動画（2-3分、セットアップから基本操作まで） -->
+<!-- TODO: YouTube intro video (2-3 min, from setup to basic usage) -->
 <p align="center">
   <a href="https://www.youtube.com/watch?v=XXXXXXXXXX">
-    <img src="https://img.youtube.com/vi/XXXXXXXXXX/maxresdefault.jpg" alt="Agasteer紹介動画" width="480">
+    <img src="https://img.youtube.com/vi/XXXXXXXXXX/maxresdefault.jpg" alt="Agasteer Introduction" width="480">
   </a>
 </p>
 
@@ -46,100 +46,100 @@
 
 ---
 
-## 特長
+## Features
 
-| 機能                   | 説明                                           |
-| ---------------------- | ---------------------------------------------- |
-| **コンフリクトしない** | 起動時に必ずPull、GitHubが唯一の真実           |
-| **GitHub直接同期**     | 中間サーバーなし、あなたのリポジトリに直接保存 |
-| **スマホ・PC両対応**   | PCはVimモードで高速編集、スマホはタッチで快適  |
-| **かわいくできる**     | テーマ、罫線モード、カスタムフォント、背景画像 |
+| Feature                | Description                                                   |
+| ---------------------- | ------------------------------------------------------------- |
+| **No Conflicts**       | Always Pull on startup - GitHub is the single source of truth |
+| **Direct GitHub Sync** | No intermediate server - saves directly to your repository    |
+| **Mobile & Desktop**   | Vim mode for fast editing on PC, touch-friendly on mobile     |
+| **Customizable**       | Themes, ruled-line mode, custom fonts, background images      |
 
-→ 詳細は[ユーザーガイド](./docs/user-guide/ja/index.md)へ
-
----
-
-## 設計思想 - なぜシンプルにこだわるのか
-
-### 今まではコンフリクトとの戦い
-
-作者は有名ノートアプリたちでコンフリクトに悩まされ続けました。  
-ある日とうとうキレて、「理論上コンフリクトしようがないアプリ」を自作しようと決断。  
-Agasteerで、データ消失の不安から解放されましょう。
-
-- **起動時に必ずPull** - 古いローカルデータで作業を始めない
-- **GitHubが唯一の真実** - 迷ったらPullすればいい
-
-### Markdownはこれから「資産」になる
-
-AIがファイルを読み書きする時代。便利さのために自由を売り渡さない。  
-買い物メモも、AIへのプロンプトも、見たい映画リストも。Agasteerで書きためましょう。
-
-- **標準Markdown** - GitHub上で直接編集、そのまま各AIサービスの入力に使える快適さを知って
-- **ただの.mdファイル** - VSCodeで開ける、差分や歴史を見られる、10年後も使える
-
-### 軽量・高速・透明
-
-中間サーバーなし。広告なし。ブラウザからGitHub APIに直接通信。  
-Agasteerで、シンプルで透明なノート体験を始めましょう。
-
-- **オープンソース** - [コードを確認](https://github.com/kako-jun/agasteer)できます
-- **セルフホスト可能** - 自分のサーバーでホストもできます（[CONTRIBUTING.md](./CONTRIBUTING.md)）
+→ See [User Guide](./docs/user-guide/ja/index.md) for details
 
 ---
 
-## Agasteerの特徴
+## Design Philosophy - Why We Obsess Over Simplicity
 
-- **GitHub直接同期** - 中間サーバーなし、あなたのリポジトリに直接保存
-- **標準Markdown** - 独自形式なし、VSCodeでもAIでも開ける
-- **インストール不要** - ブラウザで開くだけ、PWAでホーム画面にも追加可能
-- **完全無料** - 機能制限なし、GitHubの無料プランで十分
-- **インポート対応** - 他サービスからの移行機能を順次追加中
+### The Battle Against Conflicts
 
-> **なぜ比較表がないのか**: 「GitHubに直接保存するブラウザ完結型ノートアプリ」という発想の競合が存在しないため、比較する意味がありません。  
-> ユーザーのデータを預かることで収益を得るビジネスモデルとは、目指す方向が異なります。
+The author suffered from conflicts in popular note apps for years.
+One day, finally fed up, decided to build "an app where conflicts are theoretically impossible."
+With Agasteer, free yourself from the fear of data loss.
 
-### ほかにもこんな独自性
+- **Always Pull on startup** - Never start working with stale local data
+- **GitHub is the single source of truth** - When in doubt, just Pull
 
-- **Vimモード！** - 作者がキーボードのみで最速メモするために実装。`hjkl`で駆けめぐれ！
-- **罫線モード！** - 現実のノートそっくりな見た目に。なんでみんなこの機能をつけないの！？
-- **日本的なかわいいテーマ！** - フォントも背景画像もカスタム可能。作者は青いウィンドウのレトロRPG風にしてます！
+### Markdown Will Become Your "Asset"
 
----
+In an age where AI reads and writes files, don't trade your freedom for convenience.
+Shopping lists, AI prompts, movie watchlists - write them all in Agasteer.
 
-## はじめかた
+- **Standard Markdown** - Edit directly on GitHub, use as input for any AI service
+- **Just .md files** - Open in VSCode, view diffs and history, usable 10 years from now
 
-めんどうなのは、最初のトークン取得だけ。  
-むしろ「いつかGitHubアカウントを作ろう」と思っていた方は、これをきっかけにどうぞ。
+### Lightweight, Fast, Transparent
 
-AI時代は、子どもも大人もおねーさんもGitHubを持っておくと楽しいです。
+No intermediate server. No ads. Browser communicates directly with GitHub API.
+Start your simple, transparent note-taking experience with Agasteer.
 
-→ [クイックスタート](./docs/user-guide/ja/quick-start.md)
-
----
-
-## ドキュメント
-
-### ユーザー向け
-
-→ **[ユーザーガイド](./docs/user-guide/ja/index.md)** - 初期設定、基本操作、応用機能、カスタマイズ
-
-### 開発者向け
-
-→ **[開発者向けドキュメント](./docs/development/index.md)** - アーキテクチャ、データモデル、開発ガイド
+- **Open Source** - [View the code](https://github.com/kako-jun/agasteer)
+- **Self-hostable** - Host on your own server ([CONTRIBUTING.md](./CONTRIBUTING.md))
 
 ---
 
-## コントリビューション
+## Why Agasteer?
 
-Issue、Pull Requestを歓迎します！詳しくは[CONTRIBUTING.md](./CONTRIBUTING.md)をご覧ください。
+- **Direct GitHub Sync** - No intermediate server, saves directly to your repository
+- **Standard Markdown** - No proprietary format, opens in VSCode or any AI tool
+- **No Installation** - Just open in browser, add to home screen as PWA
+- **Completely Free** - No feature restrictions, GitHub free plan is enough
+- **Import Support** - Migration from other services being added
+
+> **Why no comparison table?**: There are no competitors with the concept of "browser-based note app that saves directly to GitHub."
+> Our direction differs from business models that profit by holding user data.
+
+### Unique Features
+
+- **Vim Mode!** - Built for keyboard-only fastest note-taking. Navigate with `hjkl`!
+- **Ruled-Line Mode!** - Looks just like a real notebook. Why doesn't everyone have this!?
+- **Cute Japanese Themes!** - Custom fonts and background images. The author uses a retro RPG blue-window style!
 
 ---
 
-## ライセンス
+## Getting Started
 
-このプロジェクトはMITライセンスの下で公開されています。
+The only hassle is getting your token the first time.
+If you've been thinking "I should make a GitHub account someday," this is your chance.
+
+In the AI era, everyone - kids, adults, everyone - will find GitHub useful.
+
+→ [Quick Start](./docs/user-guide/ja/quick-start.md)
 
 ---
 
-○bsi○ianの3連続コンフリクトで、自作の波動に目覚めた © kako-jun
+## Documentation
+
+### For Users
+
+→ **[User Guide](./docs/user-guide/ja/index.md)** - Setup, basic usage, advanced features, customization
+
+### For Developers
+
+→ **[Developer Documentation](./docs/development/index.md)** - Architecture, data model, development guide
+
+---
+
+## Contributing
+
+Issues and Pull Requests are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+
+---
+
+## License
+
+This project is released under the MIT License.
+
+---
+
+Born from three consecutive conflicts in ○bsi○ian © kako-jun
