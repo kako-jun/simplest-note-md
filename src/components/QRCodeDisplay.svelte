@@ -36,6 +36,10 @@
   async function openModal() {
     if (qrExceeded) return
 
+    // Androidの選択UI（ハンドル、コピー/共有ポップアップ）を消すために選択を解除
+    // contentは既にリアクティブ変数で取得済みなので問題なし
+    window.getSelection()?.removeAllRanges()
+
     showModal = true
 
     try {
@@ -118,22 +122,6 @@
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="qr-modal-backdrop" use:portal on:click={handleBackdropClick}>
     <div class="qr-modal">
-      <button class="qr-close-button" on:click={closeModal} aria-label="Close">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
       {#if qrDataUrl}
         <img src={qrDataUrl} alt="QR Code" class="qr-image" />
       {:else}
@@ -197,7 +185,6 @@
   }
 
   :global(.qr-modal) {
-    position: relative;
     background: white;
     border-radius: 4px;
     padding: 0.25rem;
@@ -206,24 +193,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  :global(.qr-close-button) {
-    position: absolute;
-    top: -0.5rem;
-    right: -0.5rem;
-    background: rgba(0, 0, 0, 0.7);
-    border: none;
-    color: white;
-    cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 50%;
-    transition: background 0.15s;
-    z-index: 1;
-  }
-
-  :global(.qr-close-button:hover) {
-    background: rgba(0, 0, 0, 0.9);
   }
 
   :global(.qr-image) {
