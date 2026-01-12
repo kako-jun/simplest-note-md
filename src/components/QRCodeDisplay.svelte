@@ -194,7 +194,7 @@
   .qr-modal {
     position: relative;
     background: white;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 2rem;
     max-width: 90vw;
     max-height: 90vh;
