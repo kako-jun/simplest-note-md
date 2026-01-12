@@ -92,7 +92,6 @@
 <svelte:window on:keydown={handleKeydown} />
 
 {#if !qrExceeded}
-  <div class="qr-divider" />
   <button class="menu-item qr-button" on:click={openModal}>
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -145,13 +144,6 @@
 {/if}
 
 <style>
-  .qr-divider {
-    height: 1px;
-    background: var(--text-muted);
-    opacity: 0.3;
-    margin: 0.5rem 0;
-  }
-
   .qr-button {
     display: flex;
     align-items: center;

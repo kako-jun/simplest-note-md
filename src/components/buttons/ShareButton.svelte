@@ -94,6 +94,23 @@
         >
       </button>
 
+      {#if getMarkdownContent}
+        <QRCodeDisplay
+          hasSelection={currentHasSelection}
+          getContent={() => {
+            if (currentHasSelection && getSelectedText) {
+              const selected = getSelectedText()
+              if (selected) return selected
+            }
+            return getMarkdownContent()
+          }}
+        />
+      {/if}
+
+      {#if (isPreview && supportsWebShare && onShareImage) || (!isPreview && supportsWebShare && onShareSelectionImage)}
+        <div class="menu-divider" />
+      {/if}
+
       {#if isPreview && supportsWebShare && onShareImage}
         <button class="menu-item" on:click={handleShareImage}>
           <UploadIcon />
@@ -108,19 +125,6 @@
             >{currentHasSelection ? $_('share.shareSelectionImage') : $_('share.shareImage')}</span
           >
         </button>
-      {/if}
-
-      {#if getMarkdownContent}
-        <QRCodeDisplay
-          hasSelection={currentHasSelection}
-          getContent={() => {
-            if (currentHasSelection && getSelectedText) {
-              const selected = getSelectedText()
-              if (selected) return selected
-            }
-            return getMarkdownContent()
-          }}
-        />
       {/if}
     </div>
   {/if}
@@ -185,5 +189,12 @@
   .menu-item span {
     flex: 1;
     text-align: left;
+  }
+
+  .menu-divider {
+    height: 1px;
+    background: var(--text-muted);
+    opacity: 0.3;
+    margin: 0.5rem 0;
   }
 </style>
