@@ -198,12 +198,10 @@
   }
 
   :global(.qr-image) {
-    /* 正方形を維持するため、幅と高さの小さい方に合わせる */
-    max-width: min(100vw, 100vh);
-    max-height: min(100vw, 100vh);
-    /* 自然なサイズで表示（拡大しない） */
-    width: auto;
-    height: auto;
+    /* 画面いっぱいに拡大（正方形を維持） */
+    width: min(100vw, 100vh);
+    height: min(100vw, 100vh);
+    object-fit: contain;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     display: block;
