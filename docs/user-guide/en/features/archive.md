@@ -32,6 +32,14 @@ Agasteer has two independent spaces.
 
 Tap the title "Agasteer" in the top-left header → Returns to Home top from anywhere
 
+### Independent Per Pane
+
+In two-pane display, **each pane can show a different world**.
+
+- Left: Home, Right: Archive
+- Switch independently via each pane's breadcrumb
+- Reference archived leaves while writing in Home
+
 ---
 
 ## How to Archive

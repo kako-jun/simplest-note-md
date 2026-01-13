@@ -38,12 +38,23 @@ Tap the "**⇄**" button in the center of the header.
 
 ---
 
+## Display Different Worlds in Each Pane
+
+In two-pane display, **each pane can show a different world (Home/Archive)**.
+
+- Left pane can show Home while right pane shows Archive
+- Switch worlds independently via each pane's breadcrumb
+- Reference archived content while writing in Home
+
+---
+
 ## Recommended Usage Patterns
 
-| Pattern         | Left Pane      | Right Pane   |
-| --------------- | -------------- | ------------ |
-| Edit + Preview  | Edit mode      | Preview mode |
-| Reference while | Reference leaf | Writing leaf |
-| Compare         | Leaf A         | Leaf B       |
+| Pattern           | Left Pane      | Right Pane   |
+| ----------------- | -------------- | ------------ |
+| Edit + Preview    | Edit mode      | Preview mode |
+| Reference while   | Reference leaf | Writing leaf |
+| Compare           | Leaf A         | Leaf B       |
+| Archive reference | Archive        | Home         |
 
 > **Tip**: In Vim mode, use `<Space>` to switch between panes.
