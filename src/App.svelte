@@ -1133,11 +1133,8 @@
     const note = pane === 'left' ? $leftNote : $rightNote
     if (!note) return
 
-    // 確認ダイアログ（左下に表示）
-    const confirmed = await confirmAsync(
-      $_('modal.archiveNote') || 'Archive this note?',
-      'bottom-left'
-    )
+    const position = pane === 'left' ? 'bottom-left' : 'bottom-right'
+    const confirmed = await confirmAsync($_('modal.archiveNote') || 'Archive this note?', position)
     if (confirmed) {
       await moveNoteToWorld(note, 'archive', pane)
     }
@@ -1147,10 +1144,8 @@
     const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
     if (!leaf) return
 
-    const confirmed = await confirmAsync(
-      $_('modal.archiveLeaf') || 'Archive this leaf?',
-      'bottom-left'
-    )
+    const position = pane === 'left' ? 'bottom-left' : 'bottom-right'
+    const confirmed = await confirmAsync($_('modal.archiveLeaf') || 'Archive this leaf?', position)
     if (confirmed) {
       await moveLeafToWorld(leaf, 'archive', pane)
     }
@@ -1160,9 +1155,10 @@
     const note = pane === 'left' ? $leftNote : $rightNote
     if (!note) return
 
+    const position = pane === 'left' ? 'bottom-left' : 'bottom-right'
     const confirmed = await confirmAsync(
       $_('modal.restoreNote') || 'Restore this note to Home?',
-      'bottom-left'
+      position
     )
     if (confirmed) {
       await moveNoteToWorld(note, 'home', pane)
@@ -1173,9 +1169,10 @@
     const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
     if (!leaf) return
 
+    const position = pane === 'left' ? 'bottom-left' : 'bottom-right'
     const confirmed = await confirmAsync(
       $_('modal.restoreLeaf') || 'Restore this leaf to Home?',
-      'bottom-left'
+      position
     )
     if (confirmed) {
       await moveLeafToWorld(leaf, 'home', pane)
