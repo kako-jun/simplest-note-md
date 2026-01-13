@@ -67,9 +67,34 @@ Agasteerの将来的な拡張計画と既知の課題について説明します
    - テーマのプラグイン化
 
 2. **他サービスとの連携**
-   - GitLab API対応（APIは類似、工数3〜5日程度。ただしニーズ低：企業セルフホスト用途がメイン）
+   - GitLab API対応（詳細は後述）
    - Dropbox/OneDrive同期
    - WebDAV対応
+
+#### GitLab API対応の調査メモ
+
+**工数:** 3〜5日程度
+**ニーズ:** 低（企業セルフホスト用途がメイン、アンチGitHubユーザー向け）
+
+**GitHub vs GitLab API比較:**
+
+| 操作                 | GitHub API                         | GitLab API                            |
+| -------------------- | ---------------------------------- | ------------------------------------- |
+| 認証ヘッダー         | `Authorization: Bearer {token}`    | `PRIVATE-TOKEN: {token}`              |
+| リポジトリ情報       | `GET /repos/{owner}/{repo}`        | `GET /api/v4/projects/{id}`           |
+| ブランチ参照         | `GET /git/ref/heads/{branch}`      | `GET /repository/branches/{branch}`   |
+| Tree取得             | `GET /git/trees/{sha}?recursive=1` | `GET /repository/tree?recursive=true` |
+| ファイル取得         | `GET /contents/{path}` (Base64)    | `GET /repository/files/{path}/raw`    |
+| 複数ファイルコミット | Tree API + Commit API (分離)       | Commits API (actions配列で一括)       |
+
+**実装方針:**
+
+1. API呼び出しを抽象化したインターフェースを定義
+2. GitHub用とGitLab用の実装クラスを作成
+3. 設定画面でサービス選択を追加
+4. レート制限・エラーハンドリングの調整
+
+**備考:** GitLabの方がCommits APIで複数ファイル操作を1リクエストでまとめられるため、実装はむしろシンプルになる可能性あり
 
 3. **コラボレーション**
    - 共有リンク生成
