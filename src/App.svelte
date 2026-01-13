@@ -1138,7 +1138,17 @@
     const currentPaneWorld = pane === 'left' ? $leftWorld : $rightWorld
     if (world === currentPaneWorld) return
 
-    // アーカイブに切り替える場合、未ロードならPull
+    // 先にワールドを切り替え（ペインごとに独立）
+    if (pane === 'left') {
+      leftWorld.set(world)
+    } else {
+      rightWorld.set(world)
+    }
+    // ホームに戻る
+    goHome(pane)
+    refreshBreadcrumbs()
+
+    // アーカイブに切り替える場合、未ロードならPull（バックグラウンドで実行）
     if (world === 'archive' && !$isArchiveLoaded) {
       // トークンが設定されている場合のみPullを試行
       if ($settings.token && $settings.repoName) {
@@ -1156,7 +1166,6 @@
             // アーカイブPull完了時にスナップショットを更新
             setLastPushedSnapshot(get(notes), get(leaves), result.notes, result.leaves)
           } else {
-            // Pull失敗してもアーカイブに切り替えは許可（空のアーカイブを表示）
             showPullToast(translateGitHubMessage(result.message, $_, result.rateLimitInfo), 'error')
           }
         } catch (e) {
@@ -1166,18 +1175,7 @@
           isArchiveLoading = false
         }
       }
-      // トークンがなくてもアーカイブに切り替えは許可（空のアーカイブを表示）
     }
-
-    // ワールドを切り替え（ペインごとに独立）
-    if (pane === 'left') {
-      leftWorld.set(world)
-    } else {
-      rightWorld.set(world)
-    }
-    // ホームに戻る
-    goHome(pane)
-    refreshBreadcrumbs()
   }
 
   async function archiveNote(pane: Pane) {
