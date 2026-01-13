@@ -15,15 +15,26 @@ export interface ToastState {
 export type ModalPosition = 'center' | 'bottom-left' | 'bottom-right'
 
 /**
+ * 選択肢ダイアログのオプション
+ */
+export interface ChoiceOption {
+  label: string
+  value: string
+  variant?: 'primary' | 'secondary' | 'cancel'
+}
+
+/**
  * モーダルの状態
  */
 export interface ModalState {
   show: boolean
   message: string
-  type: 'confirm' | 'alert' | 'prompt'
+  type: 'confirm' | 'alert' | 'prompt' | 'choice'
   callback: (() => void) | null
   cancelCallback?: (() => void) | null
   promptCallback?: ((value: string) => void) | null
+  choiceCallback?: ((value: string) => void) | null
+  choiceOptions?: ChoiceOption[]
   placeholder?: string
   position: ModalPosition
 }
@@ -211,6 +222,29 @@ export function promptAsync(
 }
 
 /**
+ * 選択肢ダイアログを表示（Promise版）
+ * @returns 選択された値、背景クリックなどで閉じた場合はnull
+ */
+export function choiceAsync(
+  message: string,
+  options: ChoiceOption[],
+  position: ModalPosition = 'center'
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    modalState.set({
+      show: true,
+      message,
+      type: 'choice',
+      callback: null,
+      choiceCallback: (value) => resolve(value),
+      cancelCallback: () => resolve(null),
+      choiceOptions: options,
+      position,
+    })
+  })
+}
+
+/**
  * モーダルを閉じる
  */
 export function closeModal() {
@@ -220,6 +254,8 @@ export function closeModal() {
     type: 'confirm',
     callback: null,
     promptCallback: null,
+    choiceCallback: null,
+    choiceOptions: undefined,
     placeholder: '',
     position: 'center',
   })

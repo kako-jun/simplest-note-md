@@ -20,6 +20,8 @@ A local-only leaf completely independent from GitHub sync.
 
 ---
 
-## How to Create
+## How to Use
 
 An "Offline" leaf is always displayed on the home screen.
+
+Click the "ⓘ" icon next to the card name to open this help page.

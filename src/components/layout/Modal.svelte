@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from '../../lib/i18n'
   import type { ModalType } from '../../lib/types'
-  import type { ModalPosition } from '../../lib/ui'
+  import type { ModalPosition, ChoiceOption } from '../../lib/ui'
 
   export let show: boolean
   export let message: string
@@ -10,6 +10,8 @@
   export let onConfirm: (() => void) | null
   export let onCancel: (() => void) | null = null
   export let onPromptSubmit: ((value: string) => void) | null = null
+  export let onChoiceSelect: ((value: string) => void) | null = null
+  export let choiceOptions: ChoiceOption[] = []
   export let placeholder: string = ''
   export let onClose: () => void
 
@@ -48,6 +50,13 @@
     const value = inputValue.trim()
     if (value && onPromptSubmit) {
       onPromptSubmit(value)
+    }
+    onClose()
+  }
+
+  function handleChoiceSelect(value: string) {
+    if (onChoiceSelect) {
+      onChoiceSelect(value)
     }
     onClose()
   }
@@ -105,6 +114,19 @@
           <button class="primary" on:click={handlePromptSubmit} disabled={!inputValue.trim()}
             >{$_('common.ok')}</button
           >
+        {:else if type === 'choice'}
+          {#each choiceOptions as option}
+            <button
+              class={option.variant === 'primary'
+                ? 'primary'
+                : option.variant === 'cancel'
+                  ? 'cancel'
+                  : 'secondary'}
+              on:click={() => handleChoiceSelect(option.value)}
+            >
+              {option.label}
+            </button>
+          {/each}
         {:else}
           <button class="primary" on:click={handleConfirm}>{$_('common.ok')}</button>
         {/if}
@@ -185,6 +207,11 @@
   .modal-buttons button.secondary {
     background: var(--surface-1);
     color: var(--text);
+  }
+
+  .modal-buttons button.cancel {
+    background: var(--surface-1);
+    color: var(--text-secondary);
   }
 
   .modal-buttons button:disabled {

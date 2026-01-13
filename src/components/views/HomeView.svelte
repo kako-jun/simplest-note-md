@@ -1,10 +1,11 @@
 <script lang="ts">
   import { afterUpdate } from 'svelte'
-  import { _ } from '../../lib/i18n'
+  import { _, locale } from '../../lib/i18n'
   import type { Note, Leaf } from '../../lib/types'
   import { dirtyNoteIds, dirtyLeafIds } from '../../lib/stores'
   import NoteCard from '../cards/NoteCard.svelte'
   import BadgeButton from '../badges/BadgeButton.svelte'
+  import HelpIcon from '../icons/HelpIcon.svelte'
 
   export let notes: Note[]
   export let allLeaves: Leaf[] = []
@@ -102,6 +103,13 @@
     const { chars, lines } = getLeafStats(content)
     return `${formatNumber(chars)} chars · ${formatNumber(lines)} lines`
   }
+
+  // ユーザーガイドのURL生成
+  const USER_GUIDE_BASE = 'https://github.com/kako-jun/agasteer/blob/main/docs/user-guide'
+  function getHelpUrl(page: 'offline' | 'priority'): string {
+    const lang = $locale?.startsWith('ja') ? 'ja' : 'en'
+    return `${USER_GUIDE_BASE}/${lang}/power/${page}.md`
+  }
 </script>
 
 <section class="view-container">
@@ -122,7 +130,20 @@
           color={offlineLeaf.badgeColor || ''}
           onChange={(icon, color) => onUpdateOfflineBadge(icon, color)}
         />
-        <strong class="text-ellipsis">{offlineLeaf.title}</strong>
+        <div class="leaf-title-row">
+          <strong class="text-ellipsis">{offlineLeaf.title}</strong>
+          <a
+            class="help-link"
+            href={getHelpUrl('offline')}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={$_('header.help')}
+            aria-label={$_('header.help')}
+            on:click|stopPropagation
+          >
+            <HelpIcon />
+          </a>
+        </div>
         <div class="card-meta">
           {#if offlineLeaf.content}
             <small class="leaf-stats">
@@ -156,7 +177,20 @@
           color={priorityLeaf.badgeColor || ''}
           onChange={(icon, color) => onUpdatePriorityBadge(icon, color)}
         />
-        <strong class="text-ellipsis">{priorityLeaf.title}</strong>
+        <div class="leaf-title-row">
+          <strong class="text-ellipsis">{priorityLeaf.title}</strong>
+          <a
+            class="help-link"
+            href={getHelpUrl('priority')}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={$_('header.help')}
+            aria-label={$_('header.help')}
+            on:click|stopPropagation
+          >
+            <HelpIcon />
+          </a>
+        </div>
         <div class="card-meta">
           {#if priorityLeaf.content}
             <small class="leaf-stats">
@@ -260,6 +294,25 @@
     max-height: 120px;
   }
 
+  .leaf-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .leaf-title-row strong {
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+    max-height: 2.6em;
+  }
+
   .leaf-card strong {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -270,6 +323,34 @@
     line-height: 1.3;
     max-height: 2.6em;
     margin-bottom: 0.5rem;
+  }
+
+  .help-link {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0.6;
+    transition:
+      opacity 0.2s,
+      color 0.2s;
+  }
+
+  .help-link:hover {
+    opacity: 1;
+    color: var(--accent);
+  }
+
+  .help-link :global(svg) {
+    width: 14px;
+    height: 14px;
   }
 
   .leaf-card:hover {

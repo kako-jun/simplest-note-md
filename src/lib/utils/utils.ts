@@ -4,13 +4,14 @@
 
 /**
  * 重複しないユニークな名前を生成
+ * 形式: {baseName}_{counter} (例: Note_1, メモ_2)
  */
 export function generateUniqueName(baseName: string, existingNames: string[]): string {
   let counter = 1
-  let name = `${baseName}${counter}`
+  let name = `${baseName}_${counter}`
   while (existingNames.includes(name)) {
     counter++
-    name = `${baseName}${counter}`
+    name = `${baseName}_${counter}`
   }
   return name
 }

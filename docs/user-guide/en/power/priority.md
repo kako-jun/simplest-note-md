@@ -34,6 +34,7 @@ A "Priority" leaf appears at the top of the home screen.
 - Sorted by priority (numbers ascending)
 - Same priority: sorted by note order, then leaf order
 - Opens in preview mode when clicked (read-only)
+- Click the "ⓘ" icon next to the card name to open this help page
 
 ---
 

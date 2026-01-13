@@ -181,7 +181,6 @@ export interface ImportResult {
 }
 
 export interface ImportOptions {
-  existingNoteNames: string[]
   existingNotesCount: number
   existingLeavesMaxOrder: number
   translate: (key: string, options?: { values?: Record<string, any> }) => string
@@ -199,17 +198,11 @@ export async function processImportFile(
     return { success: false, error: 'unsupportedFile' }
   }
 
-  const { existingNoteNames, existingNotesCount, existingLeavesMaxOrder, translate } = options
+  const { existingNotesCount, existingLeavesMaxOrder, translate } = options
 
-  // ユニークなノート名を生成
-  const baseName = 'SimpleNote'
-  const existingSet = new Set(existingNoteNames)
-  let noteName = `${baseName}1`
-  let suffix = 1
-  while (existingSet.has(noteName)) {
-    suffix += 1
-    noteName = `${baseName}${suffix}`
-  }
+  // ノート名を生成（重複チェックは呼び出し元で行う）
+  // 新しい命名規則: SimpleNote_1
+  const noteName = 'SimpleNote_1'
 
   const noteId = crypto.randomUUID()
   const noteOrder = existingNotesCount

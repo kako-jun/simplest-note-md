@@ -101,6 +101,7 @@
     alertAsync,
     confirmAsync,
     promptAsync,
+    choiceAsync,
     showPrompt,
     closeModal,
   } from './lib/ui'
@@ -1154,10 +1155,26 @@
 
     // 同じ階層で同じ名前のノートがあるかチェック
     const siblingsInTarget = currentTargetNotes.filter((n) => n.parentId === targetParentId)
-    const hasDuplicate = siblingsInTarget.some((n) => n.name === noteToMove.name)
+    const existingNote = siblingsInTarget.find((n) => n.name === noteToMove.name)
+    const hasDuplicate = !!existingNote
+
+    let mergeIntoExisting = false
     if (hasDuplicate) {
-      await alertAsync($_('modal.duplicateNoteDestination'))
-      return
+      // 重複がある場合は確認ダイアログを表示
+      const choice = await choiceAsync($_('modal.duplicateChoiceMessage'), [
+        { label: $_('common.cancel'), value: 'cancel', variant: 'cancel' },
+        { label: $_('modal.duplicateChoiceSkip'), value: 'skip', variant: 'secondary' },
+        { label: $_('modal.duplicateChoiceAdd'), value: 'add', variant: 'primary' },
+      ])
+
+      if (choice === 'cancel' || choice === null) {
+        return
+      }
+      if (choice === 'skip') {
+        return
+      }
+      // choice === 'add': 既存ノートにマージ
+      mergeIntoExisting = true
     }
 
     // ノートとその子ノート、リーフを収集
@@ -1170,15 +1187,59 @@
     const newSourceNotes = sourceNotes.filter((n) => !noteIds.has(n.id))
     const newSourceLeaves = sourceLeaves.filter((l) => !noteIds.has(l.noteId))
 
-    // ターゲットに追加（階層を保持してparentIdを更新）
-    const targetSiblings = currentTargetNotes.filter((n) => n.parentId === targetParentId)
-    const maxOrder = Math.max(0, ...targetSiblings.map((n) => n.order))
-    const movedNote: Note = { ...noteToMove, parentId: targetParentId, order: maxOrder + 1 }
-    // 子ノートはparentIdを維持（移動するノートのIDは変わらないので）
-    const movedChildNotes = childNotes.map((n) => ({ ...n }))
-    const newTargetNotes = [...currentTargetNotes, movedNote, ...movedChildNotes]
+    // ターゲットに追加
     const targetLeaves = targetWorld === 'home' ? $leaves : (freshArchiveLeaves ?? $archiveLeaves)
-    const newTargetLeaves = [...targetLeaves, ...leavesToMove]
+    let newTargetNotes: Note[]
+    let newTargetLeaves: Leaf[]
+
+    if (mergeIntoExisting && existingNote) {
+      // 既存ノートにマージする場合
+      // メインノートのリーフは既存ノートに追加（重複はリネーム）
+      const existingLeafTitles = targetLeaves
+        .filter((l) => l.noteId === existingNote.id)
+        .map((l) => l.title)
+      const mainNoteLeaves = leavesToMove.filter((l) => l.noteId === noteToMove.id)
+      const childNoteLeaves = leavesToMove.filter((l) => l.noteId !== noteToMove.id)
+
+      const updatedExistingLeafTitles = [...existingLeafTitles]
+      const mergedMainLeaves = mainNoteLeaves.map((l) => {
+        if (updatedExistingLeafTitles.includes(l.title)) {
+          const newTitle = generateUniqueName(l.title, updatedExistingLeafTitles)
+          updatedExistingLeafTitles.push(newTitle)
+          return { ...l, noteId: existingNote.id, title: newTitle }
+        }
+        updatedExistingLeafTitles.push(l.title)
+        return { ...l, noteId: existingNote.id }
+      })
+
+      // 子ノートは既存ノートの子として追加（重複はリネーム）
+      const existingChildNoteNames = currentTargetNotes
+        .filter((n) => n.parentId === existingNote.id)
+        .map((n) => n.name)
+      const updatedChildNoteNames = [...existingChildNoteNames]
+      const reparentedChildNotes = childNotes.map((n) => {
+        if (updatedChildNoteNames.includes(n.name)) {
+          const newName = generateUniqueName(n.name, updatedChildNoteNames)
+          updatedChildNoteNames.push(newName)
+          return { ...n, parentId: existingNote.id, name: newName }
+        }
+        updatedChildNoteNames.push(n.name)
+        return { ...n, parentId: existingNote.id }
+      })
+
+      // 子ノートのリーフはそのまま（noteIdは変わらない）
+      newTargetNotes = [...currentTargetNotes, ...reparentedChildNotes]
+      newTargetLeaves = [...targetLeaves, ...mergedMainLeaves, ...childNoteLeaves]
+    } else {
+      // 通常の移動（重複なし）
+      const targetSiblings = currentTargetNotes.filter((n) => n.parentId === targetParentId)
+      const maxOrder = Math.max(0, ...targetSiblings.map((n) => n.order))
+      const movedNote: Note = { ...noteToMove, parentId: targetParentId, order: maxOrder + 1 }
+      // 子ノートはparentIdを維持（移動するノートのIDは変わらないので）
+      const movedChildNotes = childNotes.map((n) => ({ ...n }))
+      newTargetNotes = [...currentTargetNotes, movedNote, ...movedChildNotes]
+      newTargetLeaves = [...targetLeaves, ...leavesToMove]
+    }
 
     // ストアを更新
     if (sourceWorld === 'home') {
@@ -1348,9 +1409,26 @@
 
     // 同じ名前のリーフがあるかチェック
     const targetLeavesInNote = targetLeaves.filter((l) => l.noteId === targetNote!.id)
-    if (targetLeavesInNote.some((l) => l.title === leaf.title)) {
-      await alertAsync($_('modal.duplicateLeafDestination'))
-      return
+    const existingTitles = targetLeavesInNote.map((l) => l.title)
+    const hasDuplicate = existingTitles.includes(leaf.title)
+
+    let finalTitle = leaf.title
+    if (hasDuplicate) {
+      // 重複がある場合は確認ダイアログを表示
+      const choice = await choiceAsync($_('modal.duplicateChoiceMessage'), [
+        { label: $_('common.cancel'), value: 'cancel', variant: 'cancel' },
+        { label: $_('modal.duplicateChoiceSkip'), value: 'skip', variant: 'secondary' },
+        { label: $_('modal.duplicateChoiceAdd'), value: 'add', variant: 'primary' },
+      ])
+
+      if (choice === 'cancel' || choice === null) {
+        return
+      }
+      if (choice === 'skip') {
+        return
+      }
+      // choice === 'add': リネームして追加
+      finalTitle = generateUniqueName(leaf.title, existingTitles)
     }
 
     // ソースから削除
@@ -1358,7 +1436,12 @@
 
     // ターゲットに追加
     const maxOrder = Math.max(0, ...targetLeavesInNote.map((l) => l.order))
-    const movedLeaf: Leaf = { ...leaf, noteId: targetNote.id, order: maxOrder + 1 }
+    const movedLeaf: Leaf = {
+      ...leaf,
+      title: finalTitle,
+      noteId: targetNote.id,
+      order: maxOrder + 1,
+    }
     const newTargetLeaves = [...targetLeaves.filter((l) => l.id !== leaf.id), movedLeaf]
 
     // ストアを更新
@@ -2414,8 +2497,8 @@
         const allNotes = get(notes)
         const allLeaves = get(leaves)
 
+        // まずファイルをパースして重複チェック
         const result = await processImportFile(file, {
-          existingNoteNames: allNotes.map((n) => n.name),
           existingNotesCount: allNotes.length ? Math.max(...allNotes.map((n) => n.order)) + 1 : 0,
           existingLeavesMaxOrder: allLeaves.length
             ? Math.max(...allLeaves.map((l) => l.order))
@@ -2429,8 +2512,57 @@
         }
 
         const { newNote, reportLeaf, importedLeaves, errors } = result.result
-        updateNotes([...allNotes, newNote])
-        updateLeaves([...allLeaves, reportLeaf, ...importedLeaves])
+
+        // 同名のノートが存在するかチェック
+        const existingNote = allNotes.find((n) => n.name === newNote.name)
+        if (existingNote) {
+          // 重複がある場合は確認ダイアログを表示
+          const choice = await choiceAsync($_('modal.duplicateChoiceMessage'), [
+            { label: $_('common.cancel'), value: 'cancel', variant: 'cancel' },
+            { label: $_('modal.duplicateChoiceSkip'), value: 'skip', variant: 'secondary' },
+            { label: $_('modal.duplicateChoiceAdd'), value: 'add', variant: 'primary' },
+          ])
+
+          if (choice === 'cancel' || choice === null) {
+            return
+          }
+          if (choice === 'skip') {
+            showPushToast($_('settings.importExport.importSkipped'), 'success')
+            return
+          }
+
+          // choice === 'add': 既存ノートにリーフを追加
+          const existingLeafTitles = allLeaves
+            .filter((l) => l.noteId === existingNote.id)
+            .map((l) => l.title)
+
+          // レポートリーフと各インポートリーフのnoteIdを既存ノートに変更、重複はリネーム
+          const mergedReportLeaf = {
+            ...reportLeaf,
+            noteId: existingNote.id,
+            title: existingLeafTitles.includes(reportLeaf.title)
+              ? generateUniqueName(reportLeaf.title, existingLeafTitles)
+              : reportLeaf.title,
+          }
+
+          const updatedExistingTitles = [...existingLeafTitles, mergedReportLeaf.title]
+          const mergedLeaves = importedLeaves.map((l) => {
+            if (updatedExistingTitles.includes(l.title)) {
+              const newTitle = generateUniqueName(l.title, updatedExistingTitles)
+              updatedExistingTitles.push(newTitle)
+              return { ...l, noteId: existingNote.id, title: newTitle }
+            }
+            updatedExistingTitles.push(l.title)
+            return { ...l, noteId: existingNote.id }
+          })
+
+          // 既存ノートにリーフを追加（ノート自体は作成しない）
+          updateLeaves([...allLeaves, mergedReportLeaf, ...mergedLeaves])
+        } else {
+          // 重複なし：新規ノートを作成
+          updateNotes([...allNotes, newNote])
+          updateLeaves([...allLeaves, reportLeaf, ...importedLeaves])
+        }
 
         if (errors?.length) console.warn('Import skipped items:', errors)
         importOccurredInSettings = true
@@ -3059,6 +3191,8 @@
       onConfirm={$modalState.callback}
       onCancel={$modalState.cancelCallback}
       onPromptSubmit={$modalState.promptCallback}
+      onChoiceSelect={$modalState.choiceCallback}
+      choiceOptions={$modalState.choiceOptions || []}
       placeholder={$modalState.placeholder || ''}
       onClose={closeModal}
     />

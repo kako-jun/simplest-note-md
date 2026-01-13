@@ -86,7 +86,7 @@ export interface Breadcrumb {
   siblings?: BreadcrumbSibling[]
 }
 
-export type ModalType = 'confirm' | 'alert' | 'prompt'
+export type ModalType = 'confirm' | 'alert' | 'prompt' | 'choice'
 
 export interface ModalState {
   show: boolean
