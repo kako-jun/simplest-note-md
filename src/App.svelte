@@ -1604,9 +1604,25 @@
   }
 
   function closeLeaf(pane: Pane) {
-    const state = getNavState()
-    nav.closeLeaf(state, getNavDeps(), pane)
-    syncNavState(state)
+    const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
+    if (!leaf) return
+
+    // ペインのワールドに応じたノートを取得
+    const paneNotes = getNotesForPane(pane)
+    const parentNote = paneNotes.find((n) => n.id === leaf.noteId)
+
+    if (parentNote) {
+      // リーフから親ノートに戻る
+      if (pane === 'left') {
+        $leftNote = parentNote
+        $leftLeaf = leaf
+        $leftView = 'note'
+      } else {
+        $rightNote = parentNote
+        $rightLeaf = leaf
+        $rightView = 'note'
+      }
+    }
   }
 
   function switchPane(pane: Pane) {
@@ -1626,23 +1642,53 @@
     updateUrlFromState()
   }
 
-  // スワイプナビゲーション
+  // スワイプナビゲーション（ペインのワールドに対応）
   function goToNextSibling(pane: Pane): boolean {
-    const state = getNavState()
-    const result = nav.goToNextSibling(state, getNavDeps(), pane)
-    if (result) {
-      syncNavState(state)
-    }
-    return result
+    const view = pane === 'left' ? $leftView : $rightView
+    const currentNote = pane === 'left' ? $leftNote : $rightNote
+
+    // ノートビューでのみ有効
+    if (view !== 'note' || !currentNote) return false
+
+    // ペインのワールドに応じたノートを取得
+    const paneNotes = getNotesForPane(pane)
+
+    // 同じ親を持つノート（兄弟ノート）を取得
+    const siblings = paneNotes
+      .filter((n) => n.parentId === currentNote.parentId)
+      .sort((a, b) => a.order - b.order)
+
+    const currentIndex = siblings.findIndex((n) => n.id === currentNote.id)
+    if (currentIndex === -1 || currentIndex >= siblings.length - 1) return false
+
+    // 次のノートに移動
+    const nextNote = siblings[currentIndex + 1]
+    selectNote(nextNote, pane)
+    return true
   }
 
   function goToPrevSibling(pane: Pane): boolean {
-    const state = getNavState()
-    const result = nav.goToPrevSibling(state, getNavDeps(), pane)
-    if (result) {
-      syncNavState(state)
-    }
-    return result
+    const view = pane === 'left' ? $leftView : $rightView
+    const currentNote = pane === 'left' ? $leftNote : $rightNote
+
+    // ノートビューでのみ有効
+    if (view !== 'note' || !currentNote) return false
+
+    // ペインのワールドに応じたノートを取得
+    const paneNotes = getNotesForPane(pane)
+
+    // 同じ親を持つノート（兄弟ノート）を取得
+    const siblings = paneNotes
+      .filter((n) => n.parentId === currentNote.parentId)
+      .sort((a, b) => a.order - b.order)
+
+    const currentIndex = siblings.findIndex((n) => n.id === currentNote.id)
+    if (currentIndex <= 0) return false
+
+    // 前のノートに移動
+    const prevNote = siblings[currentIndex - 1]
+    selectNote(prevNote, pane)
+    return true
   }
 
   // パンくずリストからの兄弟選択
@@ -1700,6 +1746,109 @@
     selectedIndexLeft = selectedIndexRight
   }
 
+  // キーボードナビゲーション用ヘルパー（ペインのワールドに対応）
+  function getCurrentItemsForPane(pane: Pane): (Note | Leaf)[] {
+    const view = pane === 'left' ? $leftView : $rightView
+    const note = pane === 'left' ? $leftNote : $rightNote
+    const paneNotes = getNotesForPane(pane)
+    const paneLeaves = getLeavesForPane(pane)
+
+    if (view === 'home') {
+      // ルートノートを返す
+      return paneNotes.filter((n) => !n.parentId).sort((a, b) => a.order - b.order)
+    } else if (view === 'note' && note) {
+      // サブノートとリーフを結合
+      const subNotes = paneNotes
+        .filter((n) => n.parentId === note.id)
+        .sort((a, b) => a.order - b.order)
+      const noteLeaves = paneLeaves
+        .filter((l) => l.noteId === note.id)
+        .sort((a, b) => a.order - b.order)
+      return [...subNotes, ...noteLeaves]
+    }
+    return []
+  }
+
+  function navigateGridForPane(direction: 'up' | 'down' | 'left' | 'right') {
+    const pane = $focusedPane
+    const items = getCurrentItemsForPane(pane)
+    const currentIndex = pane === 'left' ? selectedIndexLeft : selectedIndexRight
+
+    if (items.length === 0) return
+
+    const gridColumns = nav.calculateGridColumns()
+    let newIndex = currentIndex
+
+    switch (direction) {
+      case 'up':
+        newIndex = Math.max(0, currentIndex - gridColumns)
+        break
+      case 'down':
+        newIndex = Math.min(items.length - 1, currentIndex + gridColumns)
+        break
+      case 'left':
+        if (currentIndex % gridColumns !== 0) {
+          newIndex = Math.max(0, currentIndex - 1)
+        }
+        break
+      case 'right':
+        if ((currentIndex + 1) % gridColumns !== 0 && currentIndex < items.length - 1) {
+          newIndex = Math.min(items.length - 1, currentIndex + 1)
+        }
+        break
+    }
+
+    if (pane === 'left') {
+      selectedIndexLeft = newIndex
+    } else {
+      selectedIndexRight = newIndex
+    }
+  }
+
+  function openSelectedItemForPane() {
+    const pane = $focusedPane
+    const items = getCurrentItemsForPane(pane)
+    const index = pane === 'left' ? selectedIndexLeft : selectedIndexRight
+
+    if (index < 0 || index >= items.length) return
+
+    const item = items[index]
+    if ('noteId' in item) {
+      selectLeaf(item as Leaf, pane)
+    } else {
+      selectNote(item as Note, pane)
+    }
+  }
+
+  function goBackToParentForPane() {
+    const pane = $focusedPane
+    const view = pane === 'left' ? $leftView : $rightView
+    const note = pane === 'left' ? $leftNote : $rightNote
+
+    if (view === 'note' && note) {
+      const paneNotes = getNotesForPane(pane)
+      const parentNote = paneNotes.find((n) => n.id === note.parentId)
+
+      if (parentNote) {
+        // 親ノートに移動
+        selectNote(parentNote, pane)
+
+        // 元のノートを選択状態にする
+        const items = getCurrentItemsForPane(pane)
+        const targetIndex = items.findIndex((item) => 'name' in item && item.id === note.id)
+        if (targetIndex !== -1) {
+          if (pane === 'left') {
+            selectedIndexLeft = targetIndex
+          } else {
+            selectedIndexRight = targetIndex
+          }
+        }
+      } else {
+        goHome(pane)
+      }
+    }
+  }
+
   // キーボードナビゲーション
   function handleGlobalKeyDown(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
@@ -1710,15 +1859,9 @@
     const state = getNavState()
     nav.handleGlobalKeyDown(state, getNavDeps(), e, {
       onSwitchPane: (pane) => switchPane(pane),
-      onNavigateGrid: (direction) => {
-        nav.navigateGrid(state, getNavDeps(), direction)
-        syncNavState(state)
-      },
-      onOpenSelectedItem: () => nav.openSelectedItem(state, getNavDeps(), selectLeaf, selectNote),
-      onGoBackToParent: () => {
-        nav.goBackToParent(state, getNavDeps())
-        syncNavState(state)
-      },
+      onNavigateGrid: (direction) => navigateGridForPane(direction),
+      onOpenSelectedItem: () => openSelectedItemForPane(),
+      onGoBackToParent: () => goBackToParentForPane(),
     })
   }
 
