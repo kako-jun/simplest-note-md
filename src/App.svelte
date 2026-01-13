@@ -34,6 +34,7 @@
     isPushing,
     focusedPane,
     leafStatsStore,
+    archiveLeafStatsStore,
     dragStore,
     moveModalStore,
     pullProgressStore,
@@ -199,8 +200,15 @@
   let isArchiveLoading = false // アーカイブをロード中
 
   // leafStatsStoreとmoveModalStoreへのリアクティブアクセス
-  $: totalLeafCount = $leafStatsStore.totalLeafCount
-  $: totalLeafChars = $leafStatsStore.totalLeafChars
+  // 左ペインのワールドとビューに応じて統計を切り替え
+  $: totalLeafCount =
+    $leftWorld === 'archive' && $leftView === 'home'
+      ? $archiveLeafStatsStore.totalLeafCount
+      : $leafStatsStore.totalLeafCount
+  $: totalLeafChars =
+    $leftWorld === 'archive' && $leftView === 'home'
+      ? $archiveLeafStatsStore.totalLeafChars
+      : $leafStatsStore.totalLeafChars
   $: moveModalOpen = $moveModalStore.isOpen
   $: moveTargetLeaf = $moveModalStore.targetLeaf
   $: moveTargetNote = $moveModalStore.targetNote
@@ -534,8 +542,11 @@
     const needsArchive = leftWorldInfo.world === 'archive' || rightWorldInfo.world === 'archive'
     if (needsArchive && !$isArchiveLoaded && $settings.token && $settings.repoName) {
       isArchiveLoading = true
+      archiveLeafStatsStore.reset()
       try {
-        const result = await pullArchive($settings)
+        const result = await pullArchive($settings, {
+          onLeafFetched: (leaf) => archiveLeafStatsStore.addLeaf(leaf.id, leaf.content),
+        })
         if (result.success) {
           archiveNotes.set(result.notes)
           archiveLeaves.set(result.leaves)
@@ -1132,8 +1143,11 @@
       // トークンが設定されている場合のみPullを試行
       if ($settings.token && $settings.repoName) {
         isArchiveLoading = true
+        archiveLeafStatsStore.reset()
         try {
-          const result = await pullArchive($settings)
+          const result = await pullArchive($settings, {
+            onLeafFetched: (leaf) => archiveLeafStatsStore.addLeaf(leaf.id, leaf.content),
+          })
           if (result.success) {
             archiveNotes.set(result.notes)
             archiveLeaves.set(result.leaves)
@@ -1225,8 +1239,11 @@
     if (targetWorld === 'archive' && !$isArchiveLoaded) {
       if ($settings.token && $settings.repoName) {
         isArchiveLoading = true
+        archiveLeafStatsStore.reset()
         try {
-          const result = await pullArchive($settings)
+          const result = await pullArchive($settings, {
+            onLeafFetched: (leaf) => archiveLeafStatsStore.addLeaf(leaf.id, leaf.content),
+          })
           if (result.success) {
             archiveNotes.set(result.notes)
             archiveLeaves.set(result.leaves)
@@ -1468,8 +1485,11 @@
     if (targetWorld === 'archive' && !$isArchiveLoaded) {
       if ($settings.token && $settings.repoName) {
         isArchiveLoading = true
+        archiveLeafStatsStore.reset()
         try {
-          const result = await pullArchive($settings)
+          const result = await pullArchive($settings, {
+            onLeafFetched: (leaf) => archiveLeafStatsStore.addLeaf(leaf.id, leaf.content),
+          })
           if (result.success) {
             archiveNotes.set(result.notes)
             archiveLeaves.set(result.leaves)

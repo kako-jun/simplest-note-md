@@ -1489,12 +1489,23 @@ export interface ArchivePullResult {
 }
 
 /**
+ * アーカイブPullオプション
+ */
+export interface ArchivePullOptions {
+  /** 進捗報告コールバック: リーフ取得完了時に呼び出し（統計更新用） */
+  onLeafFetched?: (leaf: Leaf) => void
+}
+
+/**
  * GitHubからアーカイブをPull（遅延ローディング用）
  *
  * Homeとは別にアーカイブのみを取得する。
  * ユーザーがArchiveビューに切り替えた時に呼び出される。
  */
-export async function pullArchive(settings: Settings): Promise<ArchivePullResult> {
+export async function pullArchive(
+  settings: Settings,
+  options: ArchivePullOptions = {}
+): Promise<ArchivePullResult> {
   const defaultMetadata: Metadata = { version: 1, notes: {}, leaves: {}, pushCount: 0 }
 
   const validation = validateGitHubSettings(settings)
@@ -1753,6 +1764,9 @@ export async function pullArchive(settings: Settings): Promise<ArchivePullResult
           badgeIcon: target.leafMeta.badgeIcon,
           badgeColor: target.leafMeta.badgeColor,
         }
+
+        // 進捗報告
+        options.onLeafFetched?.(leaf)
 
         return leaf
       }

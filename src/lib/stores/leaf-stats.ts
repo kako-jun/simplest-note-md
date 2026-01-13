@@ -120,3 +120,8 @@ function createLeafStatsStore() {
 }
 
 export const leafStatsStore = createLeafStatsStore()
+
+// ============================================
+// アーカイブ用統計ストア
+// ============================================
+export const archiveLeafStatsStore = createLeafStatsStore()
