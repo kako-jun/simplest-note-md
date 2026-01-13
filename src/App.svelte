@@ -1009,57 +1009,57 @@
     refreshBreadcrumbs()
   }
 
-  function archiveNote(pane: Pane) {
+  async function archiveNote(pane: Pane) {
     const note = pane === 'left' ? $leftNote : $rightNote
     if (!note) return
 
     // 確認ダイアログ（左下に表示）
-    showConfirm(
+    const confirmed = await confirmAsync(
       $_('modal.archiveNote') || 'Archive this note?',
-      async () => {
-        await moveNoteToWorld(note, 'archive')
-      },
       'bottom-left'
     )
+    if (confirmed) {
+      await moveNoteToWorld(note, 'archive')
+    }
   }
 
-  function archiveLeaf(pane: Pane) {
+  async function archiveLeaf(pane: Pane) {
     const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
     if (!leaf) return
 
-    showConfirm(
+    const confirmed = await confirmAsync(
       $_('modal.archiveLeaf') || 'Archive this leaf?',
-      async () => {
-        await moveLeafToWorld(leaf, 'archive')
-      },
       'bottom-left'
     )
+    if (confirmed) {
+      await moveLeafToWorld(leaf, 'archive')
+    }
   }
 
-  function restoreNote(pane: Pane) {
+  async function restoreNote(pane: Pane) {
     const note = pane === 'left' ? $leftNote : $rightNote
     if (!note) return
 
-    showConfirm(
+    const confirmed = await confirmAsync(
       $_('modal.restoreNote') || 'Restore this note to Home?',
-      async () => {
-        await moveNoteToWorld(note, 'home')
-      },
       'bottom-left'
     )
+    if (confirmed) {
+      await moveNoteToWorld(note, 'home')
+    }
   }
 
-  function restoreLeaf(pane: Pane) {
+  async function restoreLeaf(pane: Pane) {
     const leaf = pane === 'left' ? $leftLeaf : $rightLeaf
     if (!leaf) return
 
-    showConfirm(
+    const confirmed = await confirmAsync(
       $_('modal.restoreLeaf') || 'Restore this leaf to Home?',
-      async () => {
-        await moveLeafToWorld(leaf, 'home')
-      },
       'bottom-left'
     )
+    if (confirmed) {
+      await moveLeafToWorld(leaf, 'home')
+    }
   }
 
   async function moveNoteToWorld(note: Note, targetWorld: WorldType) {
