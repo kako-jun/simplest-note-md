@@ -26,7 +26,7 @@
 
 <style>
   .lined-mode-field {
-    margin-top: 1.5rem;
+    margin-top: 0;
   }
 
   .checkbox-label {

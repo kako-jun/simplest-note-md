@@ -20,7 +20,7 @@
 
 <style>
   .export-section {
-    margin-top: 1.25rem;
+    margin-top: 0;
   }
 
   h3 {
