@@ -148,7 +148,7 @@
   import SearchBar from './components/layout/SearchBar.svelte'
   import SettingsModal from './components/layout/SettingsModal.svelte'
   import WelcomeModal from './components/layout/WelcomeModal.svelte'
-  import { toggleSearch } from './lib/utils'
+  import { toggleSearch, openExternalUrl } from './lib/utils'
   import PaneView from './components/layout/PaneView.svelte'
   import type { PaneActions, PaneState } from './lib/stores'
   import {
@@ -214,23 +214,12 @@
     }
   }
 
-  // ユーザーガイドを開く（PreviewViewと同じロジック）
+  // ユーザーガイドを開く
   const USER_GUIDE_BASE = 'https://github.com/kako-jun/agasteer/blob/main/docs/user-guide'
-  async function openUserGuide() {
+  function openUserGuide() {
     const lang = $locale?.startsWith('ja') ? 'ja' : 'en'
     const url = `${USER_GUIDE_BASE}/${lang}/index.md`
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ url })
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          console.error('共有に失敗しました:', error)
-        }
-      }
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer')
-    }
+    openExternalUrl(url)
   }
 
   // キーボードナビゲーション用の状態

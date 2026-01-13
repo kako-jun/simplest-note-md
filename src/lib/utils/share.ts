@@ -5,6 +5,24 @@ import type { Leaf } from '../types'
 import type { Pane } from '../navigation'
 import { showPushToast } from '../ui'
 
+/**
+ * 外部URLを開く（PWA対応）
+ * Web Share APIが使える場合は共有機能を使い、使えない場合は別タブで開く
+ */
+export async function openExternalUrl(url: string): Promise<void> {
+  if (navigator.share) {
+    try {
+      await navigator.share({ url })
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Failed to share:', error)
+      }
+    }
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
+
 export interface ShareHandlers {
   translate: (key: string) => string
   getLeaf: (pane: Pane) => Leaf | null

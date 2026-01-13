@@ -3,6 +3,7 @@
   import { _, locale } from '../../lib/i18n'
   import type { Note, Leaf } from '../../lib/types'
   import { dirtyNoteIds, dirtyLeafIds } from '../../lib/stores'
+  import { openExternalUrl } from '../../lib/utils'
   import NoteCard from '../cards/NoteCard.svelte'
   import BadgeButton from '../badges/BadgeButton.svelte'
   import HelpIcon from '../icons/HelpIcon.svelte'
@@ -104,28 +105,14 @@
     return `${formatNumber(chars)} chars · ${formatNumber(lines)} lines`
   }
 
-  // ユーザーガイドの特定ページを開く（PreviewViewと同じロジック）
+  // ユーザーガイドの特定ページを開く
   const USER_GUIDE_BASE = 'https://github.com/kako-jun/agasteer/blob/main/docs/user-guide'
-  async function openHelpPage(page: 'offline' | 'priority', event: Event) {
+  function openHelpPage(page: 'offline' | 'priority', event: Event) {
     event.preventDefault()
     event.stopPropagation() // カード選択を防ぐ
     const lang = $locale?.startsWith('ja') ? 'ja' : 'en'
     const url = `${USER_GUIDE_BASE}/${lang}/power/${page}.md`
-
-    // Web Share APIが使える場合は共有機能を使う
-    if (navigator.share) {
-      try {
-        await navigator.share({ url })
-      } catch (error) {
-        // ユーザーがキャンセルした場合など
-        if ((error as Error).name !== 'AbortError') {
-          console.error('共有に失敗しました:', error)
-        }
-      }
-    } else {
-      // Web Share APIが使えない場合は別タブで開く
-      window.open(url, '_blank', 'noopener,noreferrer')
-    }
+    openExternalUrl(url)
   }
 </script>
 

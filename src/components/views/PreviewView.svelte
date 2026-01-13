@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import type { Leaf } from '../../lib/types'
+  import { openExternalUrl } from '../../lib/utils'
 
   export let leaf: Leaf
   export let onScroll: ((scrollTop: number, scrollHeight: number) => void) | null = null
@@ -211,23 +212,7 @@
     // 外部リンクの処理
     if (href.startsWith('http://') || href.startsWith('https://')) {
       event.preventDefault()
-
-      // Web Share APIが使える場合は共有機能を使う
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            url: href,
-          })
-        } catch (error) {
-          // ユーザーがキャンセルした場合など
-          if ((error as Error).name !== 'AbortError') {
-            console.error('共有に失敗しました:', error)
-          }
-        }
-      } else {
-        // Web Share APIが使えない場合は別タブで開く
-        window.open(href, '_blank', 'noopener,noreferrer')
-      }
+      openExternalUrl(href)
     }
   }
 

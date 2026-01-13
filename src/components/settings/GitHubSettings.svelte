@@ -1,6 +1,7 @@
 <script lang="ts">
   import { _, locale } from '../../lib/i18n'
   import type { Settings } from '../../lib/types'
+  import { openExternalUrl } from '../../lib/utils'
 
   export let settings: Settings
   export let onSettingsChange: (payload: Partial<Settings>) => void
@@ -15,21 +16,6 @@
     const value = (event.target as HTMLInputElement).value
     settings[key] = value
     onSettingsChange({ [key]: value } as Partial<Settings>)
-  }
-
-  // 外部URLを開く（PreviewViewと同じロジック）
-  async function openExternalUrl(url: string) {
-    if (navigator.share) {
-      try {
-        await navigator.share({ url })
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          console.error('共有に失敗しました:', error)
-        }
-      }
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer')
-    }
   }
 
   function openSetupGuide() {
