@@ -42,7 +42,7 @@ export function handleCopyUrl(pane: Pane, translate: (key: string) => string): v
       showPushToast(translate('share.urlCopied'), 'success')
     })
     .catch((err) => {
-      console.error('URLのコピーに失敗しました:', err)
+      console.error('Failed to copy URL:', err)
       showPushToast(translate('share.urlCopied'), 'error')
     })
 }
@@ -146,7 +146,7 @@ async function convertMarkdownToImageBlob(markdown: string): Promise<Blob | null
       })
     })
   } catch (error) {
-    console.error('Markdownの画像化に失敗しました:', error)
+    console.error('Failed to convert Markdown to image:', error)
     throw error
   }
 }
@@ -179,7 +179,7 @@ export async function handleCopyMarkdown(pane: Pane, handlers: ShareHandlers): P
         showPushToast(translate(messageKey), 'success')
       })
       .catch((err) => {
-        console.error('Markdownのコピーに失敗しました:', err)
+        console.error('Failed to copy Markdown:', err)
         showPushToast(translate(messageKey), 'error')
       })
   }
@@ -201,7 +201,7 @@ export async function handleCopyImageToClipboard(
     await previewView.copyImageToClipboard()
     showPushToast(translate('share.imageCopied'), 'success')
   } catch (error) {
-    console.error('画像のコピーに失敗しました:', error)
+    console.error('Failed to copy image:', error)
     showPushToast(translate('share.imageCopyFailed'), 'error')
   }
 }
@@ -226,7 +226,7 @@ export async function handleShareImage(pane: Pane, handlers: ShareHandlers): Pro
     } else if (error.name === 'AbortError') {
       // ユーザーが共有をキャンセルした場合は何もしない
     } else {
-      console.error('共有に失敗しました:', error)
+      console.error('Failed to share:', error)
       showPushToast(translate('share.shareFailed'), 'error')
     }
   }
@@ -282,7 +282,7 @@ export async function handleShareSelectionImage(
     if (error.name === 'AbortError') {
       // ユーザーが共有をキャンセルした場合は何もしない
     } else {
-      console.error('選択範囲の共有に失敗しました:', error)
+      console.error('Failed to share selection:', error)
       showPushToast(translate('share.shareFailed'), 'error')
     }
   }

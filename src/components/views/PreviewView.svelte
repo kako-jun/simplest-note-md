@@ -111,7 +111,7 @@
         })
       })
     } catch (error) {
-      console.error('画像キャプチャに失敗しました:', error)
+      console.error('Failed to capture image:', error)
       throw error
     }
   }
@@ -131,7 +131,7 @@
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (error) {
-      console.error('画像ダウンロードに失敗しました:', error)
+      console.error('Failed to download image:', error)
       throw error
     }
   }
@@ -148,7 +148,7 @@
         }),
       ])
     } catch (error) {
-      console.error('クリップボードへのコピーに失敗しました:', error)
+      console.error('Failed to copy to clipboard:', error)
       throw error
     }
   }
@@ -177,7 +177,7 @@
         throw new Error('Cannot share this content')
       }
     } catch (error) {
-      console.error('共有に失敗しました:', error)
+      console.error('Failed to share:', error)
       throw error
     }
   }

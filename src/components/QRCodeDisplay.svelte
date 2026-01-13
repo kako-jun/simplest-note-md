@@ -62,7 +62,7 @@
         },
       })
     } catch (err) {
-      console.error('QRコード生成エラー:', err)
+      console.error('Failed to generate QR code:', err)
       qrDataUrl = null
     }
   }

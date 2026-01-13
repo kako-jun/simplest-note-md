@@ -2672,7 +2672,7 @@
         showPushToast($_('toast.imageDownloaded'), 'success')
       }
     } catch (error) {
-      console.error('画像ダウンロードに失敗しました:', error)
+      console.error('Failed to download image:', error)
       showPushToast($_('toast.imageDownloadFailed'), 'error')
     }
   }
