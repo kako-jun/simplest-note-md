@@ -1148,8 +1148,8 @@
     goHome(pane)
     refreshBreadcrumbs()
 
-    // アーカイブに切り替える場合、未ロードならPull（バックグラウンドで実行）
-    if (world === 'archive' && !$isArchiveLoaded) {
+    // アーカイブに切り替える場合、未ロード＆ロード中でなければPull（バックグラウンドで実行）
+    if (world === 'archive' && !$isArchiveLoaded && !isArchiveLoading) {
       // トークンが設定されている場合のみPullを試行
       if ($settings.token && $settings.repoName) {
         isArchiveLoading = true
