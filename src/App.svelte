@@ -160,7 +160,7 @@
   import SearchBar from './components/layout/SearchBar.svelte'
   import SettingsModal from './components/layout/SettingsModal.svelte'
   import WelcomeModal from './components/layout/WelcomeModal.svelte'
-  import { toggleSearch, openExternalUrl } from './lib/utils'
+  import { toggleSearch } from './lib/utils'
   import PaneView from './components/layout/PaneView.svelte'
   import type { PaneActions, PaneState } from './lib/stores'
   import {
@@ -240,7 +240,7 @@
   function openUserGuide() {
     const lang = $locale?.startsWith('ja') ? 'ja' : 'en'
     const url = `${USER_GUIDE_BASE}/${lang}/index.md`
-    openExternalUrl(url)
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   // キーボードナビゲーション用の状態
