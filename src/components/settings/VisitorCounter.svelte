@@ -53,5 +53,10 @@
     color: var(--text-muted);
     opacity: 0.6;
     font-variant-numeric: tabular-nums;
+    font-family: inherit;
+  }
+
+  .visitor-counter :global(nostalgic-counter) {
+    font-family: inherit;
   }
 </style>
