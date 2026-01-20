@@ -13,6 +13,7 @@
   --text: #1f2933;
   --accent: #c7a443;
   --error: #b42318;
+  --dirty-line: color-mix(in srgb, var(--accent) 80%, var(--text) 20%);
 
   /* derived */
   --selection: color-mix(in srgb, var(--accent) 35%, var(--bg) 65%);
@@ -32,6 +33,7 @@
   --text: #1f2937;
   --accent: #2f56c6;
   --error: #b42318;
+  --dirty-line: #2f56c6;
   --qr-filter: brightness(0) saturate(100%) invert(28%) sepia(97%) saturate(1103%)
     hue-rotate(211deg) brightness(89%) contrast(85%);
 }
@@ -41,6 +43,7 @@
   --text: #e6f0e7;
   --accent: #96d46a;
   --error: #ff9f9f;
+  --dirty-line: #96d46a;
   --qr-filter: brightness(0) saturate(100%) invert(75%) sepia(27%) saturate(578%) hue-rotate(55deg)
     brightness(101%) contrast(83%);
 }
@@ -50,6 +53,7 @@
   --text: #1f2933;
   --accent: #3b82f6;
   --error: #b42318;
+  --dirty-line: #3b82f6;
   --qr-filter: brightness(0) saturate(100%) invert(42%) sepia(97%) saturate(2089%)
     hue-rotate(210deg) brightness(100%) contrast(95%);
 }
@@ -59,6 +63,7 @@
   --text: #e2ecff;
   --accent: #666666;
   --error: #f472b6;
+  --dirty-line: #888888;
   --selection: #3a3a3a;
   --qr-filter: brightness(0) saturate(100%) invert(42%) sepia(0%) saturate(0%) hue-rotate(0deg)
     brightness(96%) contrast(89%);
@@ -69,6 +74,7 @@
   --text: #ffffff;
   --accent: #5ca8ff;
   --error: #ff6666;
+  --dirty-line: #5ca8ff;
   --qr-filter: brightness(0) saturate(100%) invert(59%) sepia(69%) saturate(1665%)
     hue-rotate(193deg) brightness(102%) contrast(101%);
 }
@@ -479,4 +485,16 @@ body {
     /* iOSのセーフエリアに対応 */
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
+}
+
+/* ダーティラインマーカー（変更行の左端に縦線） */
+.cm-dirty-gutter {
+  width: 3px;
+  margin-right: 2px;
+}
+
+.cm-dirty-line-marker {
+  width: 3px;
+  height: 100%;
+  background: var(--dirty-line);
 }

@@ -1,12 +1,16 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
+  import { get } from 'svelte/store'
   import type { ThemeType } from '../../lib/types'
   import type { Pane } from '../../lib/navigation'
+  import { createDirtyLineExtension } from '../../lib/editor/dirty-lines'
+  import { getLastPushedContent, dirtyLeafIds } from '../../lib/stores'
 
   export let content: string
   export let theme: ThemeType
   export let vimMode: boolean = false
   export let linedMode: boolean = false
+  export let leafId: string = ''
   export let pane: Pane
   export let onChange: (newContent: string) => void
   export let onPush: (() => void) | null = null
@@ -19,6 +23,7 @@
   let currentExtensions: any[] = []
   let isScrollingSynced = false // スクロール同期中フラグ（無限ループ防止）
   let isLoading = true // CodeMirrorローディング中フラグ
+  let dirtyLineCleanup: (() => void) | null = null // ダーティラインマーカーのクリーンアップ関数
 
   // モバイル判定（タッチデバイスかつ画面幅が小さい）
   function isMobileDevice(): boolean {
@@ -31,6 +36,8 @@
   // 動的インポート用の変数
   let EditorState: any
   let EditorView: any
+  let StateEffect: any
+  let StateField: any
   let keymap: any
   let defaultKeymap: any
   let history: any
@@ -47,6 +54,8 @@
   let highlightActiveLineGutter: any
   let rectangularSelection: any
   let crosshairCursor: any
+  let GutterMarker: any
+  let gutter: any
   let HighlightStyle: any
   let syntaxHighlighting: any
   let tags: any
@@ -108,7 +117,7 @@
   // CodeMirrorモジュールを動的ロード
   async function loadCodeMirror() {
     const [
-      { EditorState: ES },
+      { EditorState: ES, StateEffect: SE, StateField: SF },
       {
         EditorView: EV,
         keymap: km,
@@ -120,6 +129,8 @@
         highlightActiveLineGutter: halg,
         rectangularSelection: rs,
         crosshairCursor: cc,
+        GutterMarker: GM,
+        gutter: gt,
       },
       { defaultKeymap: dk, history: h, historyKeymap: hk },
       { markdown: md },
@@ -138,6 +149,8 @@
 
     EditorState = ES
     EditorView = EV
+    StateEffect = SE
+    StateField = SF
     keymap = km
     defaultKeymap = dk
     history = h
@@ -154,6 +167,8 @@
     highlightActiveLineGutter = halg
     rectangularSelection = rs
     crosshairCursor = cc
+    GutterMarker = GM
+    gutter = gt
     HighlightStyle = HS
     syntaxHighlighting = sh
     tags = (await import('@lezer/highlight')).tags
@@ -445,6 +460,24 @@
       extensions.push(mdHighlight)
     }
 
+    // ダーティラインマーカー（常に有効）
+    let updateDirtyLinesFn: ((view: any) => void) | null = null
+    if (leafId && StateEffect && StateField && GutterMarker && gutter) {
+      // 基準コンテンツは初期化時に1回だけ取得
+      const baseContent = getLastPushedContent(leafId)
+      // リーフがダーティかどうかをチェックする関数
+      const isLeafDirty = () => get(dirtyLeafIds).has(leafId)
+
+      const { extension, updateDirtyLines, cleanup } = createDirtyLineExtension(
+        { StateEffect, StateField, GutterMarker, gutter, EditorView },
+        baseContent,
+        isLeafDirty
+      )
+      extensions.push(extension)
+      updateDirtyLinesFn = updateDirtyLines
+      dirtyLineCleanup = cleanup
+    }
+
     currentExtensions = extensions
 
     const startState = EditorState.create({
@@ -461,6 +494,11 @@
 
     // DOM要素にペイン情報をマーク（Vimコマンドで参照するため）
     editorView.dom.dataset.pane = pane
+
+    // 初回のダーティライン更新
+    if (updateDirtyLinesFn && editorView) {
+      updateDirtyLinesFn(editorView)
+    }
 
     // モバイルではautofocusを無効（キーボードが自動で出ないように）
     if (!isMobileDevice()) {
@@ -485,6 +523,11 @@
 
   // テーマまたはVimモード変更時にエディタを再初期化
   $: if (editorView && (theme || vimMode !== undefined || linedMode !== undefined)) {
+    // ダーティラインマーカーのクリーンアップ
+    if (dirtyLineCleanup) {
+      dirtyLineCleanup()
+      dirtyLineCleanup = null
+    }
     editorView.destroy()
     editorView = null
     initializeEditor()
@@ -501,6 +544,11 @@
   })
 
   onDestroy(() => {
+    // ダーティラインマーカーのクリーンアップ（デバウンスタイマー解除）
+    if (dirtyLineCleanup) {
+      dirtyLineCleanup()
+      dirtyLineCleanup = null
+    }
     if (editorView) {
       editorView.destroy()
     }

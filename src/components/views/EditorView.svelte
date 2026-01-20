@@ -67,6 +67,7 @@
     {theme}
     {vimMode}
     {linedMode}
+    leafId={leaf.id}
     {pane}
     onChange={handleContentChange}
     {onPush}

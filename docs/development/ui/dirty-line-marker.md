@@ -2,53 +2,59 @@
 
 ## 概要
 
-エディタ内で変更された行（ダーティ行）に視覚的なマーカーを表示する機能。VSCodeやPHPStormのように、最後に保存した状態から変更された行を識別できるようにする。
+エディタ内で変更された行（ダーティ行）に視覚的なマーカーを表示する機能。VSCodeやPHPStormのように、最後にPushした状態から変更された行を識別できる。
 
-## 既存のダーティチェック機能との関係
+## 実装ファイル
 
-### 現状の仕組み
+| ファイル                                      | 役割                                        |
+| --------------------------------------------- | ------------------------------------------- |
+| `src/lib/editor/dirty-lines.ts`               | 差分計算とCodeMirror拡張のファクトリ        |
+| `src/lib/stores/stores.ts`                    | `getLastPushedContent()` 基準コンテンツ取得 |
+| `src/components/editor/MarkdownEditor.svelte` | 拡張機能の統合（常時有効）                  |
+| `src/App.css`                                 | テーマ別CSS変数とマーカースタイル           |
+
+## 既存のダーティチェック機能との連携
+
+### リーフ単位のダーティチェック
 
 Agasteerには既にリーフ単位のダーティチェック機能がある：
 
-| ストア/関数        | 役割                                 | 場所                              |
-| ------------------ | ------------------------------------ | --------------------------------- |
-| `dirtyLeafIds`     | ダーティなリーフIDのSet              | `src/lib/stores/stores.ts:57`     |
-| `lastPushedLeaves` | 最後にPushした時点のリーフ状態       | `src/lib/stores/stores.ts:63`     |
-| `detectDirtyIds()` | スナップショット比較でダーティを検出 | `src/lib/stores/stores.ts:75-175` |
+| ストア/関数        | 役割                                 | 場所                       |
+| ------------------ | ------------------------------------ | -------------------------- |
+| `dirtyLeafIds`     | ダーティなリーフIDのSet              | `src/lib/stores/stores.ts` |
+| `lastPushedLeaves` | 最後にPushした時点のリーフ状態       | `src/lib/stores/stores.ts` |
+| `detectDirtyIds()` | スナップショット比較でダーティを検出 | `src/lib/stores/stores.ts` |
 
-### コンテンツ比較のロジック
+### 行単位マーカーとの関係
 
-```typescript
-// src/lib/stores/stores.ts:168-170
-if (leaf.content !== lastLeaf.content) {
-  dirtyLeafIds.add(leaf.id)
-}
+```
+┌─────────────────────────────────────────────────────────────┐
+│ リーフ単位ダーティチェック (dirtyLeafIds)                   │
+│   ↓                                                         │
+│ リーフがダーティ？ ─── No ──→ 行単位計算をスキップ          │
+│   │                          （空のSetを設定）              │
+│   Yes                                                       │
+│   ↓                                                         │
+│ 行単位ダーティ計算 (computeDirtyLines)                      │
+│   ↓                                                         │
+│ ガターマーカー表示                                          │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 再利用可能な部分
+**効率化ポイント**: リーフがダーティでなければ行単位の計算を完全にスキップ。
 
-1. **基準コンテンツの取得**: `lastPushedLeaves` から「最後にPushした時点のコンテンツ」を取得可能
-2. **リーフIDとの紐付け**: 編集中のリーフIDがわかれば、対応する基準コンテンツを取得できる
-
-### 新規実装が必要な部分
-
-1. **行単位の差分計算**: 基準コンテンツと現在のコンテンツを行単位で比較
-2. **CodeMirrorガターマーカー**: 変更行にマーカーを表示
-3. **リアルタイム更新**: 編集のたびにマーカーを更新
-
-## 設計方針
+## 設計と実装
 
 ### 基準コンテンツの管理
 
+```typescript
+// エディタ初期化時に1回だけ取得してキャッシュ
+const baseContent = getLastPushedContent(leafId)
 ```
-┌─────────────────────────────────────────────────────┐
-│ エディタ初期化時                                    │
-├─────────────────────────────────────────────────────┤
-│ 1. leafId から lastPushedLeaves を検索             │
-│ 2. 見つかれば → その content を基準として保持      │
-│ 3. 見つからなければ → 新規リーフ、全行がダーティ   │
-└─────────────────────────────────────────────────────┘
-```
+
+- `lastPushedLeaves` または `lastPushedArchiveLeaves` から検索
+- 見つからなければ `null`（新規リーフ = 全行がダーティ）
+- **毎回取得せず、初期化時に1回だけ取得**
 
 ### 行単位差分の計算
 
@@ -63,44 +69,75 @@ if (leaf.content !== lastLeaf.content) {
 └──────────────┘      └──────────────┘      └─────────────────┘
 ```
 
-**差分検出アルゴリズムの選択肢:**
-
-1. **単純な行比較**: 行番号ベースで比較（高速だが、行の挿入/削除に弱い）
-2. **LCS（最長共通部分列）**: 行の挿入/削除を正確に検出（計算コストが高い）
-3. **ハイブリッド**: 短いドキュメントはLCS、長いドキュメントは単純比較
-
-**推奨**: 単純な行比較から始め、必要に応じて改善
-
-### CodeMirrorガターマーカーの実装
+**アルゴリズム**: 単純な行番号ベースの比較（O(n)）
 
 ```typescript
-import { GutterMarker, gutter } from '@codemirror/view'
-import { StateField, StateEffect } from '@codemirror/state'
+export function computeDirtyLines(baseContent: string | null, currentContent: string): Set<number> {
+  // 基準がnull = 新規リーフ → 全行がダーティ
+  if (baseContent === null) {
+    // 全行を追加
+  }
+  // 行番号ベースで比較
+  const baseLines = baseContent.split('\n')
+  const currentLines = currentContent.split('\n')
+  // 各行を比較してダーティ行を検出
+}
+```
 
-// ダーティ行を更新するEffect
-const setDirtyLines = StateEffect.define<Set<number>>()
+### パフォーマンス最適化
 
-// ダーティ行の状態を管理するStateField
+#### 1. デバウンス（200ms）
+
+```typescript
+// 入力が止まってから計算
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+function debouncedUpdate(view) {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    updateDirtyLines(view)
+  }, 200)
+}
+```
+
+#### 2. リーフダーティチェックの活用
+
+```typescript
+// リーフがダーティでなければ計算スキップ
+const isLeafDirty = () => get(dirtyLeafIds).has(leafId)
+
+function updateDirtyLines(view) {
+  if (!isLeafDirty()) {
+    // 空のSetを設定して終了
+    return
+  }
+  // 実際の計算
+}
+```
+
+#### 3. 基準コンテンツのキャッシュ
+
+```typescript
+// 初期化時に1回だけ取得
+const baseContent = getLastPushedContent(leafId)
+
+// 以降は保持した値を使用（毎回検索しない）
+const dirtyLines = computeDirtyLines(baseContent, currentContent)
+```
+
+### CodeMirrorガターマーカー
+
+```typescript
+// StateFieldでダーティ行を管理
 const dirtyLinesField = StateField.define<Set<number>>({
   create: () => new Set(),
   update(value, tr) {
     for (const effect of tr.effects) {
-      if (effect.is(setDirtyLines)) {
-        return effect.value
-      }
+      if (effect.is(setDirtyLines)) return effect.value
     }
     return value
   },
 })
-
-// ガターマーカークラス
-class DirtyLineMarker extends GutterMarker {
-  toDOM() {
-    const marker = document.createElement('div')
-    marker.className = 'cm-dirty-line-marker'
-    return marker
-  }
-}
 
 // ガター定義
 const dirtyLineGutter = gutter({
@@ -108,23 +145,14 @@ const dirtyLineGutter = gutter({
   lineMarker(view, line) {
     const lineNo = view.state.doc.lineAt(line.from).number
     const dirtyLines = view.state.field(dirtyLinesField)
-    return dirtyLines.has(lineNo) ? new DirtyLineMarker() : null
+    return dirtyLines.has(lineNo) ? marker : null
   },
 })
 ```
 
 ## UI/UX
 
-### 表示方法の検討
-
-| 方式                   | 説明                     | メリット               | デメリット             |
-| ---------------------- | ------------------------ | ---------------------- | ---------------------- |
-| **ガター縦線**         | 行番号の左に縦線         | VSCode風で馴染みやすい | 罫線モードとの干渉     |
-| **行番号の色変更**     | 変更行の行番号を色付け   | 実装が簡単             | 目立たない             |
-| **行背景のハイライト** | 変更行の背景を薄く着色   | 明確で分かりやすい     | 長文で煩雑になる可能性 |
-| **ガターにドット**     | 行番号の横に小さなドット | 控えめで上品           | 見落としやすい         |
-
-### 推奨: ガター縦線方式
+### 表示方法: ガター縦線
 
 VSCodeやJetBrains IDEで採用されている方式。変更行の左端に縦線を表示。
 
@@ -138,102 +166,65 @@ VSCodeやJetBrains IDEで採用されている方式。変更行の左端に縦�
 └──┴────────────────────────┘
 ```
 
-### 色の選択
+### テーマ別の色
 
-CSS変数を使用し、テーマごとに適切な色を設定する。
+CSS変数 `--dirty-line` を使用：
 
-**App.cssに追加するCSS変数:**
+| テーマ             | 背景色               | 線色               |
+| ------------------ | -------------------- | ------------------ |
+| yomi（デフォルト） | `#fdfdfc` (白)       | accent系の金色     |
+| campus             | `#fdf8ec` (クリーム) | `#2f56c6` (青)     |
+| greenboard         | `#102117` (濃緑)     | `#96d46a` (黄緑)   |
+| whiteboard         | `#ffffff` (白)       | `#3b82f6` (青)     |
+| dotsD              | `#05080f` (黒)       | `#888888` (グレー) |
+| dotsF              | `#0000aa` (青)       | `#5ca8ff` (水色)   |
+
+### CSSスタイル
 
 ```css
-:root {
-  /* 既存の変数 */
-  --accent: #c7a443;
-
-  /* 新規: ダーティラインマーカー用 */
-  --dirty-line: color-mix(in srgb, var(--accent) 80%, var(--text) 20%);
+/* ダーティラインマーカー（変更行の左端に縦線） */
+.cm-dirty-gutter {
+  width: 3px;
+  margin-right: 2px;
 }
 
-:root[data-theme='campus'] {
-  --dirty-line: #2f56c6; /* accentと同じ青 */
-}
-
-:root[data-theme='greenboard'] {
-  --dirty-line: #96d46a; /* accentと同じ緑 */
-}
-
-:root[data-theme='whiteboard'] {
-  --dirty-line: #3b82f6; /* accentと同じ青 */
-}
-
-:root[data-theme='dotsD'] {
-  --dirty-line: #888888; /* 少し明るいグレー */
-}
-
-:root[data-theme='dotsF'] {
-  --dirty-line: #5ca8ff; /* accentと同じ青 */
+.cm-dirty-line-marker {
+  width: 3px;
+  height: 100%;
+  background: var(--dirty-line);
 }
 ```
 
-**テーマ別の色一覧:**
-
-| テーマ             | 背景色               | 線色               | 備考               |
-| ------------------ | -------------------- | ------------------ | ------------------ |
-| yomi（デフォルト） | `#fdfdfc` (白)       | `--accent` ベース  | 落ち着いた金色系   |
-| campus             | `#fdf8ec` (クリーム) | `#2f56c6` (青)     | キャンパスノート風 |
-| greenboard         | `#102117` (濃緑)     | `#96d46a` (黄緑)   | 黒板風             |
-| whiteboard         | `#ffffff` (白)       | `#3b82f6` (青)     | ホワイトボード風   |
-| dotsD              | `#05080f` (黒)       | `#888888` (グレー) | ドットダーク       |
-| dotsF              | `#0000aa` (青)       | `#5ca8ff` (水色)   | ドットファミコン   |
-
-**注**:
-
-- 赤は `--error` で使用されているため避ける
-- 各テーマの `--accent` と調和する色を選択
-- ダークテーマでは視認性を確保するため明るめの色を使用
-
 ### 設定オプション
 
-- **デフォルト**: オフ（既存ユーザーへの影響を避ける）
-- **設定場所**: 設定画面 → エディタセクション
-- **トグル名**: 「変更行マーカーを表示」
+常時有効。設定画面からの切り替えは不可。
 
 ## 実装タスク
 
-### Phase 1: 基本実装
+### Phase 1: 基本実装 [完了]
 
-- [ ] 基準コンテンツ管理の仕組みを作成
-  - `lastPushedLeaves` から基準コンテンツを取得する関数
-  - エディタ初期化時に基準コンテンツを設定
-- [ ] 行単位差分計算ロジックの実装
-  - 単純な行比較アルゴリズム
-  - 差分結果を `Set<number>` で返す
-- [ ] CodeMirrorガターマーカーの実装
-  - `StateField` でダーティ行を管理
-  - `gutter` でマーカーを表示
-- [ ] スタイリング
-  - ライト/ダークテーマ対応
-  - 縦線の色とサイズ
+- [x] 基準コンテンツ取得関数 `getLastPushedContent()`
+- [x] 行単位差分計算 `computeDirtyLines()`
+- [x] CodeMirrorガターマーカー `createDirtyLineExtension()`
+- [x] CSS変数（テーマ別の色）
 
-### Phase 2: 統合とUX
+### Phase 2: 統合 [完了]
 
-- [ ] MarkdownEditor.svelteへの統合
-  - 拡張機能として追加
-  - 設定によるオン/オフ
-- [ ] 設定画面への追加
-  - トグルスイッチの追加
-  - LocalStorage永続化
-- [ ] リアルタイム更新
-  - `EditorView.updateListener` でドキュメント変更を検知
-  - 差分を再計算してマーカーを更新
+- [x] MarkdownEditor.svelteへの統合（常時有効）
+- [x] EditorView.svelte / PaneView.svelte との連携
 
-### Phase 3: 最適化（必要に応じて）
+### Phase 3: 最適化 [完了]
 
-- [ ] パフォーマンス最適化
-  - 大きなドキュメントでの差分計算の最適化
-  - デバウンス処理
-- [ ] 追加機能
-  - 「変更を破棄」機能（行単位でのリバート）
-  - 変更行へのジャンプ機能
+- [x] デバウンス処理（200ms）
+- [x] 基準コンテンツのキャッシュ（初期化時に1回取得）
+- [x] `dirtyLeafIds` との連携（ダーティでなければスキップ）
+- [x] クリーンアップ処理（タイマー解除）
+
+### 今後の拡張（未実装）
+
+- [ ] 「変更を破棄」機能（行単位でのリバート）
+- [ ] 変更行へのジャンプ機能
+- [ ] LCSアルゴリズムによる高精度な差分検出（行の挿入/削除対応）
 
 ## 参考リンク
 

@@ -258,6 +258,23 @@ export function isNoteDirty(
 }
 
 /**
+ * 最後にPushした時点のリーフコンテンツを取得（行単位ダーティマーカー用）
+ * @param leafId リーフID
+ * @returns 基準コンテンツ（見つからなければnull = 新規リーフ）
+ */
+export function getLastPushedContent(leafId: string): string | null {
+  // Homeのリーフを検索
+  const homeLeaf = lastPushedLeaves.find((l) => l.id === leafId)
+  if (homeLeaf) return homeLeaf.content
+
+  // Archiveのリーフを検索
+  const archiveLeaf = lastPushedArchiveLeaves.find((l) => l.id === leafId)
+  if (archiveLeaf) return archiveLeaf.content
+
+  return null
+}
+
+/**
  * Push成功時に呼び出し、現在の状態をスナップショットとして保存
  * 次回以降の差分検出のベースラインとなる
  */
