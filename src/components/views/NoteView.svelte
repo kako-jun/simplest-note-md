@@ -208,12 +208,10 @@
               color={item.leaf.badgeColor || ''}
               onChange={(icon, color) => onUpdateLeafBadge(item.leaf.id, icon, color)}
             />
-            <div class="title-row">
-              <strong>{item.leaf.title}</strong>
-              {#if $dirtyLeafIds.has(item.leaf.id)}
-                <span class="dirty-indicator" title={$_('leaf.unsaved')}></span>
-              {/if}
-            </div>
+            {#if $dirtyLeafIds.has(item.leaf.id)}
+              <span class="dirty-indicator" title={$_('leaf.unsaved')}></span>
+            {/if}
+            <strong class="text-ellipsis">{item.leaf.title}</strong>
             <div class="card-meta">
               {#if item.leaf.content}
                 <small class="note-stats">
@@ -262,18 +260,10 @@
     height: 100%;
   }
 
-  .title-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 4px;
-    margin-bottom: 0.5rem;
-    min-width: 0;
-  }
-
   .note-card strong {
     display: block;
-    min-width: 0;
-    flex: 1;
+    margin-bottom: 0.5rem;
+    max-width: 100%;
   }
 
   /* リーフカード内のタイトルは2行まで、それ以上は省略 */
@@ -288,15 +278,15 @@
     max-height: 2.6em;
   }
 
-  /* ダーティインジケーター（未保存の変更マーク） */
+  /* ダーティインジケーター（未保存の変更マーク） - カード右下に絶対位置で配置 */
   .dirty-indicator {
-    display: inline-block;
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
     width: 8px;
     height: 8px;
     background: #ef4444;
     border-radius: 50%;
-    flex-shrink: 0;
-    margin-top: 4px; /* 2行タイトルの1行目に合わせる */
   }
 
   /* リーフは角丸を外してノートと区別する、高さ固定でレイアウト安定 */
