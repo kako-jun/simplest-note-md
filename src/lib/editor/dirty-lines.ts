@@ -6,7 +6,47 @@
 import type { Extension } from '@codemirror/state'
 
 /**
- * 行単位の差分を計算
+ * LCS (Longest Common Subsequence) を計算
+ * 基準と現在の行配列で共通する行（順序を保持）を見つける
+ */
+function computeLCS(baseLines: string[], currentLines: string[]): Set<number> {
+  const m = baseLines.length
+  const n = currentLines.length
+
+  // DP テーブル
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (baseLines[i - 1] === currentLines[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1])
+      }
+    }
+  }
+
+  // バックトラックしてLCSに含まれる現在の行インデックスを取得
+  const lcsIndices = new Set<number>()
+  let i = m
+  let j = n
+  while (i > 0 && j > 0) {
+    if (baseLines[i - 1] === currentLines[j - 1]) {
+      lcsIndices.add(j) // 1-indexed
+      i--
+      j--
+    } else if (dp[i - 1][j] > dp[i][j - 1]) {
+      i--
+    } else {
+      j--
+    }
+  }
+
+  return lcsIndices
+}
+
+/**
+ * 行単位の差分を計算（LCSベース）
  * @param baseContent 基準コンテンツ（最後にPushした状態）
  * @param currentContent 現在のコンテンツ
  * @returns ダーティな行番号のSet（1-indexed）
@@ -26,14 +66,12 @@ export function computeDirtyLines(baseContent: string | null, currentContent: st
   const baseLines = baseContent.split('\n')
   const currentLines = currentContent.split('\n')
 
-  // 単純な行比較（行番号ベース）
-  const maxLines = Math.max(baseLines.length, currentLines.length)
-  for (let i = 0; i < maxLines; i++) {
-    const baseLine = baseLines[i] ?? ''
-    const currentLine = currentLines[i] ?? ''
-    if (baseLine !== currentLine) {
-      // 行番号は1-indexed
-      dirtyLines.add(i + 1)
+  // LCSを計算して、LCSに含まれない行をダーティとしてマーク
+  const lcsIndices = computeLCS(baseLines, currentLines)
+
+  for (let i = 1; i <= currentLines.length; i++) {
+    if (!lcsIndices.has(i)) {
+      dirtyLines.add(i)
     }
   }
 

@@ -37,12 +37,12 @@
   on:click={onSelect}
 >
   <BadgeButton icon={badgeIcon} color={badgeColor} onChange={onBadgeChange} />
-  <strong class="text-ellipsis">
-    {note.name}
+  <div class="title-row">
+    <strong class="text-ellipsis">{note.name}</strong>
     {#if isDirty}
       <span class="dirty-indicator" title={$_('note.hasUnsavedLeaves')}></span>
     {/if}
-  </strong>
+  </div>
   <div class="card-meta">
     {#each items as item}
       <small class="note-item text-ellipsis">{item}</small>
@@ -66,10 +66,18 @@
     max-height: 150px;
   }
 
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 0.5rem;
+    min-width: 0; /* flexboxでtext-ellipsisを効かせるために必要 */
+  }
+
   .note-card strong {
     display: block;
-    max-width: 100%;
-    margin-bottom: 0.5rem;
+    min-width: 0; /* flexboxでtext-ellipsisを効かせるために必要 */
+    flex: 1;
   }
 
   .note-group-card {
@@ -114,7 +122,6 @@
     height: 8px;
     background: #ef4444;
     border-radius: 50%;
-    margin-left: 4px;
-    vertical-align: middle;
+    flex-shrink: 0; /* 縮まないように固定 */
   }
 </style>
